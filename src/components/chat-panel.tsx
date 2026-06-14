@@ -4,17 +4,12 @@ import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperat
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useRouter } from 'next/navigation';
 import Markdown from '@/components/markdown';
-import { ChevronDown, ChevronRight, Brain, Wrench, FileText, ArrowUp, Mail, Users as UsersIcon, Cpu } from 'lucide-react';
+import { ChevronDown, ChevronRight, Brain, Wrench, FileText, ArrowUp, Mail, Cpu } from 'lucide-react';
 import { useToast } from '@/components/toast';
+import { useChatPanel, type Msg } from '@/hooks/use-chat-panel';
+import { COMMANDS } from './chat-commands';
 
-interface ChatEvent { type: 'thinking' | 'tool_use' | 'tool_result' | 'text' | 'done' | 'error'; content?: string; toolName?: string; toolInput?: string; toolOutput?: string; timestamp: string; }
-interface Msg { role: 'user' | 'assistant' | 'system'; content: string; events: ChatEvent[]; timestamp: string; }
 interface AgentInfo { name: string; emailCount: number; }
-
-// Mind Agency slash commands — only commands relevant to this platform.
-// LOCAL commands are handled in-browser (no AI involved).
-// The rest are passed through to the AI as messages.
-import { COMMANDS, getHelpText, getStatusText, getContextText, CommandPalette } from './chat-commands';
 
 async function skillsCmd(_agentName: string) {
   const parts: string[] = ['## /skills\n'];
@@ -36,10 +31,6 @@ async function skillsCmd(_agentName: string) {
   return parts.join('\n');
 }
 
-
-
-
-
 export interface ChatPanelHandle {
   scrollToMessage: (index: number) => void;
   getMessages: () => Msg[];
@@ -48,60 +39,37 @@ export interface ChatPanelHandle {
 
 const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function ChatPanel({ agentName }, ref) {
   const router = useRouter();
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
+  // ── Hook: all messaging state ──
+  const {
+    msgs, busy, models, model, activeGroup, myGroups, thinkingMode,
+    setModel: setModelPersist, setActiveGroup, setThinkingMode,
+    sendMessage, abort, clearMessages, patchLastMsg, needsFreshRef,
+  } = useChatPanel(agentName);
+
+  // ── Local UI state ──
   const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
   const [showCmds, setShowCmds] = useState(false);
   const [cmdFilter, setCmdFilter] = useState('');
   const [cmdIdx, setCmdIdx] = useState(0);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [emailCount, setEmailCount] = useState(0);
   const [toastMsg, setToastMsg] = useState('');
-  const [activeGroup, setActiveGroup] = useState('');
-  const [myGroups, setMyGroups] = useState<string[]>([]);
-  const [thinkingMode, setThinkingMode] = useState(false);
+  const [showModels, setShowModels] = useState(false);
+  const [sendReady, setSendReady] = useState(true);
+
   const historyRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const msgContainerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const busyRef = useRef(false);
-  const inputValueRef = useRef(''); // always has latest value, no stale closure
+  const inputValueRef = useRef('');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const needsFreshRef = useRef(false);
-  const [sendReady, setSendReady] = useState(true);
-  const abortRef = useRef<AbortController | null>(null);
-  const { toast } = useToast();
-  const toastRef = useRef(toast);
-  toastRef.current = toast; // keep ref current without re-triggering WS reconnect
-
-  // ── localStorage persistence ──
-  const STORAGE_KEY = `chat-msgs-${agentName}`;
-  const MAX_STORED_MSGS = 200; // sliding window: keep last 200 to stay under 5MB quota
-
-  // Save to localStorage whenever msgs change (debounced)
-  const saveRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (msgs.length === 0) return;
-    if (saveRef.current) clearTimeout(saveRef.current);
-    saveRef.current = setTimeout(() => {
-      try {
-        const trimmed = msgs.length > MAX_STORED_MSGS ? msgs.slice(-MAX_STORED_MSGS) : msgs;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-      } catch { /* quota exceeded — ignore */ }
-    }, 500);
-    return () => { if (saveRef.current) clearTimeout(saveRef.current); };
-  }, [msgs]);
-
-  const [models, setModels] = useState<Array<{ id: string; label: string }>>([]);
-  const [model, setModel] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'deepseek-v4-pro';
-    return localStorage.getItem(`chat-model-${agentName}`) || 'deepseek-v4-pro';
-  });
-  const setModelPersist = (m: string) => { setModel(m); localStorage.setItem(`chat-model-${agentName}`, m); setShowModels(false); };
-  const [showModels, setShowModels] = useState(false);
 
   const filteredCmds = COMMANDS.filter(c => c.cmd.startsWith(cmdFilter));
 
+  // ── Data loading ──
   const checkEmails = useCallback(async () => {
     try {
       const r = await fetch(`/api/emails?agent=${agentName}`);
@@ -114,54 +82,10 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     } catch (e) { console.error('[components:chat-panel]', e); }
   }, [agentName, emailCount]);
 
-  const loadGroups = useCallback(async () => {
-    try {
-      const r = await fetch('/api/groups/scan?agent=' + agentName);
-      setMyGroups((await r.json()).groups || []);
-    } catch (e) { console.error('[components:chat-panel]', e); }
-  }, [agentName]);
-
-  // Load history on mount: localStorage first, API as fallback/backfill
   useEffect(() => {
-    // Load from localStorage immediately (offline-first)
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMsgs(parsed);
-        }
-      }
-    } catch (e) { console.error('[components:chat-panel]', e); }
-
-    // Backfill from server (may have newer messages)
-    const load = () => {
-      fetch(`/api/agents/${agentName}/chat`)
-        .then(r => r.json()).then(d => {
-          if (!d.messages || busyRef.current) return;
-          // Only replace if server has more messages than local
-          let localCount = 0;
-          try { const p = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); if (Array.isArray(p)) localCount = p.length; } catch (e) { console.error('[components:chat-panel]', e); }
-          if (d.messages.length > localCount) {
-            setMsgs(d.messages);
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d.messages)); } catch (e) { console.error('[components:chat-panel]', e); }
-          }
-        }).catch(() => {});
-    };
-    load();
-
     fetch('/api/agents').then(r => r.json()).then(d => setAgents(d.agents || [])).catch(() => {});
-    // v0.4: Fetch available models from configured API
-    fetch('/api/system/models').then(r => r.json()).then(d => {
-      if (d.models && d.models.length > 0) setModels(d.models);
-      else setModels([]); // No provider configured → no models
-    }).catch(() => {});
     fetch(`/api/emails?agent=${agentName}`).then(r => r.json())
       .then(d => { if (Array.isArray(d)) setEmailCount(d.length); }).catch(() => {});
-    loadGroups();
-
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
   }, [agentName]);
 
   useEffect(() => {
@@ -169,7 +93,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     return () => clearInterval(t);
   }, [checkEmails]);
 
-  // Auto-scroll: lock when user scrolls away from bottom
+  // ── Auto-scroll ──
   const scrollLockedRef = useRef(false);
   useEffect(() => {
     const el = endRef.current?.parentElement;
@@ -186,26 +110,22 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     if (!scrollLockedRef.current) endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs]);
 
-  // Expose imperative methods for session sidebar navigation
+  // ── Imperative handle ──
   useImperativeHandle(ref, () => ({
     scrollToMessage: (index: number) => {
       const el = historyRefs.current.get(index);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Highlight briefly
         el.style.transition = 'background 0.3s';
         el.style.background = 'var(--surface-alt)';
         setTimeout(() => { el.style.background = ''; }, 1200);
       }
     },
     getMessages: () => msgs,
-    clearMessages: () => {
-      setMsgs([]);
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.error('[components:chat-panel]', e); }
-    },
-  }), [msgs]);
+    clearMessages,
+  }), [msgs, clearMessages]);
 
-  // ── WebSocket via unified hook ──
+  // ── WebSocket ──
   const wsUrl = typeof window !== 'undefined' ? `ws://${window.location.hostname}:3001` : null;
   useWebSocket(wsUrl, (data) => {
     if (data.type === 'group_message' && data.from && data.message) {
@@ -215,102 +135,39 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     }
   }, { reconnectDelay: 3000 });
 
-  const selectCmd = (cmd: string) => { const v = cmd + ' '; setInput(v); inputValueRef.current = v; setShowCmds(false); inputRef.current?.focus(); };
+  // ── Command selection ──
+  const selectCmd = (cmd: string) => {
+    const v = cmd + ' ';
+    setInput(v); inputValueRef.current = v;
+    setShowCmds(false); inputRef.current?.focus();
+  };
 
-  // Helper: update the last message in the array immutably
-  const patchLastMsg = useCallback((mutate: (msg: Msg) => Msg) => {
-    setMsgs(prev => {
-      const next = [...prev];
-      next[next.length - 1] = mutate(next[next.length - 1]);
-      return next;
-    });
-  }, []);
-
+  // ── Send with slash command interception ──
   const send = async () => {
-    const t = (inputValueRef.current || input).trim(); // ref has latest, state as fallback
+    const t = (inputValueRef.current || input).trim();
     if (!t || busy) return;
     setInput(''); inputValueRef.current = ''; setShowCmds(false);
 
-    // ── Intercept slash commands ──
+    // Intercept slash commands
     const m = t.match(/^(\/\w+)/);
     if (m) {
       const cmd = COMMANDS.find(c => c.cmd === m[1]);
-      // Commands with handlers run locally in browser
       if (cmd?.handler) {
         if (cmd.cmd === '/clear') {
           await fetch(`/api/agents/${agentName}/chat`, { method: 'DELETE' });
-          setMsgs([]);
+          clearMessages();
           needsFreshRef.current = true;
           return;
         }
         const result = await cmd.handler(agentName);
-        setMsgs(p => [...p,
-          { role: 'user', content: t, events: [], timestamp: new Date().toISOString() },
-          { role: 'system', content: result, events: [], timestamp: new Date().toISOString() },
-        ]);
+        patchLastMsg(() => ({ role: 'user', content: t, events: [], timestamp: new Date().toISOString() }));
+        patchLastMsg(() => ({ role: 'system', content: result, events: [], timestamp: new Date().toISOString() }));
         return;
       }
-      // Commands without handlers: pass through to AI
     }
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setBusy(true); busyRef.current = true;
-    setMsgs(p => [...p, { role: 'user', content: t, events: [], timestamp: new Date().toISOString() }]);
-    setMsgs(p => [...p, { role: 'assistant', content: '', events: [], timestamp: new Date().toISOString() }]);
-    try {
-      const body: any = { message: t, model };
-      if (needsFreshRef.current) { body.fresh = true; needsFreshRef.current = false; }
-      if (thinkingMode) body.thinking = true;
-      if (activeGroup) body.group = activeGroup;
-      const r = await fetch(`/api/agents/${agentName}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      const reader = r.body!.getReader();
-      const dec = new TextDecoder();
-      let buf = '', done = false, aborted = false;
-      while (!done) {
-        const { done: d, value } = await reader.read();
-        if (d) break;
-        buf += dec.decode(value, { stream: true });
-        const parts = buf.split('\n\n');
-        buf = parts.pop() || '';
-        for (const part of parts) {
-          for (const line of part.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
-            const p = line.slice(6);
-            if (p === '[DONE]') { done = true; continue; }
-            try {
-              const evt: ChatEvent = JSON.parse(p);
-              if (evt.type === 'error' && evt.content?.includes('abort')) {
-                aborted = true; done = true; break;
-              }
-              patchLastMsg(msg => ({
-                ...msg,
-                events: [...msg.events, evt],
-                content: evt.type === 'text' ? msg.content + (evt.content || '') : msg.content,
-              }));
-            } catch (e) { console.error('[components:chat-panel]', e); }
-          }
-        }
-      }
-      if (aborted) patchLastMsg(msg => ({ ...msg, content: msg.content + '\n\n_[已中断]_' }));
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
-        patchLastMsg(msg => ({ ...msg, content: msg.content + '\n\n_[已中断]_' }));
-      } else {
-        patchLastMsg(msg => ({
-          ...msg,
-          events: [...msg.events, { type: 'error', content: String(e), timestamp: new Date().toISOString() }],
-        }));
-      }
-    } finally {
-      abortRef.current = null;
-      setBusy(false); busyRef.current = false; inputRef.current?.focus();
-    }
+    // Delegate to hook's sendMessage (handles SSE streaming)
+    await sendMessage(t);
   };
 
   return (
@@ -331,8 +188,6 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
 
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Scrollable messages container */}
-
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-[820px] mx-auto px-6 py-6 space-y-5">
         {msgs.length === 0 && (
@@ -367,7 +222,6 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           return (
             <div key={i} className="space-y-2">
               {(() => {
-                // Merge consecutive thinking events into one
                 const merged: { type: string; content?: string; key: number; [k: string]: any }[] = [];
                 let thinkBuf = '';
                 let thinkStart = -1;
@@ -420,7 +274,6 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
         )}
         <div className="max-w-[820px] mx-auto">
           <div className="flex items-center gap-1.5 mb-1.5 px-1 relative">
-            {/* Model selector dropdown */}
             <button onClick={() => setShowModels(!showModels)}
               className="text-[11px] px-2 py-0.5 rounded-md flex items-center gap-1 text-muted-foreground hover:text-muted transition-colors border border-border">
               <Cpu size={11} /> {models.length === 0 ? '无模型' : (models.find(m => m.id === model)?.label || model)} <ChevronDown size={10} />
@@ -430,7 +283,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
                 <div className="fixed inset-0 z-10" onClick={() => setShowModels(false)} />
                 <div className="absolute bottom-full left-0 mb-1 bg-canvas border border-border rounded-xl shadow-xl z-20 py-1 min-w-[160px]">
                   {models.map(m => (
-                    <button key={m.id} onClick={() => setModelPersist(m.id)}
+                    <button key={m.id} onClick={() => { setModelPersist(m.id); setShowModels(false); }}
                       className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${model === m.id ? 'bg-surface-alt text-foreground font-medium' : 'text-muted hover:bg-surface-hover'}`}>
                       {m.label}
                     </button>
@@ -464,7 +317,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
               className="flex-1 bg-transparent border-0 outline-none text-[14px] text-foreground placeholder:text-muted-foreground resize-none"
               autoFocus />
             {busy ? (
-              <button onClick={() => abortRef.current?.abort()}
+              <button onClick={abort}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-destructive text-canvas hover:bg-destructive transition-all shrink-0"
                 title="停止">
                 <span className="w-3 h-3 bg-white rounded-sm" />
@@ -486,7 +339,6 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
 
 export default ChatPanel;
 
-// taste: React.memo prevents re-render on every SSE chunk
 const MdText = React.memo(function MdText({ text }: { text: string }) {
   const isLong = text.length > 500;
   return (
@@ -510,8 +362,6 @@ const Think = React.memo(function Think({ text }: { text: string }) {
 const Tool = React.memo(function Tool({ name, input }: { name: string; input: string }) {
   const [on, setOn] = useState(false);
   const short = name.replace(/^mcp__group-chat__/, '');
-
-  // v0.4: Parse file operations for diff display
   let parsed: any = null;
   try { parsed = JSON.parse(input); } catch (e) { console.error('[components:chat-panel]', e); }
   const isFileOp = parsed && ['Write', 'Edit', 'Delete', 'Read'].includes(parsed.tool_name || short);

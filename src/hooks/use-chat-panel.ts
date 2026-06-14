@@ -7,13 +7,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * Follows frontend-ui-engineering skill: separate data from presentation.
  */
 
-interface ChatEvent { type: 'thinking' | 'tool_use' | 'tool_result' | 'text' | 'done' | 'error'; content?: string; toolName?: string; toolInput?: string; toolOutput?: string; timestamp: string; }
+export interface ChatEvent { type: 'thinking' | 'tool_use' | 'tool_result' | 'text' | 'done' | 'error'; content?: string; toolName?: string; toolInput?: string; toolOutput?: string; timestamp: string; }
 export interface Msg { role: 'user' | 'assistant' | 'system'; content: string; events: ChatEvent[]; timestamp: string; }
 
 export function useChatPanel(agentName: string) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
-  const [emailCount, setEmailCount] = useState(0);
   const [models, setModels] = useState<Array<{ id: string; label: string }>>([]);
   const [model, setModel] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
@@ -25,6 +24,7 @@ export function useChatPanel(agentName: string) {
 
   const busyRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const needsFreshRef = useRef(false);
   const STORAGE_KEY = `chat-msgs-${agentName}`;
   const MAX_STORED_MSGS = 200;
 
@@ -42,7 +42,7 @@ export function useChatPanel(agentName: string) {
     return () => { if (saveRef.current) clearTimeout(saveRef.current); };
   }, [msgs, STORAGE_KEY]);
 
-  // Load history
+  // Load history from localStorage + server backfill
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -51,7 +51,24 @@ export function useChatPanel(agentName: string) {
         if (Array.isArray(parsed) && parsed.length > 0) setMsgs(parsed);
       }
     } catch { /* ignore */ }
-  }, [STORAGE_KEY]);
+
+    // Server backfill
+    const load = () => {
+      fetch(`/api/agents/${agentName}/chat`)
+        .then(r => r.json()).then(d => {
+          if (!d.messages || busyRef.current) return;
+          let localCount = 0;
+          try { const p = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); if (Array.isArray(p)) localCount = p.length; } catch { /* ignore */ }
+          if (d.messages.length > localCount) {
+            setMsgs(d.messages);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d.messages)); } catch { /* ignore */ }
+          }
+        }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [agentName, STORAGE_KEY]);
 
   // Load models and groups
   useEffect(() => {
@@ -82,11 +99,8 @@ export function useChatPanel(agentName: string) {
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }, [STORAGE_KEY]);
 
-  const sendMessage = useCallback(async (text: string, agentName: string) => {
+  const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || busyRef.current) return;
-
-    // Clear command
-    if (text.trim() === '/clear') { clearMessages(); return; }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -96,6 +110,7 @@ export function useChatPanel(agentName: string) {
 
     try {
       const body: any = { message: text, model };
+      if (needsFreshRef.current) { body.fresh = true; needsFreshRef.current = false; }
       if (activeGroup) body.group = activeGroup;
       if (thinkingMode) body.thinking = true;
       const r = await fetch(`/api/agents/${agentName}/chat`, {
@@ -144,7 +159,7 @@ export function useChatPanel(agentName: string) {
       abortRef.current = null;
       setBusy(false); busyRef.current = false;
     }
-  }, [model, activeGroup, thinkingMode, patchLastMsg]);
+  }, [model, activeGroup, thinkingMode, agentName, patchLastMsg]);
 
   const abort = useCallback(() => {
     if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
@@ -154,5 +169,6 @@ export function useChatPanel(agentName: string) {
     msgs, busy, models, model, activeGroup, myGroups, thinkingMode,
     setModel: setModelPersist, setActiveGroup, setThinkingMode,
     sendMessage, abort, clearMessages, patchLastMsg,
+    needsFreshRef,
   };
 }
