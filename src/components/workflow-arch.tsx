@@ -122,6 +122,69 @@ function arrowPath(x1: number, y1: number, x2: number, y2: number, bendX: number
   ].join(' ');
 }
 
+// ═══════ Collision-free bendX ═══════
+// Find a bendX that doesn't pass through any block in intermediate layers
+function findSafeBendX(
+  srcX: number, srcW: number, tgtX: number, tgtW: number,
+  srcLayer: number, tgtLayer: number,
+  positions: Map<string, { x: number; y: number; w: number; h: number }>,
+  layers: Step[][],
+): number {
+  // Start with midpoint
+  const defaultBendX = (srcX + srcW / 2 + tgtX + tgtW / 2) / 2;
+
+  // Collect all blocks in layers between source and target
+  const obstacles: Array<{ left: number; right: number; cx: number }> = [];
+  for (let li = srcLayer + 1; li < tgtLayer; li++) {
+    for (const step of layers[li]) {
+      const p = positions.get(step.id);
+      if (p) {
+        obstacles.push({ left: p.x - 10, right: p.x + p.w + 10, cx: p.x + p.w / 2 });
+      }
+    }
+  }
+
+  // If no obstacles, use default
+  if (obstacles.length === 0) return defaultBendX;
+
+  // Check if default bendX collides with any obstacle
+  const srcCx = srcX + srcW / 2;
+  const intersects = obstacles.some(o => defaultBendX >= o.left && defaultBendX <= o.right);
+  if (!intersects) return defaultBendX;
+
+  // Find a safe position: try gaps between obstacles, then outside all obstacles
+  const sorted = obstacles.sort((a, b) => a.cx - b.cx);
+
+  // Try gaps between obstacles
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gapLeft = sorted[i].right;
+    const gapRight = sorted[i + 1].left;
+    if (gapRight - gapLeft >= 20) {
+      // Gap is big enough — use the side closer to srcCx
+      return srcCx < defaultBendX ? gapLeft + 10 : gapRight - 10;
+    }
+  }
+
+  // No gap — go outside all obstacles
+  const minLeft = Math.min(...sorted.map(o => o.left));
+  const maxRight = Math.max(...sorted.map(o => o.right));
+
+  // Try left side
+  const leftSpace = minLeft - PAD;
+  // Try right side
+  const rightSpace = SVG_W - maxRight - PAD;
+
+  // Pick the side with more space, closer to srcCx
+  if (leftSpace >= rightSpace && leftSpace >= 30) {
+    return minLeft - 20;
+  } else if (rightSpace >= 30) {
+    return maxRight + 20;
+  }
+
+  // Fallback: use minimum left with some margin
+  return Math.max(PAD + 10, minLeft - 20);
+}
+
 // ═══════ CSS ═══════
 const CSS = `
 @keyframes wf-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
@@ -563,7 +626,7 @@ export default function WorkflowArch({
               .map(t => {
                 const to = gp(t.id);
                 if (!to) return null;
-                const bendX = (f.x + f.w / 2 + to.x + to.w / 2) / 2;
+                const bendX = findSafeBendX(f.x, f.w, to.x, to.w, li, li + 1, positions, layers);
                 return (
                   <path
                     key={`${step.id}-${t.id}`}
