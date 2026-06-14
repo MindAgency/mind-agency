@@ -599,17 +599,21 @@ export async function createChatStream(agentName: string, userMessage: string, g
       // ── Process tracking — enables clean shutdown ──
       // Declared before try so it's accessible in both try and catch blocks.
       const abortController = trackQuery();
+      const electronExe = process.env.MIND_ELECTRON_EXE;
+      let setElectronRunAsNode = false;
 
       try {
         // In Electron, tell the SDK to use our Electron binary as the Node.js runtime.
         // SDK executes: <node> <claude-code-entry> --output-format stream-json ...
-        const electronExe = process.env.MIND_ELECTRON_EXE;
         const opts: any = { ...baseOpts, abortController };
         if (!fresh) opts.continue = true;
         if (modelOverride) opts.model = modelOverride;
         if (electronExe) {
           (opts as any).executable = electronExe;
+          // SDK spawns child process inheriting process.env — must set before query()
+          // Only mutation in codebase; restored after query completes.
           process.env.ELECTRON_RUN_AS_NODE = '1';
+          setElectronRunAsNode = true;
         }
 
         // Apply CLI command overrides (from /plan, etc.)
@@ -751,12 +755,15 @@ export async function createChatStream(agentName: string, userMessage: string, g
 
         // ── Final save: persist final state ──
         clearTimeout(timeout);
+        if (setElectronRunAsNode) delete process.env.ELECTRON_RUN_AS_NODE;
         savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId });
         ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
         clearActivity(agentName);
         untrackQuery(abortController);
 
       } catch (err: any) {
+        // Restore ELECTRON_RUN_AS_NODE if we set it
+        if (setElectronRunAsNode) delete process.env.ELECTRON_RUN_AS_NODE;
         clearActivity(agentName);
         untrackQuery(abortController);
         // v0.6: Always save session on error — prevents message loss

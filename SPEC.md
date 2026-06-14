@@ -132,9 +132,9 @@ fetch(`${getApiBase()}/api/endpoint`);
 ### Phase 3: Architecture (架构优化)
 
 - [ ] **T10: Consolidate proxy pattern** — Deferred (low ROI, each proxy has unique methods)
-- [ ] **T11: Externalize theme CSS** — Deferred (high risk of visual regression)
+- [x] **T11: Externalize theme CSS** ✅ (already externalized via scripts/themes.mjs → themes-generated.css)
 - [x] **T12: Consolidate build system** ✅ (electron-builder removed)
-- [ ] **T13: Fix process.env mutation** — Deferred (deeply integrated, requires provider interface change)
+- [x] **T13: Fix process.env mutation** ✅ (only 1 mutation existed: ELECTRON_RUN_AS_NODE in chat.ts, now scoped with cleanup)
 - [x] **T14: Standardize polling intervals** ✅ (config.ts created)
 
 ## Boundaries
