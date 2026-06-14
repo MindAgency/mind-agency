@@ -57,11 +57,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const BLOCK_W = 180;
 const BLOCK_H = 48;
-const GAP_X = 16;
-const GAP_Y = 80;
 const PAD = 40;
-const SVG_W = 480;
-const ARROW_R = 12; // corner radius
 
 // ═══════ Helpers ═══════
 function getColor(action: string) {
@@ -70,7 +66,19 @@ function getColor(action: string) {
   return COLORS.execute;
 }
 
-function buildLayers(steps: Step[]): Step[][] {
+// ═══════ Dagre Layout ═══════
+// Uses @dagrejs/dagre for production-quality Sugiyama layout:
+// crossing reduction + Brandes-Köpf coordinate assignment
+interface LayoutResult {
+  positions: Map<string, { x: number; y: number; w: number; h: number }>;
+  edges: Map<string, Array<{ x: number; y: number }>>;
+  width: number;
+  height: number;
+  layers: Step[][];
+}
+
+function computeLayout(steps: Step[]): LayoutResult {
+  // Build layers for reference (used by rendering)
   const map = new Map(steps.map(s => [s.id, s]));
   const memo = new Map<string, number>();
   const d = (id: string): number => {
@@ -81,108 +89,107 @@ function buildLayers(steps: Step[]): Step[][] {
     return memo.get(id)!;
   };
   steps.forEach(s => d(s.id));
-  const layers = new Map<number, Step[]>();
+  const layerMap = new Map<number, Step[]>();
   for (const s of steps) {
     const k = memo.get(s.id) || 0;
-    if (!layers.has(k)) layers.set(k, []);
-    layers.get(k)!.push(s);
+    if (!layerMap.has(k)) layerMap.set(k, []);
+    layerMap.get(k)!.push(s);
   }
-  return [...layers.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, v]) => v);
-}
+  const layers = [...layerMap.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
 
-// ═══════ Arrow Path ═══════
-// L-shape with rounded corners: horizontal → vertical → horizontal
-// bendX = where the vertical segment runs
-function arrowPath(x1: number, y1: number, x2: number, y2: number, bendX: number): string {
-  const r = ARROW_R;
-  const vDir = y2 > y1 ? 1 : -1;
-
-  // Clamp radius to fit available space
-  const vSpace = Math.abs(y2 - y1) / 2;
-  const hSpace = Math.abs(bendX - x1) / 2;
-  const rc = Math.min(r, vSpace, hSpace);
-
-  // Too small for rounding — straight lines
-  if (rc < 1) {
-    return `M ${x1} ${y1} L ${bendX} ${y1} L ${bendX} ${y2} L ${x2} ${y2}`;
+  // Use dagre for layout — full Sugiyama pipeline
+  // Dynamic require to avoid SSR issues
+  let dagre: any;
+  try {
+    // @ts-ignore — dagre may not have types in all environments
+    const dagreMod = require('@dagrejs/dagre');
+    dagre = dagreMod.default || dagreMod;
+  } catch {
+    // Fallback: simple centered layout without dagre
+    const positions = new Map<string, { x: number; y: number; w: number; h: number }>();
+    let maxY = PAD;
+    for (const layer of layers) {
+      const tw = layer.length * BLOCK_W + (layer.length - 1) * 16;
+      const ox = Math.max(PAD, (tw + PAD * 2) / 2 - tw / 2);
+      layer.forEach((s, j) => {
+        positions.set(s.id, { x: ox + j * (BLOCK_W + 16), y: maxY, w: BLOCK_W, h: BLOCK_H });
+      });
+      maxY += BLOCK_H + 80;
+    }
+    return { positions, edges: new Map(), width: 500, height: maxY, layers };
   }
 
-  // Direction toward target for second corner
-  const hDir2 = x2 > bendX ? 1 : -1;
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: 'TB',
+    nodesep: 50,   // horizontal spacing between nodes in same rank
+    ranksep: 80,   // vertical spacing between ranks
+    edgesep: 20,   // edge spacing
+    marginx: PAD,
+    marginy: PAD,
+    acyclicer: 'greedy',
+    ranker: 'network-simplex',  // best quality layering
+  });
+  g.setDefaultEdgeLabel(() => ({}));
 
-  return [
-    `M ${x1} ${y1}`,
-    `L ${bendX - rc} ${y1}`,                              // horizontal to before corner 1
-    `Q ${bendX} ${y1} ${bendX} ${y1 + vDir * rc}`,       // corner 1: horizontal → vertical
-    `L ${bendX} ${y2 - vDir * rc}`,                       // vertical to before corner 2
-    `Q ${bendX} ${y2} ${bendX + hDir2 * rc} ${y2}`,      // corner 2: vertical → horizontal
-    `L ${x2} ${y2}`,                                       // horizontal to end
-  ].join(' ');
-}
+  // Add nodes with dimensions
+  for (const s of steps) {
+    g.setNode(s.id, { width: BLOCK_W, height: BLOCK_H });
+  }
 
-// ═══════ Collision-free bendX ═══════
-// Find a bendX that doesn't pass through any block in intermediate layers
-function findSafeBendX(
-  srcX: number, srcW: number, tgtX: number, tgtW: number,
-  srcLayer: number, tgtLayer: number,
-  positions: Map<string, { x: number; y: number; w: number; h: number }>,
-  layers: Step[][],
-): number {
-  // Start with midpoint
-  const defaultBendX = (srcX + srcW / 2 + tgtX + tgtW / 2) / 2;
-
-  // Collect all blocks in layers between source and target
-  const obstacles: Array<{ left: number; right: number; cx: number }> = [];
-  for (let li = srcLayer + 1; li < tgtLayer; li++) {
-    for (const step of layers[li]) {
-      const p = positions.get(step.id);
-      if (p) {
-        obstacles.push({ left: p.x - 10, right: p.x + p.w + 10, cx: p.x + p.w / 2 });
+  // Add edges (dependsOn)
+  for (const s of steps) {
+    if (s.dependsOn) {
+      for (const depId of s.dependsOn) {
+        if (map.has(depId)) {
+          g.setEdge(depId, s.id);
+        }
       }
     }
   }
 
-  // If no obstacles, use default
-  if (obstacles.length === 0) return defaultBendX;
+  // Compute layout
+  dagre.layout(g);
 
-  // Check if default bendX collides with any obstacle
-  const srcCx = srcX + srcW / 2;
-  const intersects = obstacles.some(o => defaultBendX >= o.left && defaultBendX <= o.right);
-  if (!intersects) return defaultBendX;
-
-  // Find a safe position: try gaps between obstacles, then outside all obstacles
-  const sorted = obstacles.sort((a, b) => a.cx - b.cx);
-
-  // Try gaps between obstacles
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const gapLeft = sorted[i].right;
-    const gapRight = sorted[i + 1].left;
-    if (gapRight - gapLeft >= 20) {
-      // Gap is big enough — use the side closer to srcCx
-      return srcCx < defaultBendX ? gapLeft + 10 : gapRight - 10;
+  // Extract positions (dagre returns center coordinates)
+  const positions = new Map<string, { x: number; y: number; w: number; h: number }>();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of steps) {
+    const n = g.node(s.id);
+    if (n) {
+      // dagre returns center; convert to top-left
+      const x = n.x - BLOCK_W / 2;
+      const y = n.y - BLOCK_H / 2;
+      positions.set(s.id, { x, y, w: BLOCK_W, h: BLOCK_H });
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + BLOCK_W);
+      maxY = Math.max(maxY, y + BLOCK_H);
     }
   }
 
-  // No gap — go outside all obstacles
-  const minLeft = Math.min(...sorted.map(o => o.left));
-  const maxRight = Math.max(...sorted.map(o => o.right));
-
-  // Try left side
-  const leftSpace = minLeft - PAD;
-  // Try right side
-  const rightSpace = SVG_W - maxRight - PAD;
-
-  // Pick the side with more space, closer to srcCx
-  if (leftSpace >= rightSpace && leftSpace >= 30) {
-    return minLeft - 20;
-  } else if (rightSpace >= 30) {
-    return maxRight + 20;
+  // Extract edge waypoints
+  const edges = new Map<string, Array<{ x: number; y: number }>>();
+  for (const s of steps) {
+    if (s.dependsOn) {
+      for (const depId of s.dependsOn) {
+        if (map.has(depId)) {
+          const e = g.edge({ v: depId, w: s.id });
+          if (e?.points) {
+            edges.set(`${depId}->${s.id}`, e.points);
+          }
+        }
+      }
+    }
   }
 
-  // Fallback: use minimum left with some margin
-  return Math.max(PAD + 10, minLeft - 20);
+  return {
+    positions,
+    edges,
+    width: maxX - minX + PAD * 2,
+    height: maxY - minY + PAD * 2,
+    layers,
+  };
 }
 
 // ═══════ CSS ═══════
@@ -212,7 +219,7 @@ function MiniMap({ steps, positions, zoom, pan, cs }: {
     mxX = Math.max(mxX, p.x + p.w);
     mxY = Math.max(mxY, p.y + p.h);
   });
-  if (!positions.size) { mnX = 0; mnY = 0; mxX = SVG_W; mxY = 400; }
+  if (!positions.size) { mnX = 0; mnY = 0; mxX = 500; mxY = 400; }
   const cw = mxX - mnX + 40, ch = mxY - mnY + 40;
   const sc = Math.min((W - 10) / cw, (H - 10) / ch);
 
@@ -512,31 +519,9 @@ export default function WorkflowArch({
     }
   }, []);
 
-  const layers = useMemo(() => buildLayers(steps), [steps]);
-  const n = layers.length;
-  const svgH = n * (BLOCK_H + GAP_Y) + PAD * 2;
-
-  const positions = useMemo(() => {
-    const pos = new Map<string, { x: number; y: number; w: number; h: number }>();
-    for (let i = 0; i < n; i++) {
-      const layer = layers[i];
-      const y = PAD + (n - 1 - i) * (BLOCK_H + GAP_Y);
-      if (layer.length === 1) {
-        pos.set(layer[0].id, {
-          x: (SVG_W - BLOCK_W) / 2, y, w: BLOCK_W, h: BLOCK_H,
-        });
-      } else {
-        const tw = layer.length * BLOCK_W + (layer.length - 1) * GAP_X;
-        const ox = (SVG_W - tw) / 2;
-        layer.forEach((s, j) => {
-          pos.set(s.id, {
-            x: ox + j * (BLOCK_W + GAP_X), y, w: BLOCK_W, h: BLOCK_H,
-          });
-        });
-      }
-    }
-    return pos;
-  }, [layers, n]);
+  // Dagre layout — computes optimal positions with crossing reduction
+  const layout = useMemo(() => computeLayout(steps), [steps]);
+  const { positions, edges: edgeRoutes, layers } = layout;
 
   // Viewport
   const cRef = useRef<HTMLDivElement>(null);
@@ -600,7 +585,7 @@ export default function WorkflowArch({
       onWheel={onWh} onDoubleClick={reset}
       onClick={() => { setCtx(null); setSel(null); }}
     >
-      <svg width="100%" viewBox={`0 0 ${SVG_W} ${svgH}`}
+      <svg width="100%" viewBox={`0 0 ${layout.width} ${layout.height}`}
         style={{
           display: 'block', overflow: 'visible',
           transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`,
@@ -615,41 +600,37 @@ export default function WorkflowArch({
           </marker>
         </defs>
 
-        {/* DependsOn arrows — rounded-corner L-shape */}
-        {layers.flatMap((layer, li) => {
-          if (li >= n - 1) return [];
-          return layer.flatMap(step => {
-            const f = gp(step.id);
-            if (!f) return [];
-            return layers[li + 1]
-              .filter(t => t.dependsOn?.includes(step.id))
-              .map(t => {
-                const to = gp(t.id);
-                if (!to) return null;
-                const bendX = findSafeBendX(f.x, f.w, to.x, to.w, li, li + 1, positions, layers);
-                return (
-                  <path
-                    key={`${step.id}-${t.id}`}
-                    d={arrowPath(f.x + f.w / 2, f.y, to.x + to.w / 2, to.y + to.h, bendX)}
-                    fill="none" stroke="#52525b" strokeWidth={1.5}
-                    markerEnd="url(#arrow)"
-                    style={{ cursor: 'pointer' }}
-                    onClick={e => { e.stopPropagation(); onEdgeClick?.(step.id, t.id); }}
-                    onMouseEnter={e => {
-                      e.currentTarget.setAttribute('stroke', '#3b82f6');
-                      e.currentTarget.setAttribute('stroke-width', '2.5');
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.setAttribute('stroke', '#52525b');
-                      e.currentTarget.setAttribute('stroke-width', '1.5');
-                    }}
-                  />
-                );
-              });
-          });
+        {/* DependsOn arrows — use dagre edge waypoints */}
+        {steps.flatMap(step => {
+          if (!step.dependsOn?.length) return [];
+          return step.dependsOn
+            .filter(depId => positions.has(depId))
+            .map(depId => {
+              const pts = edgeRoutes.get(`${depId}->${step.id}`);
+              if (!pts || pts.length < 2) return null;
+              const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+              return (
+                <path
+                  key={`${depId}-${step.id}`}
+                  d={d}
+                  fill="none" stroke="#52525b" strokeWidth={1.5}
+                  markerEnd="url(#arrow)"
+                  style={{ cursor: 'pointer' }}
+                  onClick={e => { e.stopPropagation(); onEdgeClick?.(depId, step.id); }}
+                  onMouseEnter={e => {
+                    e.currentTarget.setAttribute('stroke', '#3b82f6');
+                    e.currentTarget.setAttribute('stroke-width', '2.5');
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.setAttribute('stroke', '#52525b');
+                    e.currentTarget.setAttribute('stroke-width', '1.5');
+                  }}
+                />
+              );
+            });
         })}
 
-        {/* Route arrows — same rounded-corner L-shape, bendX = right of all blocks */}
+        {/* Route arrows — dashed, route outside blocks */}
         {(() => {
           let maxRight = 0;
           positions.forEach(p => { maxRight = Math.max(maxRight, p.x + p.w); });
@@ -663,10 +644,22 @@ export default function WorkflowArch({
               if (!to) return null;
               const x1 = fr.x + fr.w, y1 = fr.y + fr.h / 2;
               const x2 = to.x + to.w, y2 = to.y + to.h / 2;
+              // L-shape route: horizontal → vertical → horizontal via outsideX
+              const r = 12;
+              const vDir = y2 > y1 ? 1 : -1;
+              const hDir2 = x2 > outsideX ? 1 : -1;
+              const d = [
+                `M ${x1} ${y1}`,
+                `L ${outsideX - r} ${y1}`,
+                `Q ${outsideX} ${y1} ${outsideX} ${y1 + vDir * r}`,
+                `L ${outsideX} ${y2 - vDir * r}`,
+                `Q ${outsideX} ${y2} ${outsideX + hDir2 * r} ${y2}`,
+                `L ${x2} ${y2}`,
+              ].join(' ');
               return (
                 <g key={`r-${step.id}-${rt.step}`} style={{ pointerEvents: 'none' }}>
                   <path
-                    d={arrowPath(x1, y1, x2, y2, outsideX)}
+                    d={d}
                     fill="none" stroke="#f59e0b" strokeWidth={1.5}
                     strokeDasharray="6,3"
                     style={{ animation: 'wf-dash 1s linear infinite' }}
