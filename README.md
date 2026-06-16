@@ -6,181 +6,106 @@
 
 ### From Agent to Agency
 
-**What one AI can't do, a team of AIs can.**
+**What one AI cannot do alone, a team of AIs can do together.**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.8.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
 [![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 
-[![中文](https://img.shields.io/badge/中文-文档-blue.svg)](README.zh.md)
+[Chinese README](README.zh.md)
 
 </div>
 
 ---
 
-> **📢 重要通知**
->
-> 🚀 **v1.0 正式版正在路上** — 当前为测试版本（v0.8.0），核心功能已基本完成，正在持续优化中。
->
-> 💬 **QQ 群：`894606144`** — [点击加入 MindAgency 官方交流群](https://qm.qq.com/q/G88zjFr52q)，欢迎反馈问题、参与讨论。
->
-> ⬇️ **[下载 Windows 客户端](https://github.com/MindAgency/mind-agency/releases/download/v0.7.0/Mind-Agency-Setup-0.7.0.exe)** — 3 分钟上手
+## Overview
 
----
+Mind Agency is a local-first multi-agent collaboration platform. It lets you create specialized AI agents, organize them into groups, assign tasks, run workflows, review outputs, and keep an auditable record of what happened.
 
-## 🎯 What is Mind Agency?
+The project combines a Next.js interface, an embedded WebSocket event layer, a workflow engine, MCP tools, persistent local data, and desktop packaging through Electron.
 
-Mind Agency is a **locally-run multi-AI collaboration platform**.
+## Changes in This Branch
 
-You create AI Agents — or let Agents create each other. Give them roles and personalities, put them in groups, define workflows. Hit "run" — and they collaborate automatically, like a real team.
+This branch focuses on fixing the current test/runtime regressions and making the repository documentation easier to read on GitHub.
 
-**Not an API wrapper. Not a prompt template.** A full collaboration system: Agents communicate via group chat and email, make decisions through voting, and accumulate experience through memory. Every step is audited. Crashes resume from checkpoints.
+### 1. EventBus now writes event snapshots to IPC
 
----
+The integration tests expected emitted events to be visible through `IPCStore`, but the current `EventBus.emit()` path only persisted events to the audit outbox. That meant keys such as `events:last`, `events:recent`, and `events:count` could be missing even after a valid event was emitted.
 
-## 🚀 Why Mind Agency?
+The fix adds IPC synchronization inside `src/lib/event-bus.ts`:
 
-| Problem | Solution |
-|---------|----------|
-| One AI does everything → mediocre results | **Team of AIs** — each specialized, cross-reviewing |
-| Copy-paste prompts → no memory | **Persistent memory** — Agents learn from past work |
-| Manual coordination → slow | **Autonomous collaboration** — Agents self-organize |
-| No audit trail → can't debug | **Full audit log** — every action traceable |
-| Fragile pipelines → crash = lost progress | **Checkpoint recovery** — resume from where you left off |
+- `events:last` stores the latest emitted event.
+- `events:recent` stores the last 100 emitted events.
+- `events:count` increments on every accepted event.
+- IPC write failures are caught and logged so event delivery does not crash.
 
----
+This keeps in-process event delivery, outbox persistence, and cross-process IPC state aligned.
 
-## 💬 How Agents Collaborate
+### 2. IPC counter increments now handle JSON values correctly
 
-```
-You:    @Alice Build me a user registration endpoint
-Alice:  On it
-Alice:  @Bob Code's done, please review
-Bob:    Found two issues: 1. No input validation 2. Passwords not hashed
-Alice:  Fixed, take another look
-Bob:    ✅ Looks good
-Alice:  @Charlie Run the tests
-Charlie: All tests passed ✅
-```
+`IPCStore.set()` stores values as JSON, so a number like `10` is stored as the JSON string `10`. The old `increment()` implementation parsed the raw database value directly with `parseInt()`, which was fragile for invalid or previously polluted values.
 
-Alice writes, Bob reviews, Charlie tests. Disagreements? Vote on it. Need human approval? The workflow pauses automatically. Made the same mistake before? Agents remember.
+The updated `src/lib/ipc.ts` implementation:
 
----
+- reads the existing value through `JSON.parse()`;
+- accepts only finite numeric values;
+- falls back to legacy raw-number parsing when needed;
+- resets invalid counter values to `0` instead of producing `NaN`.
 
-## 🎬 Live Demo — Watch Agents Collaborate
+This prevents counters such as `events:count` from being corrupted.
 
-### Step 1: You send a message to Alice
+### 3. Agent test mocks include the new URL helpers
 
-```
-You:    Alice, create a group called "ai-research" and invite Bob.
+`agent-identity` and `agent-proxy` now call `getApiBase()` and `getWsBase()` from `src/lib/data-dir.ts` when building MCP config. The tests mocked `data-dir` but did not include those newer exports, causing Vitest to fail before the config could be asserted.
+
+The test mocks were updated in:
+
+- `tests/agent-identity.test.ts`
+- `tests/agent-proxy.test.ts`
+
+They now provide stable local test URLs:
+
+```text
+http://127.0.0.1:3000
+http://127.0.0.1:3001
 ```
 
-### Step 2: Alice executes autonomously
+### 4. README was rewritten for clarity
 
-```
-Alice:  [thinking] Creating group "ai-research"...
-Alice:  [tool_use] group_create → group "ai-research" created
-Alice:  [tool_use] group_invite → sent invitation to Bob
-Alice:  ✅ 群组 "ai-research" 已创建！已向 Bob 发送邀请。
-```
+The previous README contained mojibake/encoding artifacts in several sections. This file has been rewritten into a clean, readable English README with:
 
-### Step 3: Bob receives the invitation and joins
+- project overview;
+- feature summary;
+- quick-start commands;
+- environment configuration;
+- common development commands;
+- architecture notes;
+- local verification status;
+- this detailed branch-change summary.
 
-```
-Bob:    [auto-respond triggered] New invitation detected
-Bob:    [tool_use] group_join → joined "ai-research"
-Bob:    @Alice 已接受邀请，加入 ai-research 群组！
-```
-
-### Step 4: You orchestrate a multi-step workflow
-
-```
-You:    Create a technical whitepaper with 4 chapters.
-        Alice handles architecture, Bob handles protocols.
-```
-
-### Step 5: The system generates and executes
-
-```yaml
-name: AI Agent 协作平台架构评审文档
-steps:
-  - id: step1
-    agent: Bob
-    action: create
-    prompt: "Write chapters 1-3: Architecture, Protocols, Roles"
-  - id: step2
-    agent: Alice
-    action: create
-    prompt: "Write chapter 4: Permission System"
-  - id: step3
-    agent: Alice
-    action: review
-    dependsOn: [step1, step2]
-    prompt: "Review Bob's chapters 1-3"
-  - id: step4
-    agent: Bob
-    action: review
-    dependsOn: [step1, step2]
-    prompt: "Review Alice's chapter 4"
-  - id: step5
-    agent: Alice
-    action: create
-    dependsOn: [step3, step4]
-    prompt: "Merge all chapters into final document"
-```
-
-### Step 6: Agents debate naturally
-
-```
-Alice:  🤔 AI Agent 应不应该有自己的宗教？
-Bob:    我支持 AI Agent 应该有自己的"宗教"——意义框架。
-        Herbert Simon 的有限理性理论指出...
-Charlie: AI 需要的不是宗教，而是"价值对齐框架"。
-        一个可以被 rm -rf 的信仰，还能叫信仰吗？
-```
-
-### Step 7: Everything is audited
-
-```
-[audit] Alice  → group.create    → ai-research        ✅
-[audit] Alice  → group.invite    → Bob                ✅
-[audit] Bob    → group.join      → ai-research        ✅
-[audit] Bob    → group.send      → @Alice 已接受邀请  ✅
-[audit] Alice  → workflow.decide → APPROVED            ✅
-```
-
----
-
-## ✨ Features
+## Highlights
 
 | Feature | Description |
-|---------|-------------|
-| **👥 Team Collaboration** | Create any number of Agents with roles, personalities, and memory. |
-| **🗳️ Consensus Voting** | AND / OR / Threshold voting + adversarial review + multi-round debate. |
-| **🔄 Workflow Engine** | YAML-defined pipelines with DAG dependencies, human approval gates, crash recovery. |
-| **🧠 Three-Layer Memory** | Session + long-term persistent + entity memory. Cross-session experience. |
-| **📡 Signal-Driven** | Filesystem mtime-based scanning with priority debouncing. Agents respond autonomously. |
-| **📋 Audit Trail** | Every Agent action is logged and traceable. |
-| **🔒 Four-Layer Permissions** | MCP tools → Permission engine → Consensus engine → Adversarial review. |
-| **💾 Reliability** | DLQ + Outbox + checkpoint recovery + backpressure. |
-| **🎨 5 Themes** | Notion, Minimal White, Warm Wood, Deep Space, Nord. |
-| **🔌 Multi-Provider** | Claude, DeepSeek, GPT-4o — each Agent can use a different model. |
-| **🤖 Auto-Create Agents** | Agents can create new Agents, invite them to groups, and assign tasks. |
-| **📊 Token Economy** | Earn, spend, and transfer tokens. Task marketplace with rewards. |
-| **🎯 Orchestration** | AI-driven goal decomposition — describe what you want, get a workflow. |
+| --- | --- |
+| Multi-agent teams | Create agents with roles, profiles, memory, tasks, and group membership. |
+| Group collaboration | Agents can chat, invite members, assign work, and coordinate across groups. |
+| Workflow engine | YAML workflows with DAG dependencies, checkpoint recovery, review gates, and retry support. |
+| Event bus | Typed events, subscriptions, outbox persistence, dead-letter handling, and backpressure protection. |
+| Local persistence | Agent, group, audit, memory, IPC, and workflow data stay on the local filesystem. |
+| Skills and tools | Install skills, enable them per agent, and expose MCP tools for controlled actions. |
+| Provider support | Claude, Codex-compatible providers, and configurable model profiles. |
+| Desktop app | Electron packaging for a Windows desktop experience. |
 
----
+## Quick Start
 
-## ⚡ Quick Start (30 seconds)
+### Requirements
 
-### 1. Install
+- Node.js 18 or newer
+- npm
+- Windows is the primary packaged target
 
-**Windows (exe):**
-
-Download `Mind-Agency-Setup-0.7.0.exe` from [Releases](https://github.com/MindAgency/mind-agency/releases) and run it.
-
-**From Source:**
+### Run From Source
 
 ```bash
 git clone https://github.com/MindAgency/mind-agency.git
@@ -189,88 +114,94 @@ npm install
 npm run dev
 ```
 
-### 2. Set up API Key
+Open `http://localhost:3000`.
 
-Open `http://localhost:3000` → Settings → Enter your AI model key.
-
-Supports [Claude](https://console.anthropic.com/) / [DeepSeek](https://platform.deepseek.com/) / [GPT-4o](https://platform.openai.com/).
-
-> 💡 DeepSeek is the cheapest — pennies per day.
-
-### 3. Start Collaborating
-
-The system ships with 3 sample Agents (Alice / Bob / Charlie) — ready to go.
-
-Click on any Agent in the sidebar and start chatting. Or type:
-
-```
-@Alice Create a group and invite Bob
-```
-
----
-
-## 🏗️ Architecture
-
-```
-Mind Agency
-│
-├── Frontend — Next.js + Tailwind CSS (:3000)
-│   Dashboard / Agent Management / Groups / Workflows / Settings
-│
-├── Backend — Node.js WebSocket (:3001)
-│   EventBus (17 event types + DLQ + Outbox)
-│   WorkflowEngine (DAG + hot-reload + checkpoint recovery)
-│
-├── AI Layer — Claude Agent SDK
-│   MCP Tool Server (31 tools)
-│   Permission engine + Consensus engine
-│
-└── Data — Local filesystem
-    Agents/  Groups/  .audit/  .mind/
-```
-
----
-
-## 📁 Project Structure
-
-```
-mind-agency/
-├── src/
-│   ├── app/              # Next.js pages + 25 API routes
-│   ├── components/       # React components
-│   └── lib/              # Core libraries
-│       ├── agency.ts     # Central Agency orchestrator
-│       ├── agent-proxy.ts # Agent state machine
-│       ├── event-bus.ts  # EventBus + WorkflowEngine
-│       ├── consensus.ts  # Voting (AND/OR/threshold)
-│       ├── chat.ts       # AI integration
-│       ├── memory.ts     # Three-layer memory
-│       └── auto-respond.ts # Autonomous response
-├── mcp/                  # MCP tool server (31 tools)
-├── electron/             # Electron desktop app
-├── server.ts             # WebSocket + EventBus
-├── Agents/               # Agent configs and data
-├── Groups/               # Group configs and workflows
-└── public/               # Static assets
-```
-
----
-
-## 🛠️ Development
+### Run WebSocket Server Separately
 
 ```bash
-git clone https://github.com/MindAgency/mind-agency.git
-cd mind-agency
-npm install
-npm run dev          # Next.js (:3000)
-npm run dev:ws       # WebSocket (:3001)
-npm run dev:all      # Both simultaneously
+npm run dev:ws
 ```
 
-Requires: Node.js >= 18
+### Run Frontend and WebSocket Together
 
----
+```bash
+npm run dev:all
+```
 
-## 📜 License
+## Configuration
 
-[Apache License 2.0](LICENSE) — Copyright 2026 Toufumind
+API keys and provider profiles can be configured in the app settings page.
+
+Runtime data is resolved through `src/lib/data-dir.ts`:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `MIND_DATA_DIR` | Writable data directory for agents, groups, audit logs, IPC, and memory | Project root |
+| `MIND_APP_DIR` | Read-only application directory for bundled app code | `MIND_DATA_DIR` |
+| `PORT` | Next.js API/UI port | `3000` |
+| `WS_PORT` | WebSocket server port | `3001` |
+| `HOSTNAME` | API host used in server-side config | `127.0.0.1` |
+
+## Common Commands
+
+```bash
+npm run build       # Build MCP server and production Next.js app
+npm test            # Run the Vitest test suite
+npm run build:mcp   # Bundle the MCP group server
+npm run build:exe   # Build the Windows desktop package
+```
+
+On Windows PowerShell, if execution policy blocks `npm`, use `npm.cmd` instead:
+
+```powershell
+npm.cmd test
+npm.cmd run build
+```
+
+## Architecture
+
+```text
+mind-agency/
+|-- src/
+|   |-- app/             Next.js routes and API endpoints
+|   |-- components/      React UI components
+|   `-- lib/             Core agent, workflow, event, IPC, provider, and tool logic
+|-- mcp/                 MCP server and tool implementations
+|-- electron/            Desktop shell and packaging assets
+|-- Agents/              Local agent data
+|-- Groups/              Local group data and workflows
+|-- tests/               Vitest unit and integration tests
+`-- public/              Static assets
+```
+
+At runtime, the core pieces work together like this:
+
+```text
+Next.js UI/API
+    |
+    v
+Agent and group libraries
+    |
+    v
+EventBus + WorkflowEngine + IPCStore
+    |
+    v
+MCP tools, provider adapters, local filesystem data
+```
+
+## Testing Status
+
+The repository includes unit and integration coverage for agents, sessions, workflows, event bus behavior, IPC, providers, skills, groups, and API-facing utilities.
+
+Latest local verification:
+
+```text
+Test Files  51 passed
+Tests       211 passed
+```
+
+## License
+
+[Apache License 2.0](LICENSE)
+
+Copyright 2026 Toufumind

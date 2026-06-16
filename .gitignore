@@ -73,6 +73,7 @@ tests/.test-data/
 /dist-exe-v2/
 /dist-electron-staging/
 /dist-installer/
+/.next-server-dist/
 /.next/
 
 # generated logo frames (regenerate: node scripts/gen-logo-frames.mjs)

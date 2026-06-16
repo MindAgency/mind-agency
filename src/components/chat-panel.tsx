@@ -4,25 +4,17 @@ import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperat
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useRouter } from 'next/navigation';
 import Markdown from '@/components/markdown';
-import { ChevronDown, ChevronRight, Brain, Wrench, FileText, ArrowUp, Mail, Cpu } from 'lucide-react';
+import { ChevronDown, ChevronRight, Brain, Wrench, FileText, ArrowUp, Mail, Users as UsersIcon, Cpu } from 'lucide-react';
 import { useToast } from '@/components/toast';
-import { useChatPanel, type Msg } from '@/hooks/use-chat-panel';
-import { COMMANDS } from './chat-commands';
-import { createLogger } from '@/lib/logger';
 
-const logger = createLogger('chat-panel');
-
+interface ChatEvent { type: 'thinking' | 'tool_use' | 'tool_result' | 'text' | 'done' | 'error'; content?: string; toolName?: string; toolInput?: string; toolOutput?: string; timestamp: string; }
+interface Msg { role: 'user' | 'assistant' | 'system'; content: string; events: ChatEvent[]; timestamp: string; }
 interface AgentInfo { name: string; emailCount: number; }
 
-/** Merged thinking + tool event used for rendering a single assistant turn. */
-interface MergedEvent {
-  type: string;
-  content?: string;
-  toolName?: string;
-  toolInput?: string;
-  toolOutput?: string;
-  key: number;
-}
+// Mind Agency slash commands — only commands relevant to this platform.
+// LOCAL commands are handled in-browser (no AI involved).
+// The rest are passed through to the AI as messages.
+import { COMMANDS, getHelpText, getStatusText, getContextText, CommandPalette } from './chat-commands';
 
 async function skillsCmd(_agentName: string) {
   const parts: string[] = ['## /skills\n'];
@@ -44,73 +36,72 @@ async function skillsCmd(_agentName: string) {
   return parts.join('\n');
 }
 
-/** Imperative handle exposed by ChatPanel for parent-controlled scrolling and message access. */
+
+
+
+
 export interface ChatPanelHandle {
   scrollToMessage: (index: number) => void;
   getMessages: () => Msg[];
   clearMessages: () => void;
 }
 
-/**
- * Chat panel for communicating with a single agent. Renders message history
- * (user / assistant / system), supports SSE streaming via {@link useChatPanel},
- * slash-command interception, model selection, and email notifications.
- *
- * @param agentName - Name of the agent to chat with
- * @ref Exposes {@link ChatPanelHandle} for scroll control and message access
- */
 const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function ChatPanel({ agentName }, ref) {
   const router = useRouter();
-  const { toast } = useToast();
-  const toastRef = useRef(toast);
-  toastRef.current = toast;
-
-  // ── Hook: all messaging state ──
-  const {
-    msgs, busy, models, model, activeGroup, myGroups, thinkingMode,
-    setModel: setModelPersist, setActiveGroup, setThinkingMode,
-    sendMessage, abort, clearMessages, patchLastMsg, needsFreshRef,
-  } = useChatPanel(agentName);
-
-  // ── Local UI state ──
+  const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
   const [showCmds, setShowCmds] = useState(false);
   const [cmdFilter, setCmdFilter] = useState('');
   const [cmdIdx, setCmdIdx] = useState(0);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [emailCount, setEmailCount] = useState(0);
   const [toastMsg, setToastMsg] = useState('');
-  const [showModels, setShowModels] = useState(false);
-  const [sendReady, setSendReady] = useState(true);
-
-  // ── Workflow execution status ──
-  const [wfStatus, setWfStatus] = useState<{ runId: string; stepId: string; status: string; agent?: string } | null>(null);
-
+  const [activeGroup, setActiveGroup] = useState('');
+  const [myGroups, setMyGroups] = useState<string[]>([]);
+  const [thinkingMode, setThinkingMode] = useState(false);
   const historyRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const msgContainerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const inputValueRef = useRef('');
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const busyRef = useRef(false);
+  const inputValueRef = useRef(''); // always has latest value, no stale closure
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const needsFreshRef = useRef(false);
+  const [sendReady, setSendReady] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+  const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast; // keep ref current without re-triggering WS reconnect
+
+  // ── localStorage persistence ──
+  const STORAGE_KEY = `chat-msgs-${agentName}`;
+  const MAX_STORED_MSGS = 200; // sliding window: keep last 200 to stay under 5MB quota
+
+  // Save to localStorage whenever msgs change (debounced)
+  const saveRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (msgs.length === 0) return;
+    if (saveRef.current) clearTimeout(saveRef.current);
+    saveRef.current = setTimeout(() => {
+      try {
+        const trimmed = msgs.length > MAX_STORED_MSGS ? msgs.slice(-MAX_STORED_MSGS) : msgs;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      } catch { /* quota exceeded — ignore */ }
+    }, 500);
+    return () => { if (saveRef.current) clearTimeout(saveRef.current); };
+  }, [msgs]);
+
+  const [models, setModels] = useState<Array<{ id: string; label: string }>>([]);
+  const [model, setModel] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'deepseek-v4-pro';
+    return localStorage.getItem(`chat-model-${agentName}`) || 'deepseek-v4-pro';
+  });
+  const setModelPersist = (m: string) => { setModel(m); localStorage.setItem(`chat-model-${agentName}`, m); setShowModels(false); };
+  const [showModels, setShowModels] = useState(false);
 
   const filteredCmds = COMMANDS.filter(c => c.cmd.startsWith(cmdFilter));
 
-  // ── Listen for workflow status updates ──
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const data = (e as CustomEvent).detail;
-      if (data.stepId) {
-        setWfStatus({ runId: data.runId, stepId: data.stepId, status: data.status, agent: data.agent });
-        // Auto-clear after 5 seconds if completed
-        if (data.status === 'completed' || data.status === 'failed') {
-          setTimeout(() => setWfStatus(null), 5000);
-        }
-      }
-    };
-    window.addEventListener('wf_step_status', handler);
-    return () => window.removeEventListener('wf_step_status', handler);
-  }, []);
-
-  // ── Data loading ──
   const checkEmails = useCallback(async () => {
     try {
       const r = await fetch(`/api/emails?agent=${agentName}`);
@@ -120,13 +111,57 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
         setTimeout(() => setToastMsg(''), 4000);
       }
       setEmailCount(Array.isArray(emails) ? emails.length : 0);
-    } catch (e) { logger.error('Failed to check emails', e); }
+    } catch (e) { console.error('[components:chat-panel]', e); }
   }, [agentName, emailCount]);
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const r = await fetch('/api/groups/scan?agent=' + agentName);
+      setMyGroups((await r.json()).groups || []);
+    } catch (e) { console.error('[components:chat-panel]', e); }
+  }, [agentName]);
+
+  // Load history on mount: localStorage first, API as fallback/backfill
   useEffect(() => {
+    // Load from localStorage immediately (offline-first)
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMsgs(parsed);
+        }
+      }
+    } catch (e) { console.error('[components:chat-panel]', e); }
+
+    // Backfill from server (may have newer messages)
+    const load = () => {
+      fetch(`/api/agents/${agentName}/chat`)
+        .then(r => r.json()).then(d => {
+          if (!d.messages || busyRef.current) return;
+          // Only replace if server has more messages than local
+          let localCount = 0;
+          try { const p = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); if (Array.isArray(p)) localCount = p.length; } catch (e) { console.error('[components:chat-panel]', e); }
+          if (d.messages.length > localCount) {
+            setMsgs(d.messages);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d.messages)); } catch (e) { console.error('[components:chat-panel]', e); }
+          }
+        }).catch(() => {});
+    };
+    load();
+
     fetch('/api/agents').then(r => r.json()).then(d => setAgents(d.agents || [])).catch(() => {});
+    // v0.4: Fetch available models from configured API
+    fetch('/api/system/models').then(r => r.json()).then(d => {
+      if (d.models && d.models.length > 0) setModels(d.models);
+      else setModels([]); // No provider configured → no models
+    }).catch(() => {});
     fetch(`/api/emails?agent=${agentName}`).then(r => r.json())
       .then(d => { if (Array.isArray(d)) setEmailCount(d.length); }).catch(() => {});
+    loadGroups();
+
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
   }, [agentName]);
 
   useEffect(() => {
@@ -134,7 +169,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     return () => clearInterval(t);
   }, [checkEmails]);
 
-  // ── Auto-scroll ──
+  // Auto-scroll: lock when user scrolls away from bottom
   const scrollLockedRef = useRef(false);
   useEffect(() => {
     const el = endRef.current?.parentElement;
@@ -151,22 +186,26 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     if (!scrollLockedRef.current) endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs]);
 
-  // ── Imperative handle ──
+  // Expose imperative methods for session sidebar navigation
   useImperativeHandle(ref, () => ({
     scrollToMessage: (index: number) => {
       const el = historyRefs.current.get(index);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Highlight briefly
         el.style.transition = 'background 0.3s';
         el.style.background = 'var(--surface-alt)';
         setTimeout(() => { el.style.background = ''; }, 1200);
       }
     },
     getMessages: () => msgs,
-    clearMessages,
-  }), [msgs, clearMessages]);
+    clearMessages: () => {
+      setMsgs([]);
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.error('[components:chat-panel]', e); }
+    },
+  }), [msgs]);
 
-  // ── WebSocket ──
+  // ── WebSocket via unified hook ──
   const wsUrl = typeof window !== 'undefined' ? `ws://${window.location.hostname}:3001` : null;
   useWebSocket(wsUrl, (data) => {
     if (data.type === 'group_message' && data.from && data.message) {
@@ -176,67 +215,132 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
     }
   }, { reconnectDelay: 3000 });
 
-  // ── Command selection ──
-  const selectCmd = (cmd: string) => {
-    const v = cmd + ' ';
-    setInput(v); inputValueRef.current = v;
-    setShowCmds(false); inputRef.current?.focus();
-  };
+  const selectCmd = (cmd: string) => { const v = cmd + ' '; setInput(v); inputValueRef.current = v; setShowCmds(false); inputRef.current?.focus(); };
 
-  // ── Send with slash command interception ──
+  // Helper: update the last message in the array immutably
+  const patchLastMsg = useCallback((mutate: (msg: Msg) => Msg) => {
+    setMsgs(prev => {
+      const next = [...prev];
+      next[next.length - 1] = mutate(next[next.length - 1]);
+      return next;
+    });
+  }, []);
+
   const send = async () => {
-    const t = (inputValueRef.current || input).trim();
+    const t = (inputValueRef.current || input).trim(); // ref has latest, state as fallback
     if (!t || busy) return;
     setInput(''); inputValueRef.current = ''; setShowCmds(false);
 
-    // Intercept slash commands
+    // ── Intercept slash commands ──
     const m = t.match(/^(\/\w+)/);
     if (m) {
       const cmd = COMMANDS.find(c => c.cmd === m[1]);
+      // Commands with handlers run locally in browser
       if (cmd?.handler) {
         if (cmd.cmd === '/clear') {
           await fetch(`/api/agents/${agentName}/chat`, { method: 'DELETE' });
-          clearMessages();
+          setMsgs([]);
           needsFreshRef.current = true;
           return;
         }
         const result = await cmd.handler(agentName);
-        patchLastMsg(() => ({ role: 'user', content: t, events: [], timestamp: new Date().toISOString() }));
-        patchLastMsg(() => ({ role: 'system', content: result, events: [], timestamp: new Date().toISOString() }));
+        setMsgs(p => [...p,
+          { role: 'user', content: t, events: [], timestamp: new Date().toISOString() },
+          { role: 'system', content: result, events: [], timestamp: new Date().toISOString() },
+        ]);
         return;
       }
+      // Commands without handlers: pass through to AI
     }
 
-    // Delegate to hook's sendMessage (handles SSE streaming)
-    await sendMessage(t);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setBusy(true); busyRef.current = true;
+    setMsgs(p => [...p, { role: 'user', content: t, events: [], timestamp: new Date().toISOString() }]);
+    setMsgs(p => [...p, { role: 'assistant', content: '', events: [], timestamp: new Date().toISOString() }]);
+    try {
+      const body: any = { message: t, model };
+      if (needsFreshRef.current) { body.fresh = true; needsFreshRef.current = false; }
+      if (thinkingMode) body.thinking = true;
+      if (activeGroup) body.group = activeGroup;
+      const r = await fetch(`/api/agents/${agentName}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const reader = r.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = '', done = false, aborted = false;
+      while (!done) {
+        const { done: d, value } = await reader.read();
+        if (d) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() || '';
+        for (const part of parts) {
+          for (const line of part.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const p = line.slice(6);
+            if (p === '[DONE]') { done = true; continue; }
+            try {
+              const evt: ChatEvent = JSON.parse(p);
+              if (evt.type === 'error' && evt.content?.includes('abort')) {
+                aborted = true; done = true; break;
+              }
+              patchLastMsg(msg => ({
+                ...msg,
+                events: [...msg.events, evt],
+                content: evt.type === 'text' ? msg.content + (evt.content || '') : msg.content,
+              }));
+            } catch (e) { console.error('[components:chat-panel]', e); }
+          }
+        }
+      }
+      if (aborted) patchLastMsg(msg => ({ ...msg, content: msg.content + '\n\n_[已中断]_' }));
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        patchLastMsg(msg => ({ ...msg, content: msg.content + '\n\n_[已中断]_' }));
+      } else {
+        patchLastMsg(msg => ({
+          ...msg,
+          events: [...msg.events, { type: 'error', content: String(e), timestamp: new Date().toISOString() }],
+        }));
+      }
+    } finally {
+      abortRef.current = null;
+      setBusy(false); busyRef.current = false; inputRef.current?.focus();
+    }
   };
 
   return (
     <div className="flex flex-col h-full bg-canvas">
       {toastMsg && (
-        <div className="fixed top-4 right-4 z-50 bg-canvas border border-border rounded-xl px-4 py-3 shadow-lg animate-in flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center"><Mail size={14} className="text-muted" /></div>
-          <div><p className="text-[11px] text-muted-foreground">New email</p><p className="text-[13px] text-foreground font-medium">{toastMsg}</p></div>
+        <div className="fixed top-4 right-4 z-50 bg-canvas border border-border rounded-xl px-5 py-4 shadow-lg animate-in flex items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center"><Mail size={18} className="text-muted" /></div>
+          <div><p className="text-xs text-muted-foreground">New email</p><p className="text-sm text-foreground font-medium">{toastMsg}</p></div>
         </div>
       )}
 
-      <div className="flex items-center justify-between px-6 py-2 shrink-0 select-none">
-        <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-surface-alt flex items-center justify-center text-[10px] font-medium text-muted">{agentName[0]}</span>
-          <span className="text-[13px] font-medium text-foreground">{agentName}</span>
+      <div className="flex items-center justify-between px-6 py-3 shrink-0 select-none">
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-full bg-surface-alt flex items-center justify-center text-sm font-medium text-muted">{agentName[0]}</span>
+          <span className="text-base font-medium text-foreground">{agentName}</span>
         </div>
       </div>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0" id="tour-chat-panel">
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Scrollable messages container */}
+
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-[820px] mx-auto px-6 py-6 space-y-5">
         {msgs.length === 0 && (
           <div className="flex items-center justify-center h-[60vh] text-center">
             <div>
-              <p className="text-[15px] text-muted-foreground font-medium">Mind Agency</p>
-              <p className="text-[13px] text-muted-foreground mt-1">开始和 {agentName} 对话</p>
-              <p className="text-[12px] text-muted-foreground mt-2">输入 <code className="text-muted-foreground">/help</code> 查看命令</p>
+              <p className="text-lg text-muted-foreground font-medium">Mind Agency</p>
+              <p className="text-base text-muted-foreground mt-2">开始和 {agentName} 对话</p>
+              <p className="text-sm text-muted-foreground mt-3">输入 <code className="text-muted-foreground">/help</code> 查看命令</p>
             </div>
           </div>
         )}
@@ -245,8 +349,8 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
             return (
               <div key={i} ref={(el) => { if (el) historyRefs.current.set(i, el); }}
                 className="flex justify-end" id={`msg-${i}`}>
-                <div className="max-w-[75%] bg-surface-alt rounded-2xl rounded-br-sm px-4 py-2.5">
-                  <p className="text-[14px] text-foreground leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                <div className="max-w-[75%] bg-surface-alt rounded-3xl rounded-br-md px-5 py-3">
+                  <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                 </div>
               </div>
             );
@@ -254,7 +358,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           if (msg.role === 'system') {
             return (
               <div key={i} className="flex justify-start">
-                <div className="max-w-[85%] bg-surface border border-border rounded-xl px-4 py-3 text-[13px] text-muted leading-relaxed font-mono">
+                <div className="max-w-[85%] bg-surface border border-border rounded-2xl px-5 py-4 text-sm text-muted leading-relaxed font-mono">
                   <Markdown text={msg.content} />
                 </div>
               </div>
@@ -263,7 +367,8 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           return (
             <div key={i} className="space-y-2">
               {(() => {
-                const merged: MergedEvent[] = [];
+                // Merge consecutive thinking events into one
+                const merged: { type: string; content?: string; key: number; [k: string]: any }[] = [];
                 let thinkBuf = '';
                 let thinkStart = -1;
                 for (let j = 0; j < msg.events.length; j++) {
@@ -290,31 +395,6 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
             </div>
           );
         })}
-        {/* Workflow execution status */}
-        {wfStatus && (
-          <div className="flex items-center gap-2 px-3 py-2 my-2 rounded-lg text-[11px] border"
-            style={{
-              background: wfStatus.status === 'completed' ? 'var(--color-success-muted)' :
-                         wfStatus.status === 'failed' ? 'var(--color-destructive-muted)' :
-                         'var(--color-info-muted)',
-              borderColor: wfStatus.status === 'completed' ? 'var(--color-success)' :
-                          wfStatus.status === 'failed' ? 'var(--color-destructive)' :
-                          'var(--color-info)',
-              color: wfStatus.status === 'completed' ? 'var(--color-success)' :
-                    wfStatus.status === 'failed' ? 'var(--color-destructive)' :
-                    'var(--color-info)',
-            }}>
-            <span className="animate-spin" style={{ display: wfStatus.status === 'completed' || wfStatus.status === 'failed' ? 'none' : 'inline-block' }}>⟳</span>
-            <span style={{ display: wfStatus.status === 'completed' || wfStatus.status === 'failed' ? 'inline' : 'none' }}>
-              {wfStatus.status === 'completed' ? '✓' : '✗'}
-            </span>
-            <span className="font-mono">{wfStatus.stepId}</span>
-            <span>—</span>
-            <span>{wfStatus.status === 'completed' ? '完成' : wfStatus.status === 'failed' ? '失败' : '执行中'}</span>
-            {wfStatus.agent && <span className="text-muted-foreground">by {wfStatus.agent}</span>}
-          </div>
-        )}
-
         {busy && (
           <div className="flex items-center gap-1.5 pl-1">
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -331,40 +411,41 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           <div className="absolute bottom-[calc(100%+4px)] left-0 right-0 bg-canvas border border-border rounded-2xl shadow-xl max-h-[280px] overflow-y-auto z-20 py-1 mb-1">
             {filteredCmds.map((item, i) => (
               <button key={item.cmd} onClick={() => selectCmd(item.cmd)}
-                className={`w-full text-left px-4 py-2.5 transition-colors flex items-start gap-3 ${i === cmdIdx ? 'bg-surface' : 'hover:bg-surface/50'}`}>
-                <span className="text-[13px] font-medium text-foreground font-mono whitespace-nowrap">{item.cmd}</span>
-                <span className="text-[12px] text-muted-foreground leading-snug">{item.desc}</span>
+                className={`w-full text-left px-5 py-3 transition-colors flex items-start gap-4 ${i === cmdIdx ? 'bg-surface' : 'hover:bg-surface/50'}`}>
+                <span className="text-sm font-medium text-foreground font-mono whitespace-nowrap">{item.cmd}</span>
+                <span className="text-sm text-muted-foreground leading-snug">{item.desc}</span>
               </button>
             ))}
           </div>
         )}
         <div className="max-w-[820px] mx-auto">
-          <div className="flex items-center gap-1.5 mb-1.5 px-1 relative">
+          <div className="flex items-center gap-1.5 mb-1.5 px-1 relative" id="tour-model-selector">
+            {/* Model selector dropdown */}
             <button onClick={() => setShowModels(!showModels)}
-              className="text-[11px] px-2 py-0.5 rounded-md flex items-center gap-1 text-muted-foreground hover:text-muted transition-colors border border-border">
-              <Cpu size={11} /> {models.length === 0 ? '无模型' : (models.find(m => m.id === model)?.label || model)} <ChevronDown size={10} />
+              className="text-sm px-3 py-1 rounded-lg flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors border border-border">
+              <Cpu size={14} /> {models.length === 0 ? '无模型' : (models.find(m => m.id === model)?.label || model)} <ChevronDown size={14} />
             </button>
             {showModels && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowModels(false)} />
-                <div className="absolute bottom-full left-0 mb-1 bg-canvas border border-border rounded-xl shadow-xl z-20 py-1 min-w-[160px]">
+                <div className="absolute bottom-full left-0 mb-1 bg-canvas border border-border rounded-xl shadow-xl z-20 py-2 min-w-[200px]">
                   {models.map(m => (
-                    <button key={m.id} onClick={() => { setModelPersist(m.id); setShowModels(false); }}
-                      className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${model === m.id ? 'bg-surface-alt text-foreground font-medium' : 'text-muted hover:bg-surface-hover'}`}>
+                    <button key={m.id} onClick={() => setModelPersist(m.id)}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${model === m.id ? 'bg-surface-alt text-foreground font-medium' : 'text-muted hover:bg-surface-hover'}`}>
                       {m.label}
                     </button>
                   ))}
                 </div>
               </>
             )}
-            <div className="w-px h-3 bg-border mx-1" />
+            <div className="w-px h-4 bg-border mx-2" />
             <button onClick={() => setThinkingMode(!thinkingMode)}
-              className={`text-[11px] px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 ${thinkingMode ? 'bg-primary-muted text-primary font-medium' : 'text-muted-foreground hover:text-muted'}`}>
-              <Brain size={12} /> 深度思考
+              className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${thinkingMode ? 'bg-primary-muted text-primary font-medium' : 'text-muted-foreground hover:text-muted'}`}>
+              <Brain size={14} /> 深度思考
             </button>
           </div>
-          <div className="flex items-end gap-2 bg-canvas border border-border rounded-2xl px-4 py-3 shadow-sm focus-within:border-border-strong focus-within:shadow-md transition-all">
-            <textarea ref={inputRef} value={input}
+          <div className="flex items-center gap-2 bg-canvas border border-border rounded-2xl px-4 py-3 shadow-sm focus-within:border-border-strong focus-within:shadow-md transition-all">
+            <textarea ref={inputRef as any} value={input}
               onChange={e => {
                 const v = e.target.value; setInput(v); inputValueRef.current = v;
                 if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -380,18 +461,18 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder={`给 ${agentName} 发消息...`}
               rows={1}
-              className="flex-1 bg-transparent border-0 outline-none text-[14px] text-foreground placeholder:text-muted-foreground resize-none"
+              className="flex-1 bg-transparent border-0 outline-none text-base text-foreground placeholder:text-muted-foreground resize-none"
               autoFocus />
             {busy ? (
-              <button onClick={abort}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-destructive text-canvas hover:bg-destructive transition-all shrink-0"
+              <button onClick={() => abortRef.current?.abort()}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-destructive text-canvas hover:bg-destructive transition-all shrink-0"
                 title="停止">
-                <span className="w-3 h-3 bg-white rounded-sm" />
+                <span className="w-4 h-4 bg-white rounded-sm" />
               </button>
             ) : (
               <button onClick={send} disabled={!input.trim() || !sendReady}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-foreground text-canvas hover:opacity-90 disabled:opacity-20 transition-all shrink-0">
-                <ArrowUp size={14} />
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-foreground text-canvas hover:opacity-90 disabled:opacity-20 transition-all shrink-0">
+                <ArrowUp size={18} />
               </button>
             )}
           </div>
@@ -405,10 +486,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
 
 export default ChatPanel;
 
+// taste: React.memo prevents re-render on every SSE chunk
 const MdText = React.memo(function MdText({ text }: { text: string }) {
   const isLong = text.length > 500;
   return (
-    <div className={`text-[14px] text-muted leading-relaxed ${isLong ? 'max-h-[300px] overflow-y-auto' : ''}`}>
+    <div className={`text-base text-muted leading-relaxed ${isLong ? 'max-h-[400px] overflow-y-auto' : ''}`}>
       <Markdown text={text} />
     </div>
   );
@@ -417,60 +499,61 @@ const Think = React.memo(function Think({ text }: { text: string }) {
   const [on, setOn] = useState(false);
   if (!text) return null;
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}<Brain size={11} className="text-primary" /> Thinking
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<Brain size={14} className="text-primary" /> Thinking
       </button>
-      {on && <div className="mt-1 ml-6 pl-3 border-l-2 border-primary/30 text-muted-foreground leading-relaxed whitespace-pre-wrap">{text}</div>}
+      {on && <div className="mt-2 ml-7 pl-4 border-l-2 border-primary/30 text-muted-foreground leading-relaxed whitespace-pre-wrap">{text}</div>}
     </div>
   );
 });
 const Tool = React.memo(function Tool({ name, input }: { name: string; input: string }) {
   const [on, setOn] = useState(false);
   const short = name.replace(/^mcp__group-chat__/, '');
-  let parsed: Record<string, unknown> | null = null;
-  try { parsed = JSON.parse(input) as Record<string, unknown>; } catch (e) { logger.error('Failed to parse tool input', e); }
-  const tn = parsed?.tool_name as string | undefined;
-  const isFileOp = parsed && ['Write', 'Edit', 'Delete', 'Read'].includes(tn || short);
-  const filePath = (parsed?.file_path ?? parsed?.path ?? '') as string;
-  const isWrite = short === 'Write' || tn === 'Write';
-  const isEdit = short === 'Edit' || tn === 'Edit';
-  const isDelete = short === 'Delete' || tn === 'Delete';
+
+  // v0.4: Parse file operations for diff display
+  let parsed: any = null;
+  try { parsed = JSON.parse(input); } catch (e) { console.error('[components:chat-panel]', e); }
+  const isFileOp = parsed && ['Write', 'Edit', 'Delete', 'Read'].includes(parsed.tool_name || short);
+  const filePath = parsed?.file_path || parsed?.path || '';
+  const isWrite = short === 'Write' || parsed?.tool_name === 'Write';
+  const isEdit = short === 'Edit' || parsed?.tool_name === 'Edit';
+  const isDelete = short === 'Delete' || parsed?.tool_name === 'Delete';
 
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         {isFileOp ? (
-          <FileText size={11} className={isWrite ? 'text-success' : isEdit ? 'text-info' : 'text-destructive'} />
+          <FileText size={14} className={isWrite ? 'text-success' : isEdit ? 'text-info' : 'text-destructive'} />
         ) : (
-          <Wrench size={11} className="text-info" />
+          <Wrench size={14} className="text-info" />
         )}
         {isFileOp ? (
-          <span className="flex items-center gap-1">
-            <span className={`text-[10px] px-1 py-0.5 rounded ${isWrite ? 'bg-success-muted text-success' : isEdit ? 'bg-info-muted text-info' : 'bg-destructive-muted text-destructive'}`}>
+          <span className="flex items-center gap-2">
+            <span className={`text-xs px-1.5 py-0.5 rounded-md ${isWrite ? 'bg-success-muted text-success' : isEdit ? 'bg-info-muted text-info' : 'bg-destructive-muted text-destructive'}`}>
               {short}
             </span>
-            <span className="text-muted-foreground truncate max-w-[180px]">{filePath}</span>
+            <span className="text-muted-foreground truncate max-w-[220px]">{filePath}</span>
           </span>
         ) : short}
       </button>
       {on && (
-        <div className="mt-1 ml-6 pl-3 border-l-2 border-info/30 max-h-[300px] overflow-y-auto">
+        <div className="mt-2 ml-7 pl-4 border-l-2 border-info/30 max-h-[400px] overflow-y-auto">
           {isFileOp && filePath && (
-            <div className="text-[11px] text-muted-foreground mb-1 font-mono">{filePath}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-mono">{filePath}</div>
           )}
-          {isEdit && parsed && (parsed.old_string as string) && (parsed.new_string as string) ? (
-            <div className="text-[11px] font-mono">
-              <div className="text-destructive/70 bg-destructive/5 rounded px-2 py-1 mb-0.5 whitespace-pre-wrap">{parsed.old_string as string}</div>
-              <div className="text-success/70 bg-success/5 rounded px-2 py-1 whitespace-pre-wrap">{parsed.new_string as string}</div>
+          {isEdit && parsed?.old_string && parsed?.new_string ? (
+            <div className="text-xs font-mono">
+              <div className="text-destructive/70 bg-destructive/5 rounded-md px-3 py-2 mb-1 whitespace-pre-wrap">{parsed.old_string}</div>
+              <div className="text-success/70 bg-success/5 rounded-md px-3 py-2 whitespace-pre-wrap">{parsed.new_string}</div>
             </div>
-          ) : isWrite && parsed && (parsed.content as string) ? (
-            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{(parsed.content as string).slice(0, 2000)}{(parsed.content as string).length > 2000 ? '\n...(truncated)' : ''}</pre>
+          ) : isWrite && parsed?.content ? (
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{parsed.content.slice(0, 2000)}{parsed.content.length > 2000 ? '\n...(truncated)' : ''}</pre>
           ) : isDelete ? (
-            <div className="text-[11px] text-destructive">删除文件: {filePath}</div>
+            <div className="text-xs text-destructive">删除文件: {filePath}</div>
           ) : (
-            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{input}</pre>
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{input}</pre>
           )}
         </div>
       )}
@@ -481,12 +564,12 @@ const Result = React.memo(function Result({ output }: { output: string }) {
   const [on, setOn] = useState(false);
   if (!output) return null;
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}<FileText size={11} className="text-success" /> Result
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<FileText size={14} className="text-success" /> Result
       </button>
-      {on && <pre className="mt-1 ml-6 pl-3 border-l-2 border-success/30 text-[11px] text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-y-auto">{output}</pre>}
+      {on && <pre className="mt-2 ml-7 pl-4 border-l-2 border-success/30 text-xs text-muted-foreground whitespace-pre-wrap max-h-[300px] overflow-y-auto">{output}</pre>}
     </div>
   );
 });
-const Err = React.memo(function Err({ text }: { text: string }) { return <div className="text-[13px] text-destructive">{text}</div>; });
+const Err = React.memo(function Err({ text }: { text: string }) { return <div className="text-base text-destructive">{text}</div>; });
