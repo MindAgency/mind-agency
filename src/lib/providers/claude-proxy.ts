@@ -185,13 +185,16 @@ async function executeTool(
           const { handleMemoryTool } = await import('../../../mcp/tools/memory');
           const { handleTaskTool } = await import('../../../mcp/tools/task');
           const { handleEconomyTool } = await import('../../../mcp/tools/economy');
+          const { handleSearchTool } = await import('../../../mcp/tools/search');
+          const { handleHierarchyTool } = await import('../../../mcp/tools/hierarchy');
+          const { handleManagedTool } = await import('../../../mcp/tools/managed');
 
           let result = '';
           const respond = (_id: string, msg: any) => {
             result = msg?.content?.[0]?.text || JSON.stringify(msg);
           };
 
-          const handlers = [handleGroupTool, handleCommunicationTool, handleWorkflowTool, handleAgentTool, handleConsensusTool, handleMemoryTool, handleTaskTool, handleEconomyTool];
+          const handlers = [handleGroupTool, handleCommunicationTool, handleWorkflowTool, handleAgentTool, handleConsensusTool, handleMemoryTool, handleTaskTool, handleEconomyTool, handleSearchTool, handleHierarchyTool, handleManagedTool];
           let handled = false;
           for (const handler of handlers) {
             try {
@@ -448,8 +451,11 @@ class ClaudeProxyProvider implements AgentProvider {
       const { consensusTools } = await import('../../../mcp/tools/consensus');
       const { memoryTools } = await import('../../../mcp/tools/memory');
       const { taskTools } = await import('../../../mcp/tools/task');
+      const { searchTools } = await import('../../../mcp/tools/search');
+      const { hierarchyTools } = await import('../../../mcp/tools/hierarchy');
+      const { managedTools } = await import('../../../mcp/tools/managed');
 
-      for (const toolFn of [groupTools, communicationTools, workflowTools, agentTools, consensusTools, memoryTools, taskTools]) {
+      for (const toolFn of [groupTools, communicationTools, workflowTools, agentTools, consensusTools, memoryTools, taskTools, searchTools, hierarchyTools, managedTools]) {
         const defs = toolFn();
         for (const d of defs) {
           tools.push({

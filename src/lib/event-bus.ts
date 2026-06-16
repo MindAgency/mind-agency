@@ -20,6 +20,7 @@ import { AUDIT_DIR, AGENTS_DIR, GROUPS_DIR, MIND_DIR } from './data-dir';
 import { broadcastWs } from './ws-embedded';
 import { enqueueTask, completeTask } from './task-queue';
 import { checkToolPermission } from './permission-engine';
+import { ipcStore } from './ipc';
 import {
   saveRunMeta, saveStepCheckpoint, completeRunCheckpoint,
   appendRunHistory, findIncompleteRuns, cleanupCheckpoints,
@@ -96,11 +97,24 @@ export class EventBus {
     if (!event.timestamp) event.timestamp = Date.now();
     if (!event.source) event.source = 'system';
     this.persistToOutbox(event);
+    this.persistToIPC(event);
     let delivered = 0;
     for (const sub of this.subs.values()) {
       if (!this.matchFilter(event, sub.filter)) continue;
       sub.backpressureCount++; if (sub.backpressureCount > BP_LIMIT) { try { sub.send({ event: EventType.AGENT_ERROR, payload: { code: EventBusError.E_BACKPRESSURE, message: 'Backpressure limit', subId: sub.subId }, timestamp: Date.now(), source: 'system', id: randomUUID() }); } catch (e) { console.error('[lib:event-bus]', e); } this.unsubscribe(sub.subId); continue; }
       delivered++; try { sub.send(event); sub.backpressureCount = Math.max(0, sub.backpressureCount - 1); } catch (e: any) { this.enqueueDLQ(event, sub.subId, e.message); try { this.unsubscribe(sub.subId); } catch (e) { console.error('[lib:event-bus]', e); } }
+    }
+  }
+
+  private persistToIPC(event: EventMessage): void {
+    try {
+      ipcStore.set('events:last', event);
+      const recent = ipcStore.get<EventMessage[]>('events:recent') || [];
+      recent.push(event);
+      ipcStore.set('events:recent', recent.slice(-100));
+      ipcStore.increment('events:count');
+    } catch (e) {
+      console.error('[event-bus] IPC event write failed:', e);
     }
   }
 

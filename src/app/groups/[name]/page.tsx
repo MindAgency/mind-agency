@@ -522,7 +522,7 @@ export default function GroupPage() {
               {!workflow ? (
                 <p className="text-[13px] text-muted-foreground text-center py-16">暂无 workflow</p>
               ) : (
-                <div className="h-full">
+                <div className="h-full relative">
                   <WorkflowArch
                     steps={(workflow.stepsList || []) as any[]}
                     run={currentRun ? { ...currentRun, startedAt: Date.now() } : null}
@@ -535,6 +535,7 @@ export default function GroupPage() {
                     onEdgeDelete={(from, to) => deleteEdge(from, to)}
                     onEdgeAdd={(from, to) => addEdge(from, to)}
                   />
+                  <WorkflowProcessOverview workflow={workflow} run={currentRun} running={wfRunning} results={wfResults} />
                 </div>
               )}
             </div>
@@ -974,6 +975,51 @@ function OrchestrateButton({ group, onDone }: { group: string; onDone: () => voi
         </div>
       )}
     </>
+  );
+}
+
+function WorkflowProcessOverview({ workflow, run, running, results }: { workflow: WorkflowDef; run: any; running: boolean; results: WorkflowResult[] }) {
+  const steps = workflow.stepsList || [];
+  const statuses = run?.steps || {};
+  const done = steps.filter(s => ['completed', 'skipped'].includes(statuses[s.id])).length;
+  const failed = steps.filter(s => statuses[s.id] === 'failed').length;
+  const active = steps.find(s => ['in_progress', 'waiting', 'running'].includes(statuses[s.id]));
+  const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+
+  return (
+    <div className="absolute left-5 right-5 bottom-5 rounded-lg border border-border bg-canvas/95 shadow-lg backdrop-blur px-4 py-3">
+      <div className="flex items-center gap-4">
+        <div className="min-w-[180px]">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${running ? 'bg-success animate-pulse' : failed ? 'bg-destructive' : 'bg-muted-foreground/40'}`} />
+            <span className="text-[12px] font-semibold text-foreground">{workflow.name}</span>
+            <span className="text-[10px] text-muted-foreground">{pct}%</span>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-surface-alt overflow-hidden">
+            <div className={`h-full ${failed ? 'bg-destructive' : 'bg-success'}`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        <div className="flex-1 grid grid-cols-4 gap-2">
+          {steps.slice(0, 8).map(s => {
+            const st = statuses[s.id] || 'pending';
+            const tone = st === 'completed' ? 'border-success/40 bg-success-muted text-success'
+              : st === 'failed' ? 'border-destructive/40 bg-destructive-muted text-destructive'
+              : ['in_progress', 'waiting', 'running'].includes(st) ? 'border-info/40 bg-info-muted text-info'
+              : 'border-border bg-surface text-muted-foreground';
+            return (
+              <div key={s.id} className={`min-w-0 rounded-md border px-2 py-1.5 ${tone}`}>
+                <p className="text-[10px] font-medium truncate">{s.id}</p>
+                <p className="text-[9px] truncate opacity-80">{s.agent || 'unassigned'} · {st}</p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="w-[220px] text-[11px] text-muted-foreground">
+          <p className="truncate">Active: {active ? `${active.id} / ${active.agent}` : running ? 'scheduling' : 'idle'}</p>
+          <p className="truncate">Latest: {results[results.length - 1]?.reply?.slice(0, 80) || 'No result yet'}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

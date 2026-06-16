@@ -35,7 +35,7 @@ export default function EmailViewer({ email, onClose, onDelete }: EmailViewerPro
 
       {/* Meta */}
       <div className="px-5 py-3 border-b border-border">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
           <span>From <span className="font-medium text-muted">{email.from}</span></span>
           <span>To <span className="font-medium text-muted">{email.to}</span></span>
           {email.date && (
@@ -48,7 +48,7 @@ export default function EmailViewer({ email, onClose, onDelete }: EmailViewerPro
             </span>
           )}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground font-mono">{email.filename}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground font-mono">{email.filename}</p>
       </div>
 
       {/* Body */}

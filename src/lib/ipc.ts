@@ -100,7 +100,16 @@ export class IPCStore {
   increment(key: string, amount: number = 1): number {
     const database = getDb();
     const row = database.prepare('SELECT value FROM kv_store WHERE key = ?').get(key) as { value: string } | undefined;
-    const current = row ? parseInt(row.value, 10) : 0;
+    let current = 0;
+    if (row) {
+      try {
+        const parsed = JSON.parse(row.value);
+        current = typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : 0;
+      } catch {
+        const legacy = parseInt(row.value, 10);
+        current = Number.isFinite(legacy) ? legacy : 0;
+      }
+    }
     const newValue = current + amount;
     this.set(key, newValue);
     return newValue;

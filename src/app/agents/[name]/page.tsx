@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import ChatPanel from '@/components/chat-panel';
 import EmailClient from '@/components/email-client';
 import Sidebar from '@/components/sidebar';
-import { Mail, Hash, Settings, Shield, MessageCircle, FileText, GitBranch, RefreshCw, DollarSign } from 'lucide-react';
+import { Mail, Hash, Settings, Shield, MessageCircle, FileText, GitBranch, RefreshCw, DollarSign, Brain, Trash2, Save } from 'lucide-react';
 import { useT } from '@/components/i18n';
 
 interface AgentConfig {
@@ -26,7 +26,7 @@ const defaultConfig: AgentConfig = {
 export default function AgentPage() {
   const { name } = useParams<{ name: string }>();
   const { t } = useT();
-  const [tab, setTab] = useState<'chat' | 'email' | 'ops' | 'tasks'>('chat');
+  const [tab, setTab] = useState<'chat' | 'email' | 'ops' | 'tasks' | 'memory'>('chat');
   const [tasks, setTasks] = useState<any[]>([]);
   const [config, setConfig] = useState<AgentConfig>(defaultConfig);
   const [saving, setSaving] = useState(false);
@@ -149,6 +149,10 @@ export default function AgentPage() {
               </span>
             )}
           </button>
+          <button onClick={() => setTab('memory')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${tab==='memory'?'bg-surface-alt text-foreground':'text-muted hover:text-foreground'}`}>
+            <Brain size={13}/> Memory
+          </button>
         </div>
 
         {/* ── Content row: main + config sidebar ── */}
@@ -158,6 +162,8 @@ export default function AgentPage() {
               <ChatPanel agentName={name} />
             ) : tab === 'tasks' ? (
               <TasksPanel agentName={name} tasks={tasks} onRefresh={fetchTasks} />
+            ) : tab === 'memory' ? (
+              <MemoryPanel agentName={name} />
             ) : tab === 'ops' ? (
               <OpsLog agentName={name} />
             ) : (
@@ -241,6 +247,94 @@ export default function AgentPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function MemoryPanel({ agentName }: { agentName: string }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [query, setQuery] = useState('');
+  const [key, setKey] = useState('');
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async (q?: string) => {
+    setLoading(true);
+    const url = q ? `/api/agents/${agentName}/memory?q=${encodeURIComponent(q)}` : `/api/agents/${agentName}/memory`;
+    const d = await fetch(url).then(r => r.json()).catch(() => ({ memories: [] }));
+    setItems(d.memories || []);
+    setLoading(false);
+  }, [agentName]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const saveMemory = async () => {
+    if (!key.trim() || !content.trim()) return;
+    await fetch(`/api/agents/${agentName}/memory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, content }),
+    });
+    setKey('');
+    setContent('');
+    await load();
+  };
+
+  const removeMemory = async (memoryKey: string) => {
+    await fetch(`/api/agents/${agentName}/memory?key=${encodeURIComponent(memoryKey)}`, { method: 'DELETE' });
+    await load(query || undefined);
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-surface">
+      <div className="max-w-5xl mx-auto p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground flex items-center gap-2"><Brain size={16}/> Memory</h2>
+            <p className="text-[11px] text-muted-foreground">Long-term memory entries used by this agent.</p>
+          </div>
+          <button onClick={() => load(query || undefined)} className="p-2 rounded-lg border border-border bg-canvas text-muted-foreground hover:text-foreground">
+            <RefreshCw size={14}/>
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-border bg-canvas p-4 space-y-3">
+          <div className="grid grid-cols-[220px_1fr_auto] gap-2">
+            <input value={key} onChange={e => setKey(e.target.value)} placeholder="key" className="px-3 py-2 rounded-lg border border-border bg-surface text-[12px] outline-none focus:border-border-strong" />
+            <input value={content} onChange={e => setContent(e.target.value)} placeholder="memory content" className="px-3 py-2 rounded-lg border border-border bg-surface text-[12px] outline-none focus:border-border-strong" />
+            <button onClick={saveMemory} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-foreground text-canvas text-[12px] font-medium">
+              <Save size={13}/> Save
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search memory" className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-[12px] outline-none focus:border-border-strong" />
+            <button onClick={() => load(query || undefined)} className="px-3 py-2 rounded-lg border border-border bg-surface text-[12px] text-foreground">Search</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-10 flex justify-center text-muted-foreground"><RefreshCw size={16} className="animate-spin"/></div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2">
+            {items.map(m => (
+              <div key={m.key} className="rounded-lg border border-border bg-canvas p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium text-foreground">{m.key}</span>
+                      <span className="text-[10px] text-muted-foreground">{m.updated ? new Date(m.updated).toLocaleString() : ''}</span>
+                    </div>
+                    <p className="text-[12px] text-muted-foreground whitespace-pre-wrap mt-2">{m.content}</p>
+                  </div>
+                  <button onClick={() => removeMemory(m.key)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive-muted">
+                    <Trash2 size={14}/>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

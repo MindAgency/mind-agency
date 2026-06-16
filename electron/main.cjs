@@ -353,10 +353,17 @@ app.whenReady().then(async () => {
     if (!isDev) {
       // Try DATA_DIR first
       if (!fs.existsSync(serverJs)) {
-        // Try EXE旁边的/.next-server
+        // Try resources path (electron-builder extraResources)
+        const resourcesServer = path.join(process.resourcesPath, '.next-server');
+        // Try EXE旁边的/.next-server (legacy packager)
         const exeDir = path.dirname(app.getPath('exe'));
         const exeNextServer = path.join(exeDir, '.next-server');
-        if (fs.existsSync(path.join(exeNextServer, 'server.js'))) {
+        
+        if (fs.existsSync(path.join(resourcesServer, 'server.js'))) {
+          serverDir = resourcesServer;
+          serverJs = path.join(serverDir, 'server.js');
+          console.log('[mind] Found standalone at resources:', serverDir);
+        } else if (fs.existsSync(path.join(exeNextServer, 'server.js'))) {
           serverDir = exeNextServer;
           serverJs = path.join(serverDir, 'server.js');
           console.log('[mind] Found standalone at EXE dir:', serverDir);
@@ -394,21 +401,31 @@ app.whenReady().then(async () => {
         copyDir(srcPublic, publicDest);
       }
 
+      // Rename standalone_node_modules back to node_modules
+      const standaloneNM = path.join(serverDir, 'standalone_node_modules');
+      const targetNM = path.join(serverDir, 'node_modules');
+      if (fs.existsSync(standaloneNM) && !fs.existsSync(targetNM)) {
+        fs.renameSync(standaloneNM, targetNM);
+        console.log('[mind] Restored node_modules from standalone_node_modules');
+      }
+
       console.log('[mind] Server dir:', serverDir);
     }
 
-    // Use system Node.js (Electron's bundled Node can't run ES modules)
-    let nodePath = 'node';
-    try {
-      const { execSync } = require('child_process');
-      nodePath = execSync('where node', { encoding: 'utf8', windowsHide: true }).trim().split('\n')[0];
-    } catch {}
-    console.log('[mind] Node:', nodePath);
-    const serverProc = spawn(nodePath, [serverJs], {
+    // Use Electron's bundled Node.js to run Next.js
+    let nodePath = isDev ? 'node' : process.execPath;
+    let spawnOpts = {
       cwd: serverDir,
       env: { ...process.env, PORT: String(PORT), HOSTNAME: '127.0.0.1', NODE_ENV: 'production', MIND_DATA_DIR: DATA_DIR, MIND_APP_DIR: APP_ROOT },
       stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    };
+    
+    if (!isDev) {
+      spawnOpts.env.ELECTRON_RUN_AS_NODE = '1';
+    }
+
+    console.log('[mind] Node executable:', nodePath);
+    const serverProc = spawn(nodePath, [serverJs], spawnOpts);
     serverProc.stdout.on('data', (d) => process.stdout.write(`[next] ${d}`));
     serverProc.stderr.on('data', (d) => process.stderr.write(`[next] ${d}`));
     serverProc.on('error', (e) => console.error('[mind] Server error:', e.message));

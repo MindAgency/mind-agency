@@ -27,6 +27,9 @@ export interface Skill {
   version: string;        // SHA-256 hash of content
   status: 'installed' | 'update_available';
   prompt?: string;        // cached prompt.md content
+  entryFile?: string;     // SKILL.md or prompt.md
+  triggers?: string[];    // routing hints from manifest / headings
+  files?: string[];       // supporting files available for progressive disclosure
 }
 
 export interface SkillSearchResult {
@@ -64,6 +67,93 @@ function saveSkills(skills: Skill[]): void {
   ensureDirs();
   
   atomicWrite(SKILLS_FILE, JSON.stringify(skills, null, 2));
+}
+
+interface SkillMetadata {
+  prompt?: string;
+  description: string;
+  entryFile?: string;
+  triggers: string[];
+  files: string[];
+}
+
+function walkFiles(root: string, current = ''): string[] {
+  const dir = path.join(root, current);
+  if (!fs.existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.git' || entry.name === 'node_modules') continue;
+    const rel = current ? path.join(current, entry.name) : entry.name;
+    if (entry.isDirectory()) out.push(...walkFiles(root, rel));
+    else out.push(rel.replace(/\\/g, '/'));
+  }
+  return out;
+}
+
+function parseFrontmatter(raw: string): { data: Record<string, any>; body: string } {
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m) return { data: {}, body: raw };
+  const data: Record<string, any> = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!kv) continue;
+    const value = kv[2].trim();
+    if (value.startsWith('[') && value.endsWith(']')) {
+      data[kv[1]] = value.slice(1, -1).split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    } else {
+      data[kv[1]] = value.replace(/^['"]|['"]$/g, '');
+    }
+  }
+  return { data, body: raw.slice(m[0].length) };
+}
+
+function readSkillMetadata(skillDir: string, skillName: string): SkillMetadata {
+  const files = walkFiles(skillDir);
+  const manifestPath = ['skill.json', '.skill.json', 'manifest.json']
+    .map(f => path.join(skillDir, f))
+    .find(fs.existsSync);
+  let manifest: Record<string, any> = {};
+  if (manifestPath) {
+    try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')); } catch (e) { console.error('[lib:skills]', e); }
+  }
+
+  const entryFile =
+    manifest.entry ||
+    (fs.existsSync(path.join(skillDir, 'SKILL.md')) ? 'SKILL.md' :
+     fs.existsSync(path.join(skillDir, 'prompt.md')) ? 'prompt.md' :
+     fs.existsSync(path.join(skillDir, 'README.md')) ? 'README.md' : undefined);
+
+  let prompt = '';
+  let frontmatter: Record<string, any> = {};
+  if (entryFile) {
+    try {
+      const parsed = parseFrontmatter(fs.readFileSync(path.join(skillDir, entryFile), 'utf-8').trim());
+      frontmatter = parsed.data;
+      prompt = parsed.body.trim();
+    } catch (e) { console.error('[lib:skills]', e); }
+  }
+
+  const readmePath = path.join(skillDir, 'README.md');
+  const readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf-8').trim() : '';
+  const description =
+    manifest.description ||
+    frontmatter.description ||
+    prompt.match(/^#\s+(.+)$/m)?.[1]?.trim() ||
+    readme.replace(/^#.*\r?\n/, '').split(/\r?\n\r?\n/)[0]?.trim() ||
+    skillName;
+
+  const triggerSource = manifest.triggers || manifest.when_to_use || frontmatter.triggers || frontmatter.when_to_use || [];
+  const triggers = Array.isArray(triggerSource)
+    ? triggerSource.map(String).filter(Boolean)
+    : String(triggerSource).split(/[,;，；]/).map(s => s.trim()).filter(Boolean);
+
+  return {
+    prompt,
+    description: description.slice(0, 400),
+    entryFile,
+    triggers,
+    files: files.filter(f => !/^(\.git|node_modules)\//.test(f)),
+  };
 }
 
 // ── GitHub API ───────────────────────────────────────────
@@ -172,27 +262,22 @@ export async function installSkill(repo: string, repoPath?: string): Promise<Ski
     atomicWrite(fullPath, content);
   }
 
-  // Read prompt.md if exists
-  const promptPath = path.join(skillDir, 'prompt.md');
-  const prompt = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf-8') : undefined;
-
-  // Read description from README.md
-  const readmePath = path.join(skillDir, 'README.md');
-  const description = fs.existsSync(readmePath)
-    ? fs.readFileSync(readmePath, 'utf-8').slice(0, 200).replace(/^#.*\n/, '').trim()
-    : '';
+  const metadata = readSkillMetadata(skillDir, skillName);
 
   // Create skill record
   const skill: Skill = {
     id: randomUUID().slice(0, 8),
     name: skillName,
-    description,
     repo,
     repoPath,
     installedAt: Date.now(),
     version,
     status: 'installed',
-    prompt,
+    prompt: metadata.prompt,
+    description: metadata.description,
+    entryFile: metadata.entryFile,
+    triggers: metadata.triggers,
+    files: metadata.files,
   };
 
   const skills = loadSkills();
@@ -295,9 +380,12 @@ export async function updateSkill(id: string): Promise<Skill | null> {
   skill.version = version;
   skill.status = 'installed';
   skill.installedAt = Date.now();
-
-  const promptPath = path.join(skillDir, 'prompt.md');
-  skill.prompt = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf-8') : undefined;
+  const metadata = readSkillMetadata(skillDir, skill.name);
+  skill.prompt = metadata.prompt;
+  skill.description = metadata.description;
+  skill.entryFile = metadata.entryFile;
+  skill.triggers = metadata.triggers;
+  skill.files = metadata.files;
 
   saveSkills(skills);
   distributeToAgents(skill.name);
@@ -359,6 +447,7 @@ interface SkillEntry {
   skillName: string;
   content: string;
   tokens: string[];
+  score?: number;
 }
 
 // In-memory index (rebuilt on startup)
@@ -405,19 +494,23 @@ export function buildSkillIndex(): void {
     const skillDir = path.join(SKILLS_DIR, skill.name);
     if (!fs.existsSync(skillDir)) continue;
 
-    const promptPath = path.join(skillDir, 'prompt.md');
-    if (fs.existsSync(promptPath)) {
-      try {
-        const content = fs.readFileSync(promptPath, 'utf-8').trim();
-        if (content) {
-          skillIndex.push({
-            skillId: skill.id,
-            skillName: skill.name,
-            content,
-            tokens: tokenize(content),
-          });
-        }
-      } catch (e) { console.error('[lib:skills]', e); }
+    try {
+      const metadata = readSkillMetadata(skillDir, skill.name);
+      const routingText = [
+        metadata.description,
+        ...(metadata.triggers || []),
+        metadata.prompt || '',
+      ].join('\n');
+      if (routingText.trim()) {
+        skillIndex.push({
+          skillId: skill.id,
+          skillName: skill.name,
+          content: metadata.prompt || metadata.description,
+          tokens: tokenize(routingText),
+        });
+      }
+    } catch (e) {
+      console.error('[lib:skills]', e);
     }
   }
 
@@ -441,6 +534,22 @@ export function searchRelevantSkills(task: string, topK = 3): SkillEntry[] {
     .filter(s => s.score > 0);
 }
 
+function formatSkillContext(skillName: string, metadata: SkillMetadata, maxChars = 5000): string {
+  const lines: string[] = [];
+  lines.push(`### Skill: ${skillName}`);
+  if (metadata.entryFile) lines.push(`Entry: ${metadata.entryFile}`);
+  if (metadata.description) lines.push(`Use when: ${metadata.description}`);
+  if (metadata.triggers.length > 0) lines.push(`Triggers: ${metadata.triggers.join(', ')}`);
+  const supportingFiles = metadata.files.filter(f => f !== metadata.entryFile).slice(0, 12);
+  if (supportingFiles.length > 0) lines.push(`Available supporting files: ${supportingFiles.join(', ')}`);
+  if (metadata.prompt) {
+    const prompt = metadata.prompt.length > maxChars ? metadata.prompt.slice(0, maxChars) + '\n...[truncated]' : metadata.prompt;
+    lines.push('');
+    lines.push(prompt);
+  }
+  return lines.join('\n');
+}
+
 // ── Load skills context (RAG version) ────────────────────
 
 /**
@@ -460,10 +569,9 @@ export async function loadSkillsContext(agentName: string, taskContext?: string)
   if (!taskContext) {
     const parts: string[] = [];
     for (const skillName of installedSkills) {
-      const promptPath = path.join(agentDir, skillName, 'prompt.md');
       try {
-        const content = (await fs.promises.readFile(promptPath, 'utf-8')).trim();
-        if (content) parts.push(`### Skill: ${skillName}\n${content}`);
+        const metadata = readSkillMetadata(path.join(agentDir, skillName), skillName);
+        if (metadata.prompt || metadata.description) parts.push(formatSkillContext(skillName, metadata, 2500));
       } catch (e) { console.error('[lib:skills]', e); }
     }
     return parts.length > 0 ? '\n\n[启用的 Skills]\n' + parts.join('\n\n') : '';
@@ -475,7 +583,10 @@ export async function loadSkillsContext(agentName: string, taskContext?: string)
 
   if (agentRelevant.length === 0) return '';
 
-  const parts = agentRelevant.map(s => `[Skill: ${s.skillName}]\n${s.content}`);
+  const parts = agentRelevant.map(s => {
+    const metadata = readSkillMetadata(path.join(agentDir, s.skillName), s.skillName);
+    return formatSkillContext(s.skillName, metadata);
+  });
   return '\n\n[相关 Skills]\n' + parts.join('\n\n');
 }
 
@@ -487,6 +598,42 @@ export function getInstalledSkills(): Skill[] {
 
 export function getSkill(id: string): Skill | undefined {
   return loadSkills().find(s => s.id === id);
+}
+
+export function registerLocalSkill(skillName: string): Skill | null {
+  ensureDirs();
+  const skillDir = path.join(SKILLS_DIR, skillName);
+  if (!fs.existsSync(skillDir)) return null;
+  const metadata = readSkillMetadata(skillDir, skillName);
+  const hash = crypto.createHash('sha256');
+  for (const file of metadata.files.sort()) {
+    try {
+      hash.update(file);
+      hash.update(fs.readFileSync(path.join(skillDir, file), 'utf-8'));
+    } catch (e) { console.error('[lib:skills]', e); }
+  }
+  const skills = loadSkills();
+  let skill = skills.find(s => s.name === skillName);
+  if (!skill) {
+    skill = {
+      id: randomUUID().slice(0, 8),
+      name: skillName,
+      description: metadata.description,
+      repo: 'local',
+      installedAt: Date.now(),
+      version: hash.digest('hex').slice(0, 16),
+      status: 'installed',
+    };
+    skills.push(skill);
+  }
+  skill.description = metadata.description;
+  skill.prompt = metadata.prompt;
+  skill.entryFile = metadata.entryFile;
+  skill.triggers = metadata.triggers;
+  skill.files = metadata.files;
+  saveSkills(skills);
+  buildSkillIndex();
+  return skill;
 }
 
 // ── Skill Enable/Disable ─────────────────────────────────

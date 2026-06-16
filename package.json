@@ -8,13 +8,61 @@
     "dev:ws": "npx tsx server.ts",
     "dev:all": "npm run build:mcp && concurrently \"next dev\" \"npx tsx server.ts\"",
     "build": "npm run build:mcp && next build",
-    "build:exe": "npm run build:mcp && node scripts/build-exe.mjs",
+    "build:exe": "npm run build && npx @electron/rebuild -v 33.2.1 && node scripts/build-exe.mjs && electron-builder --win --x64",
     "release": "node scripts/release.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
+  },
+  "build": {
+    "appId": "cn.mindagency.desktop",
+    "productName": "Mind Agency",
+    "directories": {
+      "output": "dist-exe"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "electron/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "files": [
+      "electron/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": ".next-server-dist",
+        "to": ".next-server",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "Agents",
+        "to": "Agents",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "Groups",
+        "to": "Groups",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true
   },
   "main": "./electron/main.cjs",
   "keywords": [
@@ -39,18 +87,11 @@
   },
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.159",
     "@lancedb/lancedb": "^0.30.0",
     "@xenova/transformers": "^2.17.2",
     "better-sqlite3": "^12.10.0",
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.1",
-    "lucide-react": "^0.400.0",
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
@@ -62,11 +103,20 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/ws": "^8.18.1",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.159",
+    "lucide-react": "^0.400.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "@vitest/coverage-v8": "^4.1.8",
     "@yao-pkg/pkg": "^6.20.0",
     "caxa": "^3.0.1",
     "concurrently": "^10.0.0",
-    "electron": "^42.3.0",
+    "driver.js": "^1.4.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.0",
     "puppeteer": "^25.1.0",
     "tailwindcss": "^4.0.0",
