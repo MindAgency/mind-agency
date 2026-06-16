@@ -4,6 +4,8 @@
   "description": "Mind Agency — From Agent to Agency. 一个 AI 做不了的事，一群 AI 可以。",
   "scripts": {
     "build:mcp": "node scripts/build-mcp.mjs",
+    "clean:cache": "node scripts/clean-cache.mjs",
+    "prebuild": "node scripts/clean-cache.mjs",
     "dev": "npm run build:mcp && next dev",
     "dev:ws": "npx tsx server.ts",
     "dev:all": "npm run build:mcp && concurrently \"next dev\" \"npx tsx server.ts\"",
@@ -31,9 +33,9 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Toufumind/mind-agency.git"
+    "url": "https://github.com/MindAgency/mind-agency.git"
   },
-  "homepage": "https://github.com/Toufumind/mind-agency#readme",
+  "homepage": "https://github.com/MindAgency/mind-agency#readme",
   "engines": {
     "node": ">=18"
   },

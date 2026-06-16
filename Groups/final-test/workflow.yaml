@@ -1,0 +1,6 @@
+name: final-test-default
+steps:
+  - id: s1
+    agent: final-agent
+    action: create
+    prompt: Write hello world

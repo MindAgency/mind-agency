@@ -1,0 +1,21 @@
+name: content-pipeline
+steps:
+  - id: topic
+    agent: content-bot
+    action: execute
+    dependsOn: []
+    prompt: ��Ϊ������������3������ѡ��Ƕȣ�{topic}��ÿ��ѡ����������200�ִ�١�
+  - id: write
+    agent: biz-writer
+    action: execute
+    dependsOn:
+      - topic
+    prompt: ����ѡ������׫дһƪ800�ֵ��������¡�Ҫ�󣺽ṹ��������������������ȡ�
+  - id: review
+    agent: biz-reviewer
+    action: execute
+    dependsOn:
+      - write
+    prompt: �����������£������޸Ľ��飨����3�����彨�飩������������������1-10�֣���
+    reviewer: biz-reviewer
+description: ���ݴ�����ˮ�ߣ�ѡ��-׫д-��У

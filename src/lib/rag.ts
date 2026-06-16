@@ -13,6 +13,10 @@
 import fs from 'fs';
 import path from 'path';
 import { MIND_DIR, AGENTS_DIR, GROUPS_DIR } from './data-dir';
+import { createLogger } from '@/lib/logger';
+import type { Connection, Table } from '@lancedb/lancedb';
+
+const log = createLogger('rag');
 
 // ── Types ────────────────────────────────────────────────
 
@@ -41,6 +45,41 @@ export interface ChunkOptions {
   overlap?: number;
 }
 
+/** Shape of a record inserted into the LanceDB vector table. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface LanceRecord extends Record<string, unknown> {
+  id: string;
+  content: string;
+  vector: number[];
+  source: string;
+  agent: string;
+  group: string;
+  key: string;
+  fileName: string;
+  chunkIndex: number;
+  timestamp: number;
+}
+
+/** Shape of a row returned from a LanceDB query. */
+interface LanceRow {
+  id: string;
+  content: string;
+  source: string;
+  agent: string;
+  group: string;
+  key: string;
+  fileName: string;
+  chunkIndex: number;
+  timestamp: number;
+  _distance?: number;
+}
+
+/** Callable signature shared by @xenova/transformers pipeline outputs. */
+type PipelineFn = (input: unknown, options?: Record<string, unknown>) => Promise<{ data: Float32Array | number[]; dims?: number[] }>;
+
+/** Callable signature for reranker pipeline output. */
+type RerankerFn = (input: unknown, options?: Record<string, unknown>) => Promise<Array<{ score: number }>>;
+
 // ── Constants ────────────────────────────────────────────
 
 const RAG_DIR = path.join(MIND_DIR, 'rag');
@@ -68,10 +107,10 @@ const SIMHASH_DEDUP_THRESHOLD = 3;
 
 // ── Globals ──────────────────────────────────────────────
 
-let embeddingPipeline: any = null;
-let rerankerPipeline: any = null;
-let db: any = null;
-let table: any = null;
+let embeddingPipeline: unknown = null;
+let rerankerPipeline: unknown = null;
+let db: Connection | null = null;
+let table: Table | null = null;
 
 // ── SimHash for fast deduplication ───────────────────────
 // SimHash produces a 64-bit fingerprint using two 32-bit halves;
@@ -110,6 +149,10 @@ function simHash(text: string): [number, number] {
     if (v[i + 32] > 0) hi |= (1 << i);
   }
   return [lo, hi];
+}
+
+function escapeLike(s: string): string {
+  return s.replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
 function simpleStringHash(str: string): number {
@@ -161,7 +204,7 @@ async function ensureDirs(): Promise<void> {
   }
 }
 
-async function getEmbeddingPipeline(): Promise<any> {
+async function getEmbeddingPipeline(): Promise<unknown> {
   if (embeddingPipeline) return embeddingPipeline;
 
   try {
@@ -169,10 +212,10 @@ async function getEmbeddingPipeline(): Promise<any> {
     embeddingPipeline = await pipeline('feature-extraction', EMBEDDING_MODEL, {
       cache_dir: MODELS_DIR,
     });
-    console.log('[rag] Embedding model loaded:', EMBEDDING_MODEL);
+    log.info('Embedding model loaded:', EMBEDDING_MODEL);
     return embeddingPipeline;
   } catch (error) {
-    console.warn('[rag] Failed to load embedding model, using fallback:', error);
+    log.warn('Failed to load embedding model, using fallback:', error);
     // Fallback: simple hash-based embedding
     return {
       async call(text: string) {
@@ -183,7 +226,7 @@ async function getEmbeddingPipeline(): Promise<any> {
   }
 }
 
-async function getRerankerPipeline(): Promise<any> {
+async function getRerankerPipeline(): Promise<unknown> {
   if (rerankerPipeline) return rerankerPipeline;
 
   try {
@@ -191,10 +234,10 @@ async function getRerankerPipeline(): Promise<any> {
     rerankerPipeline = await pipeline('text-classification', RERANKER_MODEL, {
       cache_dir: MODELS_DIR,
     });
-    console.log('[rag] Reranker model loaded:', RERANKER_MODEL);
+    log.info('Reranker model loaded:', RERANKER_MODEL);
     return rerankerPipeline;
   } catch (error) {
-    console.warn('[rag] Failed to load reranker model, will skip reranking:', error);
+    log.warn('Failed to load reranker model, will skip reranking:', error);
     // Return null to indicate reranking is not available
     return null;
   }
@@ -212,17 +255,17 @@ function simpleHash(text: string): number[] {
   return hash.map(val => val / (norm || 1));
 }
 
-async function getDb(): Promise<any> {
+async function getDb(): Promise<Connection> {
   if (db) return db;
 
   await ensureDirs();
   const lancedb = await import('@lancedb/lancedb');
   db = await lancedb.connect(LANCE_DIR);
-  console.log('[rag] LanceDB initialized at:', LANCE_DIR);
+  log.info('LanceDB initialized at:', LANCE_DIR);
   return db;
 }
 
-async function getTable(): Promise<any> {
+async function getTable(): Promise<Table> {
   if (table) return table;
 
   const database = await getDb();
@@ -230,7 +273,7 @@ async function getTable(): Promise<any> {
   try {
     // Try to open existing table
     table = await database.openTable(TABLE_NAME);
-    console.log('[rag] Opened existing table:', TABLE_NAME);
+    log.info('Opened existing table:', TABLE_NAME);
   } catch {
     // Create new table with schema
     table = await database.createTable(TABLE_NAME, [
@@ -249,7 +292,7 @@ async function getTable(): Promise<any> {
     ]);
     // Remove placeholder
     await table.delete('id = "placeholder"');
-    console.log('[rag] Created new table:', TABLE_NAME);
+    log.info('Created new table:', TABLE_NAME);
   }
 
   return table;
@@ -257,8 +300,17 @@ async function getTable(): Promise<any> {
 
 // ── Embedding ────────────────────────────────────────────
 
+/**
+ * Generates a 384-dimensional embedding vector for the given text.
+ *
+ * Uses BGE-small-zh-v1.5 via a local ONNX pipeline. Falls back to a
+ * simple hash-based embedding when the model is unavailable.
+ *
+ * @param text - The text to embed.
+ * @returns A 384-element numeric vector representing the semantic content.
+ */
 export async function embed(text: string): Promise<number[]> {
-  const pipe = await getEmbeddingPipeline();
+  const pipe = await getEmbeddingPipeline() as PipelineFn;
   try {
     const output = await pipe(text, { pooling: 'mean', normalize: true });
     return Array.from(output.data);
@@ -268,8 +320,17 @@ export async function embed(text: string): Promise<number[]> {
   }
 }
 
+/**
+ * Generates embedding vectors for an array of texts in batches of 32.
+ *
+ * More efficient than calling {@link embed} in a loop because it leverages
+ * batched inference on the ONNX model.
+ *
+ * @param texts - The texts to embed.
+ * @returns An array of 384-dimensional embedding vectors, one per input text.
+ */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  const pipe = await getEmbeddingPipeline();
+  const pipe = await getEmbeddingPipeline() as PipelineFn;
   try {
     const results: number[][] = [];
 
@@ -277,8 +338,16 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
     for (let i = 0; i < texts.length; i += 32) {
       const batch = texts.slice(i, i + 32);
       const output = await pipe(batch, { pooling: 'mean', normalize: true });
-      for (let j = 0; j < batch.length; j++) {
-        results.push(Array.from(output.data.slice(j * output.dims[1], (j + 1) * output.dims[1])));
+      if (output.dims) {
+        // Normal embedding output with dims metadata
+        for (let j = 0; j < batch.length; j++) {
+          results.push(Array.from(output.data.slice(j * output.dims[1], (j + 1) * output.dims[1])));
+        }
+      } else {
+        // Fallback (simpleHash) — output.data is already the full vector
+        for (let j = 0; j < batch.length; j++) {
+          results.push(Array.from(output.data));
+        }
       }
     }
 
@@ -298,6 +367,19 @@ function estimateTokens(text: string): number {
   return chineseChars * 2 + englishWords;
 }
 
+/**
+ * Splits text into overlapping chunks suitable for embedding.
+ *
+ * Structure-aware: respects markdown H1/H2/H3 headings by merging each
+ * heading with its following content before chunking. Falls back to
+ * paragraph-level splitting when no headings are present.
+ *
+ * @param text   - The full text to split.
+ * @param options - Optional chunk size and overlap settings.
+ * @param options.maxTokens - Maximum tokens per chunk (default 512).
+ * @param options.overlap   - Number of overlapping tokens between chunks (default 50).
+ * @returns An array of text chunks, each within the token limit.
+ */
 export function chunkText(text: string, options: ChunkOptions = {}): string[] {
   const { maxTokens = 512, overlap = 50 } = options;
 
@@ -381,6 +463,13 @@ function chunkParagraphs(text: string, maxTokens: number, overlap: number): stri
 
 // ── Document Indexing ────────────────────────────────────
 
+/**
+ * Chunks, embeds, deduplicates, and stores a single document in the vector index.
+ *
+ * Near-duplicate chunks are detected and skipped via SimHash fingerprinting.
+ *
+ * @param doc - The RAG document to index. Must include a unique `id`, `content`, and `metadata`.
+ */
 export async function indexDocument(doc: RAGDocument): Promise<void> {
   const tbl = await getTable();
 
@@ -391,7 +480,7 @@ export async function indexDocument(doc: RAGDocument): Promise<void> {
   const embeddings = await embedBatch(chunks);
 
   // Prepare data for LanceDB, with SimHash dedup
-  const records: any[] = [];
+  const records: LanceRecord[] = [];
   let dedupedCount = 0;
 
   for (let i = 0; i < chunks.length; i++) {
@@ -419,15 +508,28 @@ export async function indexDocument(doc: RAGDocument): Promise<void> {
     await tbl.add(records);
   }
 
-  console.log(`[rag] Indexed document ${doc.id} (${records.length} chunks, ${dedupedCount} deduped)`);
+  log.info(`Indexed document ${doc.id} (${records.length} chunks, ${dedupedCount} deduped)`);
 }
 
+/**
+ * Indexes multiple documents sequentially into the vector store.
+ *
+ * Convenience wrapper that calls {@link indexDocument} for each document.
+ *
+ * @param docs - Array of RAG documents to index.
+ */
 export async function indexDocuments(docs: RAGDocument[]): Promise<void> {
   for (const doc of docs) {
     await indexDocument(doc);
   }
 }
 
+/**
+ * Removes all chunks belonging to the given document from the vector index.
+ *
+ * @param docId - The document ID whose chunks should be deleted (e.g. `"memory:me:recall"`).
+ * @throws {Error} If `docId` contains invalid characters.
+ */
 export async function deleteDocument(docId: string): Promise<void> {
   // Validate docId to prevent injection
   if (!/^[a-zA-Z0-9_\-:.]+$/.test(docId)) {
@@ -437,13 +539,27 @@ export async function deleteDocument(docId: string): Promise<void> {
   const tbl = await getTable();
 
   // Delete all chunks of this document
-  await tbl.delete(`id LIKE '${docId}_chunk_%'`);
+  await tbl.delete(`id LIKE '${escapeLike(docId)}_chunk_%'`);
 
-  console.log(`[rag] Deleted document ${docId}`);
+  log.info(`Deleted document ${docId}`);
 }
 
 // ── Retrieval ────────────────────────────────────────────
 
+/**
+ * Performs a hybrid (neural + BM25) similarity search over the vector index.
+ *
+ * The search pipeline: neural retrieval from LanceDB, optional BM25 fusion
+ * scoring, and optional neural reranking via BGE-Reranker.
+ *
+ * @param query   - The natural-language search query.
+ * @param options - Search configuration.
+ * @param options.topK    - Maximum number of results to return (default 10).
+ * @param options.filter  - LanceDB WHERE clause for metadata filtering (e.g. `agent = 'me'`).
+ * @param options.rerank  - Whether to apply neural reranking (default true).
+ * @param options.hybrid  - Whether to blend BM25 + neural scores (default true).
+ * @returns Sorted array of {@link RAGResult} with relevance scores.
+ */
 export async function search(
   query: string,
   options: {
@@ -471,12 +587,12 @@ export async function search(
   const results = await queryBuilder.toArray();
 
   // Convert to RAGResult[]
-  let ragResults: RAGResult[] = results.map((row: any) => ({
+  let ragResults: RAGResult[] = results.map((row: LanceRow) => ({
     document: {
       id: row.id.replace(/_chunk_\d+$/, ''),
       content: row.content,
       metadata: {
-        source: row.source,
+        source: row.source as RAGDocument['metadata']['source'],
         agent: row.agent || undefined,
         group: row.group || undefined,
         key: row.key || undefined,
@@ -616,7 +732,7 @@ function isDuplicate(docId: string, content: string): boolean {
 
 async function rerankResults(query: string, results: RAGResult[]): Promise<RAGResult[]> {
   try {
-    const pipe = await getRerankerPipeline();
+    const pipe = await getRerankerPipeline() as RerankerFn | null;
 
     // If reranker is not available, return original results
     if (!pipe) {
@@ -640,7 +756,7 @@ async function rerankResults(query: string, results: RAGResult[]): Promise<RAGRe
 
     return reranked;
   } catch (error) {
-    console.warn('[rag] Reranking failed, using original order:', error);
+    log.warn('Reranking failed, using original order:', error);
     // Return results with original scores
     return results;
   }
@@ -648,6 +764,15 @@ async function rerankResults(query: string, results: RAGResult[]): Promise<RAGRe
 
 // ── Data Source Indexing ─────────────────────────────────
 
+/**
+ * Indexes all markdown memory files for the given agent.
+ *
+ * Reads `.md` files from `Agents/<agent>/memory/`, parses YAML frontmatter
+ * (including tags), and indexes the body text with enriched metadata.
+ *
+ * @param agent - The agent name whose memories should be indexed.
+ * @returns The number of memory documents indexed.
+ */
 export async function indexAgentMemory(agent: string): Promise<number> {
   const memDir = path.join(MIND_DIR, 'agents', agent, 'memory');
   if (!fs.existsSync(memDir)) return 0;
@@ -699,6 +824,14 @@ export async function indexAgentMemory(agent: string): Promise<number> {
   return docs.length;
 }
 
+/**
+ * Indexes the prompt files for all skills owned by the given agent.
+ *
+ * Reads `prompt.md` from each subdirectory under `Agents/<agent>/skills/`.
+ *
+ * @param agent - The agent name whose skills should be indexed.
+ * @returns The number of skill documents indexed.
+ */
 export async function indexAgentSkills(agent: string): Promise<number> {
   const skillsDir = path.join(AGENTS_DIR, agent, 'skills');
   if (!fs.existsSync(skillsDir)) return 0;
@@ -730,6 +863,14 @@ export async function indexAgentSkills(agent: string): Promise<number> {
   return docs.length;
 }
 
+/**
+ * Indexes all knowledge files (`.md` and `.txt`) for the given agent.
+ *
+ * Reads files from `Agents/<agent>/knowledge/`.
+ *
+ * @param agent - The agent name whose knowledge base should be indexed.
+ * @returns The number of knowledge documents indexed.
+ */
 export async function indexAgentKnowledge(agent: string): Promise<number> {
   const knowledgeDir = path.join(AGENTS_DIR, agent, 'knowledge');
   if (!fs.existsSync(knowledgeDir)) return 0;
@@ -758,6 +899,14 @@ export async function indexAgentKnowledge(agent: string): Promise<number> {
   return docs.length;
 }
 
+/**
+ * Indexes all shared knowledge files for the given group.
+ *
+ * Reads `.md` and `.txt` files from `Groups/<group>/knowledge/`.
+ *
+ * @param group - The group name whose shared knowledge should be indexed.
+ * @returns The number of group knowledge documents indexed.
+ */
 export async function indexGroupKnowledge(group: string): Promise<number> {
   const knowledgeDir = path.join(GROUPS_DIR, group, 'knowledge');
   if (!fs.existsSync(knowledgeDir)) return 0;
@@ -788,6 +937,15 @@ export async function indexGroupKnowledge(group: string): Promise<number> {
 
 // ── Session Context ──────────────────────────────────────
 
+/**
+ * Indexes recent chat messages as session context for the given agent.
+ *
+ * Only the last 10 messages are indexed to avoid noise. Messages are
+ * formatted as `[role] content` pairs.
+ *
+ * @param agent    - The agent name to associate the session context with.
+ * @param messages - Array of chat messages with `role` and `content`.
+ */
 export async function indexSessionContext(agent: string, messages: Array<{ role: string; content: string }>): Promise<void> {
   // Only index last N messages to avoid noise
   const recentMessages = messages.slice(-10);
@@ -811,6 +969,17 @@ export async function indexSessionContext(agent: string, messages: Array<{ role:
 
 // ── Full Indexing ────────────────────────────────────────
 
+/**
+ * Performs a full re-index of all data sources for the given agent.
+ *
+ * Runs memory, skills, knowledge, and optional group-knowledge indexing
+ * in parallel. Returns a breakdown of how many documents were indexed
+ * per source.
+ *
+ * @param agent - The agent name to index all data sources for.
+ * @param group - Optional group name; if provided, group knowledge is also indexed.
+ * @returns Counts of indexed documents per source type.
+ */
 export async function indexAll(agent: string, group?: string): Promise<{
   memory: number;
   skills: number;
@@ -824,12 +993,28 @@ export async function indexAll(agent: string, group?: string): Promise<{
     group ? indexGroupKnowledge(group) : Promise.resolve(0),
   ]);
 
-  console.log(`[rag] Full index for ${agent}: memory=${memory}, skills=${skills}, knowledge=${knowledge}, group=${groupKnowledge}`);
+  log.info(`Full index for ${agent}: memory=${memory}, skills=${skills}, knowledge=${knowledge}, group=${groupKnowledge}`);
   return { memory, skills, knowledge, groupKnowledge };
 }
 
 // ── RAG Query (Main Entry Point) ─────────────────────────
 
+/**
+ * High-level RAG query that searches, formats, and returns context for an AI prompt.
+ *
+ * Filters results to the specified agent's memory/skills/knowledge plus
+ * any shared group knowledge. Returns a formatted string suitable for
+ * injection into an AI system prompt.
+ *
+ * @param agent   - The agent to retrieve context for.
+ * @param query   - The natural-language query.
+ * @param options - Query options.
+ * @param options.group           - Group name to include group knowledge in results.
+ * @param options.topK            - Maximum results to return (default 5).
+ * @param options.includeSession  - Whether to include session context (reserved).
+ * @param options.sessionMessages - Chat messages for session context (reserved).
+ * @returns A formatted string of RAG context blocks, or an empty string if nothing was found.
+ */
 export async function ragQuery(
   agent: string,
   query: string,
@@ -844,13 +1029,14 @@ export async function ragQuery(
 
   // Validate agent name to prevent injection
   if (!/^[a-zA-Z0-9_\-]+$/.test(agent)) {
-    console.warn(`[rag] Invalid agent name: ${agent}`);
+    log.warn(`Invalid agent name: ${agent}`);
     return '';
   }
 
   // Build filter for this agent/group
   // Include: memory, skill, knowledge for this agent + group_knowledge
-  const filter = `(agent = '${agent}' AND (source = 'memory' OR source = 'skill' OR source = 'knowledge')) OR source = 'group_knowledge'`;
+  const safeAgent = agent.replace(/'/g, "''");
+  const filter = `(agent = '${safeAgent}' AND (source = 'memory' OR source = 'skill' OR source = 'knowledge')) OR source = 'group_knowledge'`;
 
   // Search
   const results = await search(query, {
@@ -881,18 +1067,30 @@ export async function ragQuery(
 
 // ── Cleanup ──────────────────────────────────────────────
 
+/**
+ * Drops the entire RAG vector table from LanceDB, effectively clearing all indexed data.
+ *
+ * After calling this function the table must be re-created on the next
+ * {@link indexDocument} or {@link search} call.
+ */
 export async function clearCollection(): Promise<void> {
   const database = await getDb();
 
   try {
     await database.dropTable(TABLE_NAME);
     table = null;
-    console.log('[rag] Table dropped');
+    log.info('Table dropped');
   } catch {
     // Table might not exist
   }
 }
 
+/**
+ * Returns usage statistics for the RAG vector collection.
+ *
+ * @returns An object with total chunk count, a breakdown of chunks by
+ *          source type, and the number of SimHash dedup entries in memory.
+ */
 export async function getCollectionStats(): Promise<{
   count: number;
   sources: Record<string, number>;

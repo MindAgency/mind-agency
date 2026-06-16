@@ -1,8 +1,17 @@
-import { NextResponse } from 'next/server';
-import os from 'os';
-import { DATA_DIR } from '@/lib/data-dir';
+/**
+ * GET /api/system/status — System resource status
+ *
+ * Returns OS-level metrics: CPU load, memory usage, uptime,
+ * data directory path, and current working directory.
+ */
 
-export async function GET() {
+import { NextResponse } from 'next/server';
+import { safeHandler } from '@/lib/api-handler';
+
+export const GET = safeHandler(async () => {
+  const os = await import('os');
+  const { DATA_DIR } = await import('@/lib/data-dir');
+
   const [load1] = os.loadavg();
   const cpuCount = os.cpus().length;
   const freeMem = os.freemem();
@@ -15,4 +24,4 @@ export async function GET() {
     dataDir: DATA_DIR,
     cwd: process.cwd(),
   });
-}
+});

@@ -1,0 +1,6 @@
+name: ai-test-default
+steps:
+  - id: s1
+    agent: ai-agent
+    action: create
+    prompt: Write a Python hello world function

@@ -1,0 +1,28 @@
+name: legal-doc-review
+steps:
+  - id: initial-review
+    agent: legal-researcher
+    action: execute
+    prompt: >-
+      Review the submitted legal document for completeness, identify key
+      clauses, potential risks, and areas that need attention. Provide a
+      structured summary.
+  - id: risk-analysis
+    agent: legal-researcher
+    action: execute
+    dependsOn:
+      - initial-review
+    prompt: >-
+      Based on the initial review, analyze the legal risks in each identified
+      clause. Consider relevant Chinese laws and regulations. Provide risk
+      ratings (high/medium/low) for each issue found.
+  - id: final-report
+    agent: legal-researcher
+    action: execute
+    dependsOn:
+      - risk-analysis
+    prompt: >-
+      Compile a comprehensive legal review report combining the initial review
+      and risk analysis. Include: 1) Executive summary, 2) Key findings, 3) Risk
+      assessment table, 4) Recommended actions, 5) Suggested clause revisions.
+description: Legal document review workflow

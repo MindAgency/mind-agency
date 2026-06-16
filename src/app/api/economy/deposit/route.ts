@@ -1,16 +1,17 @@
 /**
  * POST /api/economy/deposit — deposit tokens to agent
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { deposit } from '@/lib/token-economy';
+import { apiOk, apiBadRequest, apiInternal } from '@/lib/api-utils';
 
 export async function POST(request: NextRequest) {
   try {
     const { agent, amount, from, reason } = await request.json();
-    if (!agent || !amount) return NextResponse.json({ error: 'agent and amount required' }, { status: 400 });
-    const balance = deposit(agent, Number(amount), reason || 'deposit');
-    return NextResponse.json({ ok: true, balance });
+    if (!agent || !amount) return apiBadRequest('agent and amount required');
+    const balance = await deposit(agent, Number(amount), reason || 'deposit');
+    return apiOk({ balance });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return apiInternal(e.message);
   }
 }

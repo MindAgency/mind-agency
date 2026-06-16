@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "a6f0211f-b03d-4ca5-ba2c-35cc530afed6",
+      "stepId": "draft-onboarding",
+      "workflow": "hiring-pipeline",
+      "prompt": "Based on the interview results, draft a comprehensive onboarding plan for the selected candidate. Include first-week schedule, required documents, and training modules.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781592052915,
+      "completedAt": 1781592070021,
+      "result": "**新员工入职计划 - 候选人 [请填入姓名]**\n\n**一、 第一周日程安排 (示例)**\n*   **第一天 (周一)：** 欢迎与基础导览\n    *   09:00-10:00：欢迎会议（直属经理、HR、团队成员）\n    *   10:00-12:00：公司文化、价值观与组织架构介绍（HR）\n    *   14:00-15:00：办公环境导览与行政手续办理（领取设备、工卡等）\n    *   15:00-16:30：IT设置与基础系统开通（邮箱、即时通讯、VPN等）\n*   **第二天 (周二)：** 团队与流程融入\n    *   09:00-12:00：与直接搭档及团队核心成员深度交流\n    *   14:00-16:00：了解团队工作流程、关键项目及常用工具\n    *   16:00-17:00：设置个人开发/工作环境\n*   **第三天 (周三)：** 角色与任务聚焦\n    *   09:00-11:00：与经理一对一沟通，明确岗位职责、绩效期望与初期目标\n    *   14:00-17:00：开始“导师制”或“伙伴制”计划，由指定伙伴带领熟悉具体业务细节\n"
+    }
+  ]
+}

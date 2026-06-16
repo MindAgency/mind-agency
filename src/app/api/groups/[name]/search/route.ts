@@ -1,3 +1,10 @@
+/**
+ * GET /api/groups/{name}/search?q=<query> — Search group chat messages
+ *
+ * Returns messages containing the search query with surrounding context.
+ * Results are limited to the last 20 messages in the group.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
 

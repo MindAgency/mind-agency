@@ -1,0 +1,6 @@
+name: sim-test-default
+steps:
+  - id: s1
+    agent: test-agent
+    action: create
+    prompt: Write hello world

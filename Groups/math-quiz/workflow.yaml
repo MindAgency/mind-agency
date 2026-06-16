@@ -1,0 +1,22 @@
+name: math-quiz-generation
+description: ������ѧС��������
+steps:
+  - id: generate_quiz
+    agent: math-exam-writer
+    action: execute
+    prompt: |
+      ���Ǹ�����ѧ����ר�ҡ���Ϊ��һ�꼶��Grade 10�����һ������С���顣
+      Ҫ��
+      1. 5��ѡ���⣨ÿ��3�֣���֪ʶ�㣺�������㡢����������һ�κ��������ԡ����κ������㡢��ż��
+      2. 2������⣨ÿ��3�֣���֪ʶ�㣺���ϱ�ʾ��������ֵ
+      3. 1������⣨6�֣���֪ʶ�㣺���κ����ۺ�
+      4. ����׼�𰸺��Ѷȱ�ע
+      5. �Ѷȱ���������60%���е�30%���μ�10%
+      ע�⣺���Ǹ���һ�꼶������Сѧһ�꼶��
+  - id: review_quiz
+    agent: teacher-bot
+    action: review
+    dependsOn:
+      - generate_quiz
+    prompt: ������С������壬�����Ŀ׼ȷ�Ժ��Ѷȷֲ���
+    reviewer: math-exam-writer

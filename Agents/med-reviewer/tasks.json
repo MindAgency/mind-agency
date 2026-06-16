@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "1189f705-fc3a-4185-9f07-44f8b499260c",
+      "stepId": "quality-review",
+      "workflow": "medical-literature-review",
+      "prompt": "���������������������֤�ݵȼ���GRADE�ּ�����ָ���о������Ժ�ƫ�з���",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781604624493,
+      "completedAt": 1781604664853,
+      "result": "## CAR-T血液肿瘤文献质量评审报告\n\n### 一、GRADE证据分级评估\n\n| 临床问题 | 纳入研究 | 证据质量 | 理由 |\n|----------|----------|----------|------|\n| Carvykti 1-3线R/R MM | CARTITUDE-4 (III期RCT) | **中等** | 随机对照设计，主要终点PFS统计学显著(HR≈0.26)，但开放标签设计降级 |\n| Abecma 2-4线R/R MM | KarMMa-3 (III期RCT) | **中等** | RCT设计，PFS显著延长，样本量适中 |\n| Breyanzi 二线LBCL | TRANSFORM (III期RCT) | **中等** | RCT vs ASCT，PFS改善显著 |\n| Yescarta 二线LBCL | ZUMA-7 (III期RCT) | **中等至高** | 长期随访(5年)数据支持，OS获益趋势 |\n| 新兴靶点(GPRC5D等) | I/II期研究 | **低** | 早期研究，无对照组，样本量小 |\n\n**GRADE降级因素**：\n1. "
+    }
+  ]
+}

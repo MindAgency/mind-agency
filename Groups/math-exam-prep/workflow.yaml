@@ -1,0 +1,18 @@
+name: math-exam-prep-exam
+steps:
+  - id: generate-questions
+    agent: math-exam-expert
+    action: execute
+    prompt: >-
+      ���һ�ݸ�һ��ѧ���п����Ծ���������ѡ����5�������������Ǻ������������3�������У��������2���������ۺϡ����Ǻ���Ӧ�ã���ÿ����ע����ֵ��֪ʶ�㡣�Ѷ��е�ƫ�ѣ������¸߿�Ҫ��
+    timeout: 120000
+  - id: review-questions
+    agent: math-ta
+    action: execute
+    dependsOn:
+      - generate-questions
+    prompt: >-
+      �����������ѧ���⣬��飺1.��Ŀ�Ƿ��Ͻ����� 2.�Ѷ��Ƿ���� 3.֪ʶ�㸲���Ƿ�ȫ��
+      4.��ֵ�����Ƿ�����������޸Ľ��顣
+    timeout: 120000
+description: ������ѧ���п������⹤����

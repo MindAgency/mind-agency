@@ -2,6 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('sidebar-context');
 
 interface AgentInfo { name: string; emailCount: number; }
 interface GroupInfo { name: string; }
@@ -20,6 +23,13 @@ interface SidebarData {
 
 const SidebarContext = createContext<SidebarData>({ agents: [], groups: [], activity: {}, loading: true, refresh: () => {}, collapsed: false, setCollapsed: () => {} });
 
+/**
+ * Context provider that supplies sidebar data (agents, groups, activity) to the
+ * entire component tree. Handles polling, heartbeat checks, and WebSocket events
+ * for real-time updates.
+ *
+ * @param children - React children to wrap with the sidebar context
+ */
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -65,7 +75,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
         const map: AgentActivity = {};
         agentResults.forEach(r => { map[r.name] = { active: r.active, status: r.status, detail: r.detail }; });
         setActivity(map);
-      } catch (e) { console.error('[components:sidebar-context]', e); }
+      } catch (e) { logger.error('Heartbeat poll failed', e); }
     };
 
     // Initial poll
@@ -84,6 +94,12 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const wsUrl = typeof window !== 'undefined' ? `ws://${window.location.hostname}:3001` : null;
   useWebSocket(wsUrl, (data) => {
     if (data.type === 'sidebar_refresh') refresh();
+    if (data.type === 'wf_step_status') {
+      window.dispatchEvent(new CustomEvent('wf_step_status', { detail: data }));
+    }
+    if (data.type === 'wf_approval') {
+      window.dispatchEvent(new CustomEvent('wf_approval', { detail: data }));
+    }
   });
 
   return (
@@ -93,4 +109,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Hook to consume sidebar data from the nearest {@link SidebarProvider}.
+ * Returns agents, groups, activity status, loading flag, and controls.
+ */
 export function useSidebarData() { return useContext(SidebarContext); }

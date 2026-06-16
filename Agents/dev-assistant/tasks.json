@@ -1,0 +1,79 @@
+{
+  "pending": [
+    {
+      "runId": "ea08d5d7-9bb0-453c-8181-de832410b8b8",
+      "stepId": "code",
+      "workflow": "dev-sim",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781560544793
+    },
+    {
+      "runId": "98cc19ec-d690-4bd3-971e-9439809af80c",
+      "stepId": "code",
+      "workflow": "dev-sim",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781560545501
+    }
+  ],
+  "completed": [
+    {
+      "runId": "e1521416-2fc7-43a8-816d-661ffa9e1f29",
+      "stepId": "code",
+      "workflow": "dev-sim",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781560646995,
+      "completedAt": 1781560653753,
+      "result": ""
+    },
+    {
+      "runId": "b4632d24-10f5-4250-b2cd-f66f88dffd6d",
+      "stepId": "review",
+      "workflow": "dev-sim",
+      "prompt": "Review the code",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781560576858,
+      "completedAt": 1781560608106,
+      "result": "APPROVED: Code review passed - Fibonacci function is correct and efficient"
+    },
+    {
+      "runId": "b4632d24-10f5-4250-b2cd-f66f88dffd6d",
+      "stepId": "code",
+      "workflow": "dev-sim",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781560559554,
+      "completedAt": 1781560576848,
+      "result": "COMPLETED: Fibonacci function written in Python with iterative approach"
+    },
+    {
+      "runId": "ffbaeeb2-70bc-4bb8-a1ed-fe9209ff7a5c",
+      "stepId": "code",
+      "workflow": "dev-sim",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781560352900,
+      "completedAt": 1781560426458,
+      "result": ""
+    },
+    {
+      "runId": "1fcc0461-77b4-470e-9b5c-8dadef2a4ebc",
+      "stepId": "code",
+      "workflow": "dev-sim-default",
+      "prompt": "Write a Python fibonacci function",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781560171749,
+      "completedAt": 1781560426450,
+      "result": ""
+    }
+  ]
+}

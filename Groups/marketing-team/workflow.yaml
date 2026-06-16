@@ -1,0 +1,25 @@
+name: marketing-campaign
+description: "��������Pro Q3Ӫ������"
+steps:
+  - id: market-research
+    agent: Alice
+    action: execute
+    prompt: "�����г�����ר�ҡ���Ϊ��Ʒ��������Pro�����г����У�������1)Ŀ���г���������С��ҵAI�����г���2)�û����� 3)�г����ơ������ʽΪMarkdown���档"
+  - id: competitor-analysis
+    agent: Bob
+    action: execute
+    prompt: "���Ǿ�Ʒ����ʦ���������������Pro����Ҫ��Ʒ��������1)��Ʒ�б��������ƶԱ� 2)�۸���Է��� 3)���컯���ᡣ�����ʽΪMarkdown���档"
+  - id: marketing-copy
+    agent: Charlie
+    action: execute
+    dependsOn:
+      - market-research
+      - competitor-analysis
+    prompt: "��������Ӫ���İ�ר�ҡ������г����к;�Ʒ���������Ϊ��������Pro׫д������Q3Ӫ��������������1)������������ 2)Ʒ�ƶ�λ 3)Ӫ���������� 4)3�ײ�ͬ���Ĺ���İ���רҵ��/�����/�����ͣ�5)�罻ý���ƹ�ƻ���Ҫ���İ��������������ʹ��⣬��Ҫ�׻��ջ���"
+  - id: review-plan
+    agent: Alice
+    action: review
+    dependsOn:
+      - marketing-copy
+    reviewer: me
+    prompt: "������Ӫ���������������׼ȷ�ԡ��߼������Ժ��İ������������޸Ľ��顣"

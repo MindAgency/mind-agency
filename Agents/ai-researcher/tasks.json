@@ -1,0 +1,14 @@
+{
+  "pending": [
+    {
+      "runId": "df0ca828-fa72-4ff7-91d1-68824ca4ff42",
+      "stepId": "research",
+      "workflow": "ai-article-workflow",
+      "prompt": "�������о�2025-2026��AI�������Ҫ��չ",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781590741841
+    }
+  ],
+  "completed": []
+}

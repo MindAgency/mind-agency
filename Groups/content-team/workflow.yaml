@@ -1,0 +1,38 @@
+name: article-writing
+steps:
+  - id: research
+    agent: linjie-writer
+    action: execute
+    prompt: >-
+      Research and outline a 1000-word article about "ΪʲôAIд����Ҫ���Ĺػ�" (Why AI
+      Writing Needs Human Touch). Provide: 1) A compelling title, 2) 3 main
+      arguments, 3) Supporting evidence for each, 4) A conclusion
+  - id: write
+    agent: linjie-writer
+    action: execute
+    dependsOn:
+      - research
+    prompt: >-
+      Based on the research outline, write a complete 1000-word article in
+      Chinese. The article should be engaging, well-structured, and have a clear
+      narrative flow. Use vivid examples and maintain a professional yet
+      accessible tone.
+  - id: review
+    agent: linjie-editor
+    action: execute
+    dependsOn:
+      - write
+    prompt: >-
+      Review the article for: 1) Grammar and clarity, 2) Logical flow, 3)
+      Engaging opening and closing, 4) Proper citations. Provide specific
+      feedback and suggested improvements.
+  - id: revise
+    agent: linjie-writer
+    action: execute
+    dependsOn:
+      - review
+    prompt: >-
+      Incorporate the editor feedback to polish the article. Focus on improving
+      readability, strengthening arguments, and ensuring the article resonates
+      with readers.
+description: AI-assisted article writing workflow

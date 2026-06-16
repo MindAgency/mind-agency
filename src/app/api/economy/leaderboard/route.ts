@@ -1,14 +1,14 @@
 /**
  * GET /api/economy/leaderboard — get token leaderboard
  */
-import { NextResponse } from 'next/server';
 import { getLeaderboard } from '@/lib/token-economy';
+import { apiOk, apiInternal } from '@/lib/api-utils';
 
 export async function GET() {
   try {
     const leaderboard = getLeaderboard();
-    return NextResponse.json({ leaderboard });
+    return apiOk({ leaderboard });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return apiInternal(e.message);
   }
 }

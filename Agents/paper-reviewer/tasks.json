@@ -1,0 +1,38 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "484cc946-8107-4a98-9716-9dffd3815c8d",
+      "stepId": "review",
+      "workflow": "llm-research-lit-review",
+      "prompt": "Review the search results",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781588405515,
+      "completedAt": 1781588433973,
+      "result": "COMPLETED: Review done\nAll good"
+    },
+    {
+      "runId": "484cc946-8107-4a98-9716-9dffd3815c8d",
+      "stepId": "review",
+      "workflow": "llm-research-lit-review",
+      "prompt": "Review the search results",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781588298983,
+      "completedAt": 1781588314146,
+      "result": "COMPLETED: Review completed\nAttention mechanisms show strong results across NLP tasks. Recommendation: approve for further synthesis."
+    },
+    {
+      "runId": "732cb760-c425-41d8-b7ce-67ae54fb5cfe",
+      "stepId": "expert_review",
+      "workflow": "llm-research-paper-review",
+      "prompt": "Review the critical analysis. Rate each research direction on novelty (1-5), feasibility (1-5), and expected impact (1-5). Provide a final recommendation.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781587796212,
+      "completedAt": 1781587813238,
+      "result": "COMPLETED: Expert review completed with ratings and recommendation\nEXPERT REVIEW SCORES:\n\nDirection 1 - Structured CoT with Verification:\n- Novelty: 3/5\n- Feasibility: 4/5\n- Impact: 5/5\n- Total: 12/15\n- Review: Strong direction, builds on proven CoT approach. Verification component addresses key limitation.\n\nDirection 2 - Multi-Agent Reasoning:\n- Novelty: 4/5\n- Feasibility: 3/5\n- Impact: 4/5\n- Total: 11/15\n- Review: High novelty but requires infrastructure investment. The Mind Agency platform it"
+    }
+  ]
+}

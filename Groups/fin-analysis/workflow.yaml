@@ -1,0 +1,26 @@
+name: fin-analysis-workflow
+description: "����������� - �������ռ�����������"
+steps:
+  - id: data_collection
+    agent: Alice
+    action: execute
+    prompt: "�ռ�2025��Q1�Ĳ������ݣ�Ӫ�ա�������ë���ʡ��ֽ�������ӹ���������ȡƻ����˾(AAPL)�����²Ʊ����ݡ�"
+  - id: financial_analysis
+    agent: Bob
+    action: execute
+    prompt: "����Alice�ռ������ݣ����в��������1)ͬ�Ȼ��������� 2)ӯ���������� 3)�ֽ������������� 4)�ؼ�������ʼ���"
+    dependsOn:
+      - data_collection
+  - id: risk_assessment
+    agent: Charlie
+    action: execute
+    prompt: "����Bob�ķ�����������з���������1)ʶ����Ҫ������� 2)��ҵ�Աȷ��� 3)��ֵ�������ж� 4)Ͷ�ʽ���"
+    dependsOn:
+      - financial_analysis
+  - id: report_generation
+    agent: Alice
+    action: execute
+    prompt: "�������з������������һ�������Ĳ���������棬����ִ��ժҪ�����ݱ��񡢷���ͼ��������Ͷ�ʽ��顣"
+    dependsOn:
+      - risk_assessment
+    reviewer: Bob

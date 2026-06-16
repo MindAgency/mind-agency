@@ -175,7 +175,7 @@ let wsChild = null;
 // ── Auto-Update (v0.4) ──────────────────────────────────────────────
 
 const CURRENT_VERSION = app.getVersion();
-const GITHUB_REPO = 'Toufumind/mind-agency';
+const GITHUB_REPO = 'MindAgency/mind-agency';
 const UPDATE_CHECK_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
 async function checkForUpdates() {

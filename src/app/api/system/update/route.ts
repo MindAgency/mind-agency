@@ -20,7 +20,7 @@ interface GitHubRelease {
 
 async function getLatestRelease(): Promise<GitHubRelease | null> {
   try {
-    const res = await fetch('https://api.github.com/repos/Toufumind/mind-agency/releases/latest', {
+    const res = await fetch('https://api.github.com/repos/MindAgency/mind-agency/releases/latest', {
       headers: { 'Accept': 'application/vnd.github.v3+json' },
       signal: AbortSignal.timeout(10000),
     });

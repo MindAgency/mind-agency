@@ -1,0 +1,6 @@
+name: final-v2-default
+steps:
+  - id: s1
+    agent: final-agent-v2
+    action: create
+    prompt: Write hello world

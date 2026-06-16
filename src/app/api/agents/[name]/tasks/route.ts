@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
+import { requireName, apiNotFound } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,11 +17,14 @@ export async function GET(
 ) {
   const { name } = await params;
 
+  const validName = requireName(name);
+  if (validName instanceof Response) return validName;
+
   const agency = getAgency();
-  const proxy = agency.getAgent(name);
+  const proxy = agency.getAgent(validName);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
+    return apiNotFound(`Agent "${validName}" not found`);
   }
 
   // Get all tasks for this agent via AgentProxy

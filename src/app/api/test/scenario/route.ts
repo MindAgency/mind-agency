@@ -1,13 +1,18 @@
+/**
+ * POST /api/test/scenario — Execute a test scenario
+ *
+ * Runs a sequence of steps (chat, email, poll) against agents for
+ * integration testing. Steps execute sequentially and results are
+ * returned as an array.
+ *
+ * Body: { steps: [{ agent, msg?, group?, emailTo?, emailSubject?, emailBody?, poll? }] }
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { chatOnce } from '@/lib/chat';
 import { autoRespond } from '@/lib/auto-respond';
 import { sendEmail } from '@/lib/emails';
 
-/**
- * Scenario testing API — avoids curl encoding issues
- * POST { steps: [{ agent, msg, group?, emailTo?, emailSubject?, emailBody? }] }
- * Each step is executed sequentially and results returned.
- */
 export async function POST(request: NextRequest) {
   try {
     const { steps } = await request.json();

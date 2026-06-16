@@ -1,0 +1,6 @@
+name: content-v4-default
+steps:
+  - id: write
+    agent: content-v4-bot
+    action: create
+    prompt: Write a 200-word blog post about multi-agent AI

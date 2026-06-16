@@ -1,16 +1,17 @@
 /**
  * GET /api/economy/account?agent=<name> — get agent token account
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getAgentAccount } from '@/lib/token-economy';
+import { apiOk, apiBadRequest, apiInternal } from '@/lib/api-utils';
 
 export async function GET(request: NextRequest) {
   const agent = request.nextUrl.searchParams.get('agent');
-  if (!agent) return NextResponse.json({ error: 'agent required' }, { status: 400 });
+  if (!agent) return apiBadRequest('agent required');
   try {
     const account = getAgentAccount(agent);
-    return NextResponse.json({ account });
+    return apiOk({ account });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return apiInternal(e.message);
   }
 }

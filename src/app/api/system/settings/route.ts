@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
 import { encryptApiKey } from '@/lib/crypto';
 import { validateApiKey, validateUrl } from '@/lib/validation';
+import { apiOk, apiBadRequest } from '@/lib/api-utils';
 
 interface MindSettings {
   apiKey?: string;
@@ -40,7 +41,7 @@ export async function PUT(request: NextRequest) {
       // Validate API key
       const validation = validateApiKey(body.apiKey);
       if (!validation.valid) {
-        return NextResponse.json({ error: validation.errors.join(', ') }, { status: 400 });
+        return apiBadRequest(validation.errors.join(', '));
       }
       // Encrypt API key before storing
       current.apiKey = encryptApiKey(body.apiKey);
@@ -56,7 +57,7 @@ export async function PUT(request: NextRequest) {
         // Validate URL
         const validation = validateUrl(body.baseUrl);
         if (!validation.valid) {
-          return NextResponse.json({ error: validation.errors.join(', ') }, { status: 400 });
+          return apiBadRequest(validation.errors.join(', '));
         }
         current.baseUrl = body.baseUrl;
       } else {
@@ -71,8 +72,8 @@ export async function PUT(request: NextRequest) {
     if (body.heartbeatIntervalMs !== undefined) current.heartbeatIntervalMs = body.heartbeatIntervalMs;
 
     await agency.system.saveSettings();
-    return NextResponse.json({ success: true, settings: { ...current, apiKey: current.apiKey ? '••••••••' + current.apiKey.slice(-4) : undefined } });
+    return apiOk({ settings: { ...current, apiKey: current.apiKey ? '••••••••' + current.apiKey.slice(-4) : undefined } } as Record<string, unknown>);
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return apiBadRequest('Invalid JSON');
   }
 }

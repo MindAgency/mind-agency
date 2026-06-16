@@ -1,0 +1,6 @@
+name: marketing-v3-default
+steps:
+  - id: draft
+    agent: marketing-bot-v3
+    action: create
+    prompt: Write a marketing email for an AI platform

@@ -7,7 +7,7 @@
  * PUT    /api/system/skills              — enable/disable skill for agent
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   getInstalledSkills,
   installSkill,
@@ -19,6 +19,7 @@ import {
   setEnabledSkills,
   isSkillEnabled,
 } from '@/lib/skills';
+import { apiOk, apiNotFound, apiBadRequest, apiCreated } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   // Search mode
   if (query) {
     const results = await searchSkills(query);
-    return NextResponse.json({ results });
+    return apiOk({ results });
   }
 
   // List installed with agent enable status
@@ -41,10 +42,10 @@ export async function GET(request: NextRequest) {
       ...s,
       enabled: enabledSkills.includes(s.name),
     }));
-    return NextResponse.json({ skills: skillsWithStatus });
+    return apiOk({ skills: skillsWithStatus });
   }
 
-  return NextResponse.json({ skills });
+  return apiOk({ skills });
 }
 
 export async function POST(request: NextRequest) {
@@ -54,38 +55,38 @@ export async function POST(request: NextRequest) {
   // Enable/disable skill for agent
   if (action === 'enable' && agent && skillName) {
     const ok = enableSkill(agent, skillName);
-    return NextResponse.json({ success: ok });
+    return apiOk({ success: ok });
   }
 
   if (action === 'disable' && agent && skillName) {
     const ok = disableSkill(agent, skillName);
-    return NextResponse.json({ success: ok });
+    return apiOk({ success: ok });
   }
 
   if (action === 'set_enabled' && agent && Array.isArray(body.skillNames)) {
     setEnabledSkills(agent, body.skillNames);
-    return NextResponse.json({ success: true });
+    return apiOk();
   }
 
   // Install skill from GitHub
   if (!repo) {
-    return NextResponse.json({ error: 'repo required (e.g. "owner/repo")' }, { status: 400 });
+    return apiBadRequest('repo required (e.g. "owner/repo")');
   }
 
   try {
     const skill = await installSkill(repo, repoPath);
-    return NextResponse.json({ skill }, { status: 201 });
+    return apiCreated({ skill } as Record<string, unknown>);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    return apiBadRequest(e.message);
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  if (!id) return apiBadRequest('id required');
 
   const ok = uninstallSkill(id);
-  if (!ok) return NextResponse.json({ error: 'Skill not found' }, { status: 404 });
-  return NextResponse.json({ success: true });
+  if (!ok) return apiNotFound('Skill not found');
+  return apiOk();
 }

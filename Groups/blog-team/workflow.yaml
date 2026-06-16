@@ -1,0 +1,21 @@
+name: blog-content-pipeline
+description: "Full content pipeline: write blog, review, create social media copy"
+steps:
+  - id: write-article
+    agent: biz-writer
+    action: execute
+    prompt: "Write a 1000-word Chinese blog post about 'How AI is changing content creation in 2026'. Include: 1) A compelling title 2) 4 key trends with examples 3) Actionable tips 4) A strong conclusion. Use markdown format."
+
+  - id: review-article
+    agent: biz-reviewer
+    action: execute
+    dependsOn:
+      - write-article
+    prompt: "Review the blog article written by biz-writer. Score it 1-10 on: title appeal, content depth, readability, persuasiveness, and call-to-action effectiveness. Provide specific improvement suggestions."
+
+  - id: social-media
+    agent: marketing-bot
+    action: execute
+    dependsOn:
+      - write-article
+    prompt: "Based on the blog article by biz-writer, create: 1) 3 Twitter/X posts (280 chars each, with hooks) 2) 1 LinkedIn post (300 words) 3) 1 Xiaohongshu post (Chinese, with emoji and hashtags). Make each platform's tone distinct."

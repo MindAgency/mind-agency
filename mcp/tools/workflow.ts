@@ -15,8 +15,9 @@ export interface ToolDef { name: string; description: string; inputSchema: any; 
 export function workflowTools(): ToolDef[] {
   return [
     { name: 'workflow_callback', description: '报告工作流步骤完成结果。当 workflow 引擎通知你执行任务后，用此工具回调结果。', inputSchema: { type: 'object', properties: { runId: { type: 'string', description: '工作流运行 ID' }, stepId: { type: 'string', description: '步骤 ID' }, status: { type: 'string', description: 'APPROVED | REJECTED | COMPLETED | FAILED' }, summary: { type: 'string', description: '结果摘要' }, details: { type: 'string', description: '详细说明' } }, required: ['runId', 'stepId', 'status', 'summary'] } },
+    { name: 'workflow_claim', description: '认领工作流中的认领步骤（claim type）。认领后你将成为此步骤的执行者。', inputSchema: { type: 'object', properties: { runId: { type: 'string', description: '工作流运行 ID' }, stepId: { type: 'string', description: '步骤 ID' } }, required: ['runId', 'stepId'] } },
     { name: 'workflow_create', description: '创建一个 Workflow YAML 文件到群组中。步骤可设置 reward（完成奖励）和 budget（执行预算）。', inputSchema: { type: 'object', properties: { group: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, steps: { type: 'string', description: '步骤列表（JSON 数组字符串）。每步可含: id, agent, action, prompt, reward(数字), budget(数字)' }, trigger: { type: 'string', description: '触发方式：manual/file_change/schedule/event' }, cron: { type: 'string', description: '定时触发的 cron 表达式（仅 schedule 类型）' }, reviewer: { type: 'string', description: '默认审查者 Agent（可选，每步自动审查）' }, onReject: { type: 'string', description: '审查拒绝后的行为：retry（自动重做）或 fail（直接失败）' }, maxRejectRetries: { type: 'number', description: '审查拒绝后最大重试次数（默认 3）' } }, required: ['group', 'name', 'steps'] } },
-    { name: 'workflow_trigger', description: '触发群组的工作流。', inputSchema: { type: 'object', properties: { group: { type: 'string' } }, required: ['group'] } },
+    { name: 'workflow_trigger', description: '触发群组的工作流。', inputSchema: { type: 'object', properties: { group: { type: 'string', description: '群组名称' }, triggerStepId: { type: 'string', description: '触发指定步骤（可选）' } }, required: ['group'] } },
     { name: 'workflow_status', description: '查询工作流运行状态和触发器状态。', inputSchema: { type: 'object', properties: { group: { type: 'string' } }, required: [] } },
     { name: 'workflow_approve', description: '审批工作流中的人工审批节点。', inputSchema: { type: 'object', properties: { group: { type: 'string' }, approvalId: { type: 'string' }, decision: { type: 'string' } }, required: ['group', 'approvalId', 'decision'] } },
     { name: 'workflow_cancel', description: '取消一个正在运行的工作流。', inputSchema: { type: 'object', properties: { group: { type: 'string' } }, required: ['group'] } },
@@ -50,6 +51,15 @@ export async function handleWorkflowTool(
     httpPost(`${WS_BASE_URL}/workflows/callback`, { runId, stepId, output });
     emitBusEvent('task.completed', { taskId: `workflow:${runId}`, stepId, by: agentName, status });
     respondOk(respond, id, `步骤 ${stepId} 结果已报告: ${status}`);
+    return true;
+  }
+
+  if (name === 'workflow_claim') {
+    const { runId, stepId } = a;
+    if (!runId || !stepId) { respondError(respond, id, 'runId, stepId required'); return true; }
+    httpPost(`${WS_BASE_URL}/workflows/claim`, { runId, stepId, agent: agentName });
+    emitBusEvent('task.claimed', { taskId: `workflow:${runId}`, stepId, by: agentName });
+    respondOk(respond, id, `已认领步骤 ${stepId}`);
     return true;
   }
 
@@ -129,7 +139,13 @@ export async function handleWorkflowTool(
     if (!group) { respondError(respond, id, 'group required'); return true; }
     const wfPath = path.join(groupsDir(), group, 'workflow.yaml');
     if (!exists(wfPath)) { respondError(respond, id, `no workflow.yaml in ${group}`); return true; }
-    httpPost(`${WS_BASE_URL}/workflows/run`, { yaml: fs.readFileSync(wfPath, 'utf-8'), group });
+
+    // Read YAML to get workflow name
+    const yamlContent = fs.readFileSync(wfPath, 'utf-8');
+    const wfDef = yaml.load(yamlContent) as any;
+    const workflowName = wfDef?.name || 'default';
+
+    httpPost(`${WS_BASE_URL}/workflows/run`, { group, workflow: workflowName, triggerStepId: a.triggerStepId });
     emitBusEvent('task.created', { title: `Workflow triggered for ${group}`, agent: agentName, group });
     respondOk(respond, id, `workflow triggered for group "${group}"`);
 

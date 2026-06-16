@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
+import { apiOk, apiBadRequest } from '@/lib/api-utils';
 
 export async function GET() {
   try {
@@ -49,8 +50,8 @@ export async function POST(request: NextRequest) {
       cost: body.cost || 0,
     });
 
-    return NextResponse.json({ ok: true });
+    return apiOk();
   } catch {
-    return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 400 });
+    return apiBadRequest('invalid json');
   }
 }

@@ -1,0 +1,21 @@
+name: llm-research-lit-review
+steps:
+  - id: search
+    agent: Alice
+    action: execute
+    prompt: Search for papers on transformer attention mechanisms
+  - id: review
+    agent: paper-reviewer
+    action: execute
+    prompt: Review the search results
+    dependsOn: [search]
+  - id: approval
+    agent: me
+    action: human_approval
+    prompt: Please approve the review findings before proceeding
+    dependsOn: [review]
+  - id: synthesize
+    agent: Bob
+    action: execute
+    prompt: Create a synthesis document based on approved review
+    dependsOn: [approval]

@@ -1,0 +1,19 @@
+name: blog-production
+steps:
+  - id: write
+    agent: blog-writer
+    action: execute
+    prompt: �����������ⴴ��һƪ�������£����Markdown��ʽ��{topic}
+  - id: review
+    agent: blog-editor
+    action: execute
+    dependsOn:
+      - write
+    prompt: �������²������²������Ľ����飺{output:write}
+  - id: approve
+    agent: me
+    action: approval
+    dependsOn:
+      - review
+    prompt: ��ȷ�������Ƿ���Է���
+description: 'Blog content production: write -> review -> publish'

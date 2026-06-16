@@ -1,0 +1,8 @@
+name: student-ai-default
+steps:
+  - id: explain
+    agent: student-bot
+    action: create
+    prompt: >-
+      Explain quantum computing in simple terms that a 10-year-old can
+      understand

@@ -18,6 +18,7 @@ import { cancelAllWatchers } from './src/lib/workflow-bridge.js';
 import { initConsensusHandlers } from './src/lib/consensus.js';
 import { ipcStore, getIPCLock } from './src/lib/ipc.js';
 import { EmbeddedWebSocketServer } from './src/lib/ws-server.js';
+import * as net from 'net';
 import {
   getAgentAccount, listAgentAccounts, deposit as econDeposit, transfer as econTransfer,
   getBalance, getLeaderboard, reward as econReward, withdraw as econWithdraw,
@@ -26,9 +27,51 @@ import {
   listMarketplaceTasks, calculateReward, calculateTaskCost, getTrustTier,
 } from './src/lib/token-economy.js';
 
-const PORT = parseInt(process.env.WS_PORT || '3001', 10);
+// ── Port availability check ─────────────────────────────────────────────
+
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const tester = net.createServer()
+      .once('error', () => resolve(false))
+      .once('listening', () => {
+        tester.close(() => resolve(true));
+      })
+      .listen(port, '0.0.0.0');
+  });
+}
+
+async function findAvailablePort(startPort: number, maxAttempts = 10): Promise<number> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = startPort + i;
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    console.warn(`[server] Port ${port} is in use, trying next...`);
+  }
+  throw new Error(`[server] No available port found in range ${startPort}-${startPort + maxAttempts - 1}`);
+}
+
+// ── Memory monitoring ───────────────────────────────────────────────────
+
+function checkMemoryUsage() {
+  const mem = process.memoryUsage();
+  const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
+  const usagePercent = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+
+  if (usagePercent >= 80) {
+    console.warn(`[server] WARNING: Memory usage at ${usagePercent}% (${heapUsedMB}MB / ${heapTotalMB}MB)`);
+  }
+}
+
+// ── Constants ───────────────────────────────────────────────────────────
+
+const BASE_PORT = parseInt(process.env.WS_PORT || '3001', 10);
 const SERVER_SECRET = process.env.MIND_SERVER_SECRET || '';
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB limit for request bodies
+
+let PORT = BASE_PORT; // Will be updated if port is in use
+let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 
 // ── Auth helper ──────────────────────────────────────────────────────────
 
@@ -501,15 +544,17 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
   // ── GET /workflows/runs — List workflow runs ──────────────────────────
   if (req.method === 'GET' && pathname === '/workflows/runs') {
-    try {
-      const { listRuns } = await import('./src/lib/workflow-bridge.js');
-      const runs = listRuns();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, runs }));
-    } catch (e: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message }));
-    }
+    (async () => {
+      try {
+        const { listRuns } = await import('./src/lib/workflow-bridge.js');
+        const runs = listRuns();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, runs }));
+      } catch (e: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    })();
     return;
   }
 
@@ -539,9 +584,17 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 // ── Start Server ─────────────────────────────────────────────────────────
 
 async function start() {
-  // Start HTTP server
-  server.listen(PORT + 1, () => {
-    console.log(`[server] HTTP server listening on port ${PORT + 1}`);
+  // Find available ports — try both WS and HTTP ports
+  PORT = await findAvailablePort(BASE_PORT);
+  const httpPort = await findAvailablePort(PORT + 1);
+
+  // Start HTTP server (awaited so we know it's ready before starting WS)
+  await new Promise<void>((resolve, reject) => {
+    server.listen(httpPort, () => {
+      console.log(`[server] HTTP server listening on port ${httpPort}`);
+      resolve();
+    });
+    server.on('error', reject);
   });
 
   // Start WebSocket server
@@ -550,19 +603,42 @@ async function start() {
   // Store server info in IPC
   ipcStore.set('server:startup', Date.now());
   ipcStore.set('server:pid', process.pid);
-  ipcStore.set('server:httpPort', PORT + 1);
+  ipcStore.set('server:httpPort', httpPort);
   ipcStore.set('server:wsPort', PORT);
 
   // Start scheduler
   startScheduler();
 
-  console.log(`[server] Unified server started (HTTP: ${PORT + 1}, WS: ${PORT})`);
+  // Start memory monitoring (check every 30s)
+  memoryMonitorInterval = setInterval(checkMemoryUsage, 30_000);
+  checkMemoryUsage(); // Initial check
+
+  console.log(`[server] Unified server started (HTTP: ${httpPort}, WS: ${PORT})`);
 }
 
 // ── Graceful Shutdown ────────────────────────────────────────────────────
 
-async function shutdown() {
-  console.log('[server] Shutting down...');
+let isShuttingDown = false;
+
+async function shutdown(signal?: string) {
+  if (isShuttingDown) return; // Prevent double-shutdown from SIGINT + SIGTERM
+  isShuttingDown = true;
+
+  const reason = signal || 'manual';
+  console.log(`[server] Shutting down (signal: ${reason})...`);
+
+  // Force exit after 10s to prevent zombie processes
+  const forceExitTimer = setTimeout(() => {
+    console.error('[server] Forced exit after timeout — some resources may not have been cleaned up');
+    process.exit(1);
+  }, 10_000);
+  forceExitTimer.unref(); // Don't prevent Node from exiting naturally
+
+  // Stop memory monitor
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+    memoryMonitorInterval = null;
+  }
 
   // Stop scheduler
   stopScheduler();
@@ -585,6 +661,8 @@ async function shutdown() {
       console.log('[server] HTTP server closed');
       resolve();
     });
+    // In case close never calls back (e.g., keep-alive connections)
+    setTimeout(resolve, 5000).unref();
   });
 
   // Clear IPC state
@@ -595,8 +673,19 @@ async function shutdown() {
   process.exit(0);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// ── Uncaught Exception Handling ──────────────────────────────────────────
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] Uncaught exception:', err);
+  shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] Unhandled rejection:', reason);
+});
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // ── Start ────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,8 @@
+name: marketing-ai-default
+steps:
+  - id: draft
+    agent: marketing-bot
+    action: create
+    prompt: >-
+      Write a marketing email for a new AI collaboration platform targeting
+      small businesses

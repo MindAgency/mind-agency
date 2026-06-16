@@ -1,0 +1,12 @@
+name: dev-sim
+steps:
+  - id: code
+    agent: dev-assistant
+    action: create
+    prompt: Write a Python fibonacci function
+  - id: review
+    agent: dev-assistant
+    action: review
+    dependsOn:
+      - code
+    prompt: Review the code

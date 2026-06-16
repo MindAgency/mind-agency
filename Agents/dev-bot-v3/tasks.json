@@ -1,0 +1,37 @@
+{
+  "pending": [
+    {
+      "runId": "11a453ac-27ec-4a98-8c33-f4d895cb3ad9",
+      "stepId": "code",
+      "workflow": "dev-v3-default",
+      "prompt": "Write a Python fibonacci function with memoization",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781579926381
+    }
+  ],
+  "completed": [
+    {
+      "runId": "eb470c2d-cab6-4654-a180-ee3af0a2a767",
+      "stepId": "review",
+      "workflow": "dev-v3-default",
+      "prompt": "Review the code for bugs",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781580419577,
+      "completedAt": 1781580427324,
+      "result": "已收到 workflow-engine 的通知。请问需要我执行什么具体任务？"
+    },
+    {
+      "runId": "eb470c2d-cab6-4654-a180-ee3af0a2a767",
+      "stepId": "code",
+      "workflow": "dev-v3-default",
+      "prompt": "Write a Python fibonacci function with memoization",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781580362648,
+      "completedAt": 1781580419573,
+      "result": "已查看workflow-engine的消息。我当前未分配到待执行的工作流任务。如需发起任务或提供更多信息，请随时告知。"
+    }
+  ]
+}

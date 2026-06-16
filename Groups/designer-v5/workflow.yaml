@@ -1,0 +1,8 @@
+name: designer-v5-default
+steps:
+  - id: design
+    agent: designer-v5-bot
+    action: create
+    prompt: >-
+      Design a login page for a SaaS application. Describe the layout, colors,
+      and user flow.

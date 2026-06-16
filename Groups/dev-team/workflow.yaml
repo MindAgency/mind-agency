@@ -1,0 +1,37 @@
+name: code-review-pipeline
+steps:
+  - id: review
+    agent: Alice
+    action: execute
+    prompt: >-
+      Review this TypeScript function for bugs, type safety, and best practices:
+
+
+      ```typescript
+
+      function mergeObjects<T extends Record<string, any>>(target: T, source:
+      Partial<T>): T {
+        const result = { ...target };
+        for (const key of Object.keys(source)) {
+          if (source[key] !== undefined) {
+            (result as any)[key] = source[key];
+          }
+        }
+        return result;
+      }
+
+      ```
+
+
+      Provide specific issues and a corrected version.
+    priority: high
+  - id: test
+    agent: dev-bot
+    action: execute
+    dependsOn:
+      - review
+    prompt: >-
+      Based on the code review feedback, write comprehensive unit tests using
+      vitest for the reviewed function. Include edge cases.
+    priority: medium
+description: Automated code review pipeline

@@ -1,0 +1,21 @@
+name: law-firm-default
+steps:
+  - id: contract-review
+    agent: legal-assistant
+    action: execute
+    prompt: |-
+      ��������º�ͬ���ָ��Ǳ�ڷ��ɷ��ա�����ƽ����͸Ľ����飺
+
+      ��ͬժҪ�������û��ṩ
+  - id: compliance-check
+    agent: legal-assistant
+    action: execute
+    dependsOn:
+      - contract-review
+    prompt: �����ͬ�Ƿ�����й����з��ɷ��棬�ر��ע�񷨵��ͬ�����ع涨
+  - id: final-report
+    agent: legal-assistant
+    action: execute
+    dependsOn:
+      - compliance-check
+    prompt: �ۺ�ǰ��������������������յķ��������

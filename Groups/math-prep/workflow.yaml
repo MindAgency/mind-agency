@@ -1,0 +1,14 @@
+name: math-exam-prep
+description: ������ѧ�Ծ���������
+steps:
+  - id: draft_questions
+    agent: math-exam-writer
+    action: execute
+    prompt: ��Ϊ��һ�꼶���һ�����п�����ѧ�Ծ�������ѡ����5���������3���������2����֪ʶ�㸲�ǣ����ϡ�������ָ����������Ѷȱ���������60%���е�30%���μ�10%�������������Ŀ�ͱ�׼�𰸡�
+  - id: review_questions
+    agent: teacher-bot
+    action: review
+    dependsOn:
+      - draft_questions
+    prompt: �������Ծ����壬��飺1����Ŀ�Ƿ�׼ȷ�����壻2���Ѷȷֲ��Ƿ������3�����Ƿ���ȷ�������޸Ľ��顣
+    reviewer: math-exam-writer

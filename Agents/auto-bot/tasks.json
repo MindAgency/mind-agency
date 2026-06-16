@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "254d3340-18c3-487a-a07f-269a1e939b6d",
+      "stepId": "s1",
+      "workflow": "auto-test-default",
+      "prompt": "Write a one-paragraph summary of AI trends in 2026",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781591395527,
+      "completedAt": 1781591406081,
+      "result": "2026年，人工智能将在多模态融合、生成式AI实用化与AI智能体三个方面取得显著进展。模型将更自然地处理文本、图像、语音和视频的跨模态任务；生成式AI将从内容创作工具升级为驱动科研、代码开发和复杂工作流的核心引擎；而具备自主决策和长期规划能力的AI智能体将开始在企业服务、个人助理等领域承担更复杂的任务链。同时，AI安全、伦理与治理框架的建立将成为产业发展的关键议题。\n\n已调用工具 `workflow_callback` 完成任务回报：\n- runId: `254d3340-18c3-487a-a07f-269a1e939b6d`\n- stepId: `s1`\n- status: `COMPLETED`\n- summary: 2026年AI趋势摘要已生成并提交。\n- details: 摘要涵盖多模态融合深化、生成式AI实用化、AI智能体能力提升，以及AI安全与治理成为产业重点四个核心方向。"
+    }
+  ]
+}

@@ -6,8 +6,9 @@
  * POST /api/groups/{name}/manage  → invite/kick/set_admin (owner/admin only)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getAgency } from '@/lib/agency';
+import { apiOk, apiNotFound, apiBadRequest, apiForbidden, apiConflict } from '@/lib/api-utils';
 
 // ── GET ──────────────────────────────────────────────────
 
@@ -21,16 +22,16 @@ export async function GET(
   const proxy = agency.getGroup(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
   }
 
   await proxy.loadConfig();
   await proxy.loadMembers();
 
-  return NextResponse.json({
+  return apiOk({
     ...proxy.config,
     members: proxy.members.map(m => m.name),
-  });
+  } as Record<string, unknown>);
 }
 
 // ── PUT — update group settings (owner/admins) ──────────
@@ -45,12 +46,12 @@ export async function PUT(
   const proxy = agency.getGroup(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
   }
 
   let body: { by?: string; owner?: string; admins?: string[]; name?: string; description?: string; announcement?: { title: string; content: string; pinnedBy: string; pinnedAt?: number } | null };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return apiBadRequest('Invalid JSON');
   }
 
   const actor = (body.by || 'system').trim();
@@ -77,7 +78,7 @@ export async function PUT(
   }
 
   await proxy.saveConfig();
-  return NextResponse.json({ success: true, config: proxy.config });
+  return apiOk({ config: proxy.config } as Record<string, unknown>);
 }
 
 // ── POST — membership management (invite/kick/set_admin) ──
@@ -89,7 +90,7 @@ export async function POST(
   const { name } = await params;
   let body: { action?: string; by?: string; agent?: string; admin?: boolean };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return apiBadRequest('Invalid JSON');
   }
 
   const actor = body.by?.trim() || 'system';
@@ -97,43 +98,40 @@ export async function POST(
   const target = body.agent?.trim();
 
   if (!target && action !== 'list') {
-    return NextResponse.json({ error: 'agent required' }, { status: 400 });
+    return apiBadRequest('agent required');
   }
 
   const agency = getAgency();
   const proxy = agency.getGroup(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
   }
 
   await proxy.loadConfig();
   await proxy.loadMembers();
 
   if (action === 'invite') {
-    // Check if actor is admin
     if (!proxy.config.admins.includes(actor) && proxy.config.owner !== actor) {
-      return NextResponse.json({ error: 'Not an admin of this group' }, { status: 403 });
+      return apiForbidden('Not an admin of this group');
     }
     const ok = await proxy.addMember(target!);
-    if (!ok) return NextResponse.json({ error: 'Already a member or missing' }, { status: 409 });
-    return NextResponse.json({ success: true, action: 'invite', agent: target });
+    if (!ok) return apiConflict('Already a member or missing');
+    return apiOk({ action: 'invite', agent: target });
   }
 
   if (action === 'kick') {
-    // Check if actor is admin
     if (!proxy.config.admins.includes(actor) && proxy.config.owner !== actor) {
-      return NextResponse.json({ error: 'Not an admin of this group' }, { status: 403 });
+      return apiForbidden('Not an admin of this group');
     }
     const ok = await proxy.removeMember(target!);
-    if (!ok) return NextResponse.json({ error: 'Not a member' }, { status: 404 });
-    return NextResponse.json({ success: true, action: 'kick', agent: target });
+    if (!ok) return apiNotFound('Not a member');
+    return apiOk({ action: 'kick', agent: target });
   }
 
   if (action === 'set_admin') {
-    // Check if actor is owner
     if (proxy.config.owner !== actor) {
-      return NextResponse.json({ error: 'Only the group owner can set admins' }, { status: 403 });
+      return apiForbidden('Only the group owner can set admins');
     }
     if (body.admin) {
       if (!proxy.config.admins.includes(target!)) proxy.config.admins.push(target!);
@@ -141,19 +139,18 @@ export async function POST(
       proxy.config.admins = proxy.config.admins.filter(a => a !== target);
     }
     await proxy.saveConfig();
-    return NextResponse.json({ success: true, action: 'set_admin', agent: target, admin: body.admin });
+    return apiOk({ action: 'set_admin', agent: target, admin: body.admin });
   }
 
   if (action === 'transfer') {
-    // Check if actor is owner
     if (proxy.config.owner !== actor) {
-      return NextResponse.json({ error: 'Only the group owner can transfer ownership' }, { status: 403 });
+      return apiForbidden('Only the group owner can transfer ownership');
     }
     proxy.config.owner = target!;
     proxy.config.admins = proxy.config.admins.filter(a => a !== target); // remove from admins if was admin
     await proxy.saveConfig();
-    return NextResponse.json({ success: true, action: 'transfer', newOwner: target });
+    return apiOk({ action: 'transfer', newOwner: target });
   }
 
-  return NextResponse.json({ error: 'Unknown action. Use: invite, kick, set_admin, transfer' }, { status: 400 });
+  return apiBadRequest('Unknown action. Use: invite, kick, set_admin, transfer');
 }

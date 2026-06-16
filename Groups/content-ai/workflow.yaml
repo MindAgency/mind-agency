@@ -1,0 +1,8 @@
+name: content-ai-default
+steps:
+  - id: write
+    agent: content-bot
+    action: create
+    prompt: >-
+      Write a 200-word blog post about the benefits of multi-agent AI
+      collaboration

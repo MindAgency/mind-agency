@@ -23,6 +23,12 @@ import { AuditProxy, getAuditProxy } from './audit-proxy';
 
 // ── Error types ───────────────────────────────────────────
 
+/**
+ * Base error class for all Agency-related errors.
+ *
+ * Provides a structured error with a machine-readable `code` and optional
+ * `details` payload for programmatic error handling downstream.
+ */
 export class AgencyError extends Error {
   constructor(
     message: string,
@@ -34,6 +40,12 @@ export class AgencyError extends Error {
   }
 }
 
+/**
+ * Thrown when a requested resource (agent, group, etc.) does not exist.
+ *
+ * @example
+ * throw new NotFoundError('Agent', 'me');
+ */
 export class NotFoundError extends AgencyError {
   constructor(resource: string, id: string) {
     super(`${resource} "${id}" not found`, 'NOT_FOUND', { resource, id });
@@ -41,6 +53,12 @@ export class NotFoundError extends AgencyError {
   }
 }
 
+/**
+ * Thrown when input validation fails (e.g. invalid agent/group names).
+ *
+ * Carries the error code `VALIDATION_ERROR` and optional details about
+ * which field failed validation.
+ */
 export class ValidationError extends AgencyError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'VALIDATION_ERROR', details);
@@ -48,6 +66,12 @@ export class ValidationError extends AgencyError {
   }
 }
 
+/**
+ * Thrown when an operation fails at runtime (e.g. file I/O, API call).
+ *
+ * Carries the error code `OPERATION_ERROR` and optional details about
+ * the failed operation.
+ */
 export class OperationError extends AgencyError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'OPERATION_ERROR', details);
@@ -57,6 +81,13 @@ export class OperationError extends AgencyError {
 
 // ── Agency class ──────────────────────────────────────────
 
+/**
+ * Central orchestrator that unifies all resource registries.
+ *
+ * Provides a single entry point for accessing and managing agents,
+ * groups, system config, workflows, consensus, and audit logging.
+ * Use {@link getAgency} to obtain the singleton instance.
+ */
 export class Agency {
   private _agents: AgentRegistry;
   private _groups: GroupRegistry;
@@ -195,7 +226,22 @@ export class Agency {
     }
   }
 
+  /**
+   * Validates that the given string is a legal agent name (alphanumeric, underscores, hyphens).
+   * Throws {@link ValidationError} if the name is invalid.
+   *
+   * @param name - The agent name to validate.
+   * @throws {ValidationError} If the name contains invalid characters.
+   */
   validateAgentName(name: string): void { this.validateName(name, 'agent'); }
+
+  /**
+   * Validates that the given string is a legal group name (alphanumeric, underscores, hyphens).
+   * Throws {@link ValidationError} if the name is invalid.
+   *
+   * @param name - The group name to validate.
+   * @throws {ValidationError} If the name contains invalid characters.
+   */
   validateGroupName(name: string): void { this.validateName(name, 'group'); }
 
   /**
@@ -227,6 +273,11 @@ export class Agency {
 
 let instance: Agency | null = null;
 
+/**
+ * Returns the singleton {@link Agency} instance, creating it on first call.
+ *
+ * @returns The shared Agency instance.
+ */
 export function getAgency(): Agency {
   if (!instance) {
     instance = new Agency();

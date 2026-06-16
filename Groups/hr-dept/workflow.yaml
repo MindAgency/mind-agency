@@ -1,0 +1,29 @@
+name: hiring-pipeline
+steps:
+  - id: screen-resumes
+    agent: hr-screening
+    action: execute
+    prompt: >-
+      Review incoming job applications and shortlist top candidates based on
+      skills match, experience, and cultural fit. Output a ranked list with pros
+      and cons.
+    priority: high
+  - id: prepare-interview
+    agent: hr-screening
+    action: execute
+    dependsOn:
+      - screen-resumes
+    prompt: >-
+      For the top 3 shortlisted candidates, prepare structured interview
+      questions tailored to the role. Include technical, behavioral, and
+      culture-fit questions.
+  - id: draft-onboarding
+    agent: hr-onboarding
+    action: execute
+    dependsOn:
+      - prepare-interview
+    prompt: >-
+      Based on the interview results, draft a comprehensive onboarding plan for
+      the selected candidate. Include first-week schedule, required documents,
+      and training modules.
+description: Automated hiring pipeline

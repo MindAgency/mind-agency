@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "122e8e29-f5e1-4c76-9169-9d0391fdb7f0",
+      "stepId": "research",
+      "workflow": "doctor-v5-default",
+      "prompt": "Summarize the latest findings on mRNA vaccine effectiveness against COVID-19 variants.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781583445921,
+      "completedAt": 1781583514760,
+      "result": "COMPLETED: mRNA疫苗对早期变种保护力强，对奥密克戎防感染效力降低但仍可有效防重症，需通过序贯接种和更新疫苗配方以应对病毒变异。"
+    }
+  ]
+}

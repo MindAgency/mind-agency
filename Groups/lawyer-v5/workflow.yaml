@@ -1,0 +1,8 @@
+name: lawyer-v5-default
+steps:
+  - id: review
+    agent: lawyer-v5-bot
+    action: create
+    prompt: >-
+      Review this contract clause: 'The provider shall deliver services within
+      30 days of signing.' Identify any legal risks.

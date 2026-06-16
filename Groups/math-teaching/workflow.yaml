@@ -1,0 +1,20 @@
+name: math-teaching-weekly
+steps:
+  - id: prepare-lesson
+    agent: math-ta
+    action: execute
+    type: trigger
+    trigger: { type: manual }
+    prompt: ��Ϊ��һѧ��׼��һ�ݹ��ڡ�һԪ���η��̡��Ľ̰���������ѧĿ�ꡢ�ص��ѵ㡢�������ϰ�⡣
+  - id: review-lesson
+    agent: Alice
+    action: review
+    prompt: �������ݽ̰������֪ʶ���Ƿ�׼ȷ���Ѷ��Ƿ��ʵ���
+    dependsOn:
+      - prepare-lesson
+  - id: generate-exercises
+    agent: math-ta
+    action: execute
+    prompt: ���ݽ̰����ݣ�����10����ϰ�⣬����ѡ���⡢�����ͽ���⣬�Ѷ���ǳ���
+    dependsOn:
+      - review-lesson

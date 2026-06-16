@@ -35,10 +35,12 @@ export function startScheduler(): void {
       'scheduler:task-assigned',
       async (msg) => {
         const agent = msg.payload?.agent as string;
-        if (agent) {
+        const prompt = msg.payload?.prompt as string;
+        if (agent && prompt) {
           console.log(`[scheduler] EventBus: task assigned to ${agent}`);
           const proxy = agency.getAgent(agent);
-          await proxy.chat(`[Workflow Task] ${JSON.stringify(msg.payload)}`);
+          // Send the actual task prompt to the agent
+          await proxy.chat(prompt);
           stats.triggered++;
         }
       }

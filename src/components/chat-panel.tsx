@@ -8,8 +8,21 @@ import { ChevronDown, ChevronRight, Brain, Wrench, FileText, ArrowUp, Mail, Cpu 
 import { useToast } from '@/components/toast';
 import { useChatPanel, type Msg } from '@/hooks/use-chat-panel';
 import { COMMANDS } from './chat-commands';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('chat-panel');
 
 interface AgentInfo { name: string; emailCount: number; }
+
+/** Merged thinking + tool event used for rendering a single assistant turn. */
+interface MergedEvent {
+  type: string;
+  content?: string;
+  toolName?: string;
+  toolInput?: string;
+  toolOutput?: string;
+  key: number;
+}
 
 async function skillsCmd(_agentName: string) {
   const parts: string[] = ['## /skills\n'];
@@ -31,12 +44,21 @@ async function skillsCmd(_agentName: string) {
   return parts.join('\n');
 }
 
+/** Imperative handle exposed by ChatPanel for parent-controlled scrolling and message access. */
 export interface ChatPanelHandle {
   scrollToMessage: (index: number) => void;
   getMessages: () => Msg[];
   clearMessages: () => void;
 }
 
+/**
+ * Chat panel for communicating with a single agent. Renders message history
+ * (user / assistant / system), supports SSE streaming via {@link useChatPanel},
+ * slash-command interception, model selection, and email notifications.
+ *
+ * @param agentName - Name of the agent to chat with
+ * @ref Exposes {@link ChatPanelHandle} for scroll control and message access
+ */
 const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function ChatPanel({ agentName }, ref) {
   const router = useRouter();
   const { toast } = useToast();
@@ -61,13 +83,32 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
   const [showModels, setShowModels] = useState(false);
   const [sendReady, setSendReady] = useState(true);
 
+  // ── Workflow execution status ──
+  const [wfStatus, setWfStatus] = useState<{ runId: string; stepId: string; status: string; agent?: string } | null>(null);
+
   const historyRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const inputValueRef = useRef('');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const filteredCmds = COMMANDS.filter(c => c.cmd.startsWith(cmdFilter));
+
+  // ── Listen for workflow status updates ──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (data.stepId) {
+        setWfStatus({ runId: data.runId, stepId: data.stepId, status: data.status, agent: data.agent });
+        // Auto-clear after 5 seconds if completed
+        if (data.status === 'completed' || data.status === 'failed') {
+          setTimeout(() => setWfStatus(null), 5000);
+        }
+      }
+    };
+    window.addEventListener('wf_step_status', handler);
+    return () => window.removeEventListener('wf_step_status', handler);
+  }, []);
 
   // ── Data loading ──
   const checkEmails = useCallback(async () => {
@@ -79,7 +120,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
         setTimeout(() => setToastMsg(''), 4000);
       }
       setEmailCount(Array.isArray(emails) ? emails.length : 0);
-    } catch (e) { console.error('[components:chat-panel]', e); }
+    } catch (e) { logger.error('Failed to check emails', e); }
   }, [agentName, emailCount]);
 
   useEffect(() => {
@@ -222,7 +263,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           return (
             <div key={i} className="space-y-2">
               {(() => {
-                const merged: { type: string; content?: string; key: number; [k: string]: any }[] = [];
+                const merged: MergedEvent[] = [];
                 let thinkBuf = '';
                 let thinkStart = -1;
                 for (let j = 0; j < msg.events.length; j++) {
@@ -249,6 +290,31 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
             </div>
           );
         })}
+        {/* Workflow execution status */}
+        {wfStatus && (
+          <div className="flex items-center gap-2 px-3 py-2 my-2 rounded-lg text-[11px] border"
+            style={{
+              background: wfStatus.status === 'completed' ? 'var(--color-success-muted)' :
+                         wfStatus.status === 'failed' ? 'var(--color-destructive-muted)' :
+                         'var(--color-info-muted)',
+              borderColor: wfStatus.status === 'completed' ? 'var(--color-success)' :
+                          wfStatus.status === 'failed' ? 'var(--color-destructive)' :
+                          'var(--color-info)',
+              color: wfStatus.status === 'completed' ? 'var(--color-success)' :
+                    wfStatus.status === 'failed' ? 'var(--color-destructive)' :
+                    'var(--color-info)',
+            }}>
+            <span className="animate-spin" style={{ display: wfStatus.status === 'completed' || wfStatus.status === 'failed' ? 'none' : 'inline-block' }}>⟳</span>
+            <span style={{ display: wfStatus.status === 'completed' || wfStatus.status === 'failed' ? 'inline' : 'none' }}>
+              {wfStatus.status === 'completed' ? '✓' : '✗'}
+            </span>
+            <span className="font-mono">{wfStatus.stepId}</span>
+            <span>—</span>
+            <span>{wfStatus.status === 'completed' ? '完成' : wfStatus.status === 'failed' ? '失败' : '执行中'}</span>
+            {wfStatus.agent && <span className="text-muted-foreground">by {wfStatus.agent}</span>}
+          </div>
+        )}
+
         {busy && (
           <div className="flex items-center gap-1.5 pl-1">
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -298,7 +364,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
             </button>
           </div>
           <div className="flex items-end gap-2 bg-canvas border border-border rounded-2xl px-4 py-3 shadow-sm focus-within:border-border-strong focus-within:shadow-md transition-all">
-            <textarea ref={inputRef as any} value={input}
+            <textarea ref={inputRef} value={input}
               onChange={e => {
                 const v = e.target.value; setInput(v); inputValueRef.current = v;
                 if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -362,13 +428,14 @@ const Think = React.memo(function Think({ text }: { text: string }) {
 const Tool = React.memo(function Tool({ name, input }: { name: string; input: string }) {
   const [on, setOn] = useState(false);
   const short = name.replace(/^mcp__group-chat__/, '');
-  let parsed: any = null;
-  try { parsed = JSON.parse(input); } catch (e) { console.error('[components:chat-panel]', e); }
-  const isFileOp = parsed && ['Write', 'Edit', 'Delete', 'Read'].includes(parsed.tool_name || short);
-  const filePath = parsed?.file_path || parsed?.path || '';
-  const isWrite = short === 'Write' || parsed?.tool_name === 'Write';
-  const isEdit = short === 'Edit' || parsed?.tool_name === 'Edit';
-  const isDelete = short === 'Delete' || parsed?.tool_name === 'Delete';
+  let parsed: Record<string, unknown> | null = null;
+  try { parsed = JSON.parse(input) as Record<string, unknown>; } catch (e) { logger.error('Failed to parse tool input', e); }
+  const tn = parsed?.tool_name as string | undefined;
+  const isFileOp = parsed && ['Write', 'Edit', 'Delete', 'Read'].includes(tn || short);
+  const filePath = (parsed?.file_path ?? parsed?.path ?? '') as string;
+  const isWrite = short === 'Write' || tn === 'Write';
+  const isEdit = short === 'Edit' || tn === 'Edit';
+  const isDelete = short === 'Delete' || tn === 'Delete';
 
   return (
     <div className="text-[12px]">
@@ -393,13 +460,13 @@ const Tool = React.memo(function Tool({ name, input }: { name: string; input: st
           {isFileOp && filePath && (
             <div className="text-[11px] text-muted-foreground mb-1 font-mono">{filePath}</div>
           )}
-          {isEdit && parsed?.old_string && parsed?.new_string ? (
+          {isEdit && parsed && (parsed.old_string as string) && (parsed.new_string as string) ? (
             <div className="text-[11px] font-mono">
-              <div className="text-destructive/70 bg-destructive/5 rounded px-2 py-1 mb-0.5 whitespace-pre-wrap">{parsed.old_string}</div>
-              <div className="text-success/70 bg-success/5 rounded px-2 py-1 whitespace-pre-wrap">{parsed.new_string}</div>
+              <div className="text-destructive/70 bg-destructive/5 rounded px-2 py-1 mb-0.5 whitespace-pre-wrap">{parsed.old_string as string}</div>
+              <div className="text-success/70 bg-success/5 rounded px-2 py-1 whitespace-pre-wrap">{parsed.new_string as string}</div>
             </div>
-          ) : isWrite && parsed?.content ? (
-            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{parsed.content.slice(0, 2000)}{parsed.content.length > 2000 ? '\n...(truncated)' : ''}</pre>
+          ) : isWrite && parsed && (parsed.content as string) ? (
+            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{(parsed.content as string).slice(0, 2000)}{(parsed.content as string).length > 2000 ? '\n...(truncated)' : ''}</pre>
           ) : isDelete ? (
             <div className="text-[11px] text-destructive">删除文件: {filePath}</div>
           ) : (

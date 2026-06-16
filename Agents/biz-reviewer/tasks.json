@@ -1,0 +1,49 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "12e15fc2-0ad8-4bca-984a-ede0904c7529",
+      "stepId": "review_review",
+      "workflow": "content-pipeline",
+      "prompt": "请审查以下步骤的输出。\n\n步骤: execute (由 biz-reviewer 执行)\n输出:\n我收到工作流任务了，需要审核招聘流程优化指南的博客文章。让我先找到并阅读这篇文章。\n\n<tool_call>\n{\"name\": \"Bash\", \"arguments\": {\"command\": \"find . -name \\\"*.md\\\" -o -name \\\"*.txt\\\" | head -20\"}}\n</tool_call>\n<tool_result>\n./Agents/biz-reviewer/.mind/knowledge/hiring-policy.md\n./Agents/writer/content/drafts/recruitment-optimization-guide.md\n./Agents/writer/content/drafts/tech-trends-2024.md\n</tool_result>\n\n<tool_call>\n{\"name\": \"Read\", \"arguments\": {\"file_path\": \"./Agents/writer/content/drafts/recruitment-optimization-guide.md\"}}\n</tool_call>\n<tool_result>\n# 招聘流程优化指南：提升企业人才获取效率\n\n## 引言\n\n在当今竞争激烈的人才市场中，高效的招聘流程已成为企业获取优秀人才的关键。传统的招聘方式往往耗时耗力，且难以保证招聘质量。本文将从实际操作角度出发，分享几个优化招聘流程的实用技巧，帮助HR和招聘团队提升工作效率。\n\n## 一、简历筛选自动化\n\n简历筛选是招聘流程中最耗时的环节之一。建议企业引入智能筛选系统，通过关键词匹配和AI分析快速筛选出符合条件的候选人。\n\n具体实施步骤：\n1. 建立岗位胜任力模型\n2. 设定硬性筛选条件（学历、工作年限等）\n3. 使用ATS系统自动分类简历\n4. 人工复核AI推荐的候选人\n\n## 二、结构化面试设计\n\n面试环节的标准化对于保证招聘质量至关重要。采用结构化面试可以有效减少主观偏见，提高面试的公平性和准确性。\n\n结构化面试要点：\n- 设计统一的面试问题清单\n- 制定明确的评分标准\n- 培训面试官使用STAR法则\n- 建立多人面试机制（初试+复试）\n\n## 三、缩短招聘周期\n\n招聘周期过长会导致优秀候选人流失。数据显示，超过2周未收到反馈的候选人，接受offer的概率下降50%。\n\n优化建议：\n1. 明确各环节时间节点\n2. 简化内部审批流程\n3. 实时更新候选人状态\n4. 建立人才储备库加速后续招聘\n\n## 四、雇主品牌建设\n\n良好的雇主品牌能够吸引更多优质候选人主动投递。企业应重视在招聘过程中传递企业文化和价值观。\n\n建设渠道：\n- 优化招聘页面和职位描述\n- 分享员工成长故事\n- 及时回复候选人咨询\n- 提供良好的面试体验\n\n## 结语\n\n招聘流程优化是一个持续改进的过程。企业应定期复盘招聘数据，根据实际情况调整策略，建立高效的人才获取体系，为业务发展提供有力的人才支撑。\n</tool_result>\n\n现在我来审核这篇文章，给出评分和具体修改意见。\n\n---\n\n## 博客文章审核报告\n\n**文章标题**：招聘流程优化指南：提升企业人才获取效率\n\n**评分**：6.5 / 10\n\n---\n\n### 具体修改意见（5条）\n\n1. **内容与招聘政策不一致**：文章提到\"简化内部审批流程\"，但根据公司实际招聘政策，审批权限有明确规定（20k以下部门经理审批，20k以上VP审批）。建议补充说明如何在合规前提下优化审批效率，而非简单\"简化\"。\n\n2. **缺少薪资标准参考**：文章完全没有提及岗位薪资定位对招聘的影响。结合公司薪资标准（初级10-15k、中级15-25k、高级25-40k），可增加一节讨论\"有竞争力的薪资策略如何加速招聘\"。\n\n3. **流程描述不够具体**：文章将招聘流程泛化为\"筛选-面试-审批\"，但实际公司流程为：简历筛选→初试（技术面试官）→复试（部门经理）→背景调查→发放Offer。建议按实际流程展开，更具实操性。\n\n4. **缺少数据支撑**：文章中\"超过2周未收到反馈，接受offer概率下降50%\"这类数据缺少来源引用，说服力不足。建议补充行业调研数据或公司内部实践案例。\n\n5. **篇幅略短**：标题承诺\"指南\"，但实际内容偏浅，每个要点仅3-5行。建议扩展至1200-1500字，或聚焦某一个细分主题深入展开。\n\n---\n\n<tool_call>\n{\"name\": \"workflow_callback\", \"arguments\": {\"runId\": \"12e15fc2-0ad8-4bca-984a-ede0904c7529\", \"stepId\": \"review\", \"status\": \"C\n\n请检查是否正确、完整、符合要求。回复 APPROVED 或 REJECTED 及原因。",
+      "priority": "high",
+      "status": "completed",
+      "createdAt": 1781602021220,
+      "completedAt": 1781602052598,
+      "result": "COMPLETED: 审核完成：评分6.5/10，5条修改意见"
+    },
+    {
+      "runId": "12e15fc2-0ad8-4bca-984a-ede0904c7529",
+      "stepId": "review",
+      "workflow": "content-pipeline",
+      "prompt": "�����������£������޸Ľ��飨����3�����彨�飩������������������1-10�֣���",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781601982544,
+      "completedAt": 1781602021190,
+      "result": "我收到工作流任务了，需要审核招聘流程优化指南的博客文章。让我先找到并阅读这篇文章。\n\n<tool_call>\n{\"name\": \"Bash\", \"arguments\": {\"command\": \"find . -name \\\"*.md\\\" -o -name \\\"*.txt\\\" | head -20\"}}\n</tool_call>\n<tool_result>\n./Agents/biz-reviewer/.mind/knowledge/hiring-policy.md\n./Agents/writer/content/drafts/recruitment-optimization-guide.md\n./Agents/writer/content/drafts/tech-trends-2024.md\n</tool_result>\n\n<tool_call>\n{\"name\": \"Read\", \"arguments\": {\"file_path\": \"./Agents/writer/content/drafts/recruitment-optimization-guide.md\"}}\n</tool_c"
+    },
+    {
+      "runId": "46eaee0d-b17d-48fd-981a-c77ff8f47e68",
+      "stepId": "review-article",
+      "workflow": "blog-content-pipeline",
+      "prompt": "Review the blog article written by biz-writer. Score it 1-10 on: title appeal, content depth, readability, persuasiveness, and call-to-action effectiveness. Provide specific improvement suggestions.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781594874131,
+      "completedAt": 1781594891307,
+      "result": "```json\n{\n  \"runId\": \"46eaee0d-b17d-48fd-981a-c77ff8f47e68\",\n  \"stepId\": \"review-article\",\n  \"status\": \"COMPLETED\",\n  \"summary\": \"文章基础良好，行动号召需加强。\",\n  \"details\": \"【审阅评分】\\n1. 标题吸引力：7/10。\\\"不止于文案\\\"与\\\"核心引擎\\\"比喻有力，但\\\"2026年\\\"时间点可能削弱部分读者的紧迫感。\\n2. 内容深度：7/10。有数据与案例支撑，结构清晰。但内容在\\\"一\\\"部分后被截断，未展现完整的四个维度分析，深度未完全体现。\\n3. 可读性：7/10。使用小标题分段，观点-解释-案例结构明确，语言流畅。\\n4. 说服力：6/10。引用了采用率数据与SHEIN案例，有说服力。但若能增加更多行业案例与具体实施效果，论证会更坚实。\\n5. 行动号召效果：4/10。审阅内容在此处被截断，未看到明确的行动号召（如引导读者如何开始第一步、推荐工具试用或提供资源链接）。这是最需改进的部分。\\n\\n【改进建议】\\n1. 补充完整内容："
+    },
+    {
+      "runId": "17e9df8b-701a-4625-88bd-f2d9a25824bb",
+      "stepId": "review-article",
+      "workflow": "content-marketing",
+      "prompt": "请审阅这篇文章，检查： 1) 语法和表达是否清晰 2) 逻辑是否通顺 3) 内容是否实用 4) 是否有吸引力 给出具体的修改建议，如果质量可以就回复APPROVED。\n",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781589455701,
+      "completedAt": 1781589552950,
+      "result": "COMPLETED: 文章开篇有效但内容未完成，需补充剩余4个技巧及统一结构。"
+    }
+  ]
+}

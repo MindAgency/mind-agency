@@ -1,0 +1,34 @@
+name: landing-page-design
+steps:
+  - id: design-hero
+    agent: designer
+    action: execute
+    dependsOn: []
+    prompt: >-
+      Design the Hero section of the AI Writing Assistant landing page. Provide
+      React component code with Tailwind CSS.
+  - id: design-pricing
+    agent: designer
+    action: execute
+    dependsOn: []
+    prompt: >-
+      Design the Pricing section with 3 tiers (Free, Pro, Team). Provide React
+      component code with Tailwind CSS.
+  - id: design-features
+    agent: designer
+    action: execute
+    dependsOn: []
+    prompt: >-
+      Design the Features section showing 4 key features with icons. Provide
+      React component code with Tailwind CSS.
+  - id: review-design
+    agent: designer
+    action: review
+    dependsOn:
+      - design-hero
+      - design-pricing
+      - design-features
+    prompt: >-
+      Review all design components for consistency, accessibility, and visual
+      quality. Provide feedback.
+description: Design and review workflow for landing page project

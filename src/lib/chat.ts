@@ -11,6 +11,44 @@ import path from 'path';
 import http from 'http';
 import { SYSTEM_BOUNDARY_PROMPT } from './agent-identity';
 import { getProvider, type AgentProvider } from './providers';
+import { createLogger } from '@/lib/logger';
+
+// ── Global error handlers — prevent worker crashes from unhandled rejections ──
+// Next.js runs API routes in Jest workers. An unhandled rejection or uncaught
+// exception kills the worker, making the entire dev server unresponsive.
+// These handlers log the error and prevent process termination.
+const _chatLog = createLogger('chat:global');
+if (!process.listeners('unhandledRejection').length) {
+  process.on('unhandledRejection', (reason: any) => {
+    _chatLog.error('Unhandled promise rejection (worker survived)', reason);
+  });
+}
+if (!process.listeners('uncaughtException').length) {
+  process.on('uncaughtException', (err: Error) => {
+    _chatLog.error('Uncaught exception (worker survived)', err);
+    // Do NOT re-throw — let the worker continue serving requests
+  });
+}
+
+// ── Periodic memory pressure check ──
+// Runs every 30s to catch gradual memory leaks before they OOM the worker.
+// When heap exceeds threshold, forces GC if available and logs a warning.
+const MEMORY_CHECK_INTERVAL = 30_000;
+const MEMORY_THRESHOLD_MB = 500;
+setInterval(() => {
+  const mem = process.memoryUsage();
+  const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
+  if (heapMB > MEMORY_THRESHOLD_MB) {
+    _chatLog.warn(`High memory usage: ${heapMB}MB heap (RSS: ${Math.round(mem.rss / 1024 / 1024)}MB)`);
+    if (global.gc) {
+      global.gc();
+      const afterMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+      _chatLog.info(`GC reduced heap: ${heapMB}MB -> ${afterMB}MB`);
+    }
+  }
+}, MEMORY_CHECK_INTERVAL).unref?.();
+
+const log = createLogger('chat');
 
 // Ensure providers are registered
 import './providers/claude';
@@ -48,7 +86,7 @@ try {
       invalidateApiSettings();
       const curr = getApiSettings().model;
       if (curr !== prev) {
-        console.log(`[chat] model changed: ${prev || '(none)'} → ${curr || '(none)'}`);
+        log.info(`model changed: ${prev || '(none)'} → ${curr || '(none)'}`);
       }
       // Invalidate all agent caches — API key/URL/model change affects everyone
       agentCache.invalidateRegion('config');
@@ -68,7 +106,7 @@ function watchAgentConfig(agentName: string): void {
   if (!fs.existsSync(configPath)) return;
   // Close any existing watcher for this agent
   const old = configWatchers.get(agentName);
-  if (old) { try { old.close(); } catch (e) { console.error('[lib:chat]', e); } }
+  if (old) { try { old.close(); } catch (e) { log.error('Failed to close old config watcher', e); } }
   try {
     // Watch the agent directory — catches both config.json and CLAUDE.md changes
     const w = fs.watch(path.join(AGENTS_DIR, agentName), (eventType, filename) => {
@@ -79,7 +117,7 @@ function watchAgentConfig(agentName: string): void {
       watchDebounce.set(agentName, setTimeout(() => {
         watchDebounce.delete(agentName);
         invalidateAgentCache(agentName);
-        console.log(`[chat] ${agentName}/${filename} changed → cache invalidated`);
+        log.info(`${agentName}/${filename} changed → cache invalidated`);
       }, 500));
     });
     configWatchers.set(agentName, w);
@@ -93,7 +131,7 @@ try {
       if (entry.isDirectory() && !entry.name.startsWith('.')) watchAgentConfig(entry.name);
     }
   }
-} catch (e) { console.error('[lib:chat]', e); }
+} catch (e) { log.error('Failed to scan agents directory', e); }
 
 // On new agent creation, the scheduler's tick() refreshes file watchers via
 // refreshFileWatchers(). Also watch for new agent directories appearing.
@@ -106,15 +144,23 @@ try {
       if (!configWatchers.has(filename)) watchAgentConfig(filename);
     });
   }
-} catch (e) { console.error('[lib:chat]', e); }
+} catch (e) { log.error('Failed to watch agents directory', e); }
 
 process.on('exit', () => {
-  try { settingsWatcher?.close(); } catch (e) { console.error('[lib:chat]', e); }
-  try { agentDirWatcher?.close(); } catch (e) { console.error('[lib:chat]', e); }
-  for (const w of configWatchers.values()) try { w.close(); } catch (e) { console.error('[lib:chat]', e); }
+  try { settingsWatcher?.close(); } catch (e) { log.error('Failed to close settings watcher', e); }
+  try { agentDirWatcher?.close(); } catch (e) { log.error('Failed to close agent directory watcher', e); }
+  for (const w of configWatchers.values()) try { w.close(); } catch (e) { log.error('Failed to close config watcher', e); }
   for (const t of watchDebounce.values()) clearTimeout(t);
 });
 
+/**
+ * Kill all running Claude query processes across every agent.
+ *
+ * Delegates to the process tracker to abort every tracked query and
+ * returns the number of processes that were terminated.
+ *
+ * @returns Number of killed processes.
+ */
 export function killAllClaudeProcesses(): number {
   return killAllQueries();
 }
@@ -172,15 +218,17 @@ function saveChatHistory(agentName: string, data: ChatHistory, expectedVersion?:
       // Another request modified the session — merge messages instead of overwrite
       const merged = JSON.parse(JSON.stringify(cached)) as ChatHistory;
       // Append new messages that aren't in the cached version
-      const existingKeys = new Set(merged.messages.map(m => `${m.role}:${m.content.slice(0, 50)}`));
+      // Use full content as dedup key (not truncated) to avoid false deduplication
+      // of different messages that happen to share the same first 50 chars.
+      const existingKeys = new Set(merged.messages.map(m => `${m.role}:${m.content}`));
       for (const msg of data.messages) {
-        const key = `${msg.role}:${msg.content.slice(0, 50)}`;
+        const key = `${msg.role}:${msg.content}`;
         if (!existingKeys.has(key)) {
           merged.messages.push(msg);
         }
       }
-      // Keep last 50 messages
-      if (merged.messages.length > 50) merged.messages = merged.messages.slice(-50);
+      // Keep last 100 messages (matches savePartialState limit)
+      if (merged.messages.length > 100) merged.messages = merged.messages.slice(-100);
       merged.sessionId = data.sessionId || merged.sessionId;
       merged._version = (cached._version || 0) + 1;
       data = merged;
@@ -197,10 +245,18 @@ function saveChatHistory(agentName: string, data: ChatHistory, expectedVersion?:
     fs.renameSync(tmp, file);
     agentCache.set('session', agentName, data);
   } catch (err) {
-    console.error(`[chat] saveChatHistory failed for ${agentName}:`, err);
+    log.error(`saveChatHistory failed for ${agentName}`, err);
   }
 }
 
+/**
+ * Clear the chat session history for the specified agent.
+ *
+ * Resets the agent's session by delegating to {@link AgentProxy.clearSession},
+ * which removes the session file and invalidates any cached session data.
+ *
+ * @param agentName - The agent whose chat history should be cleared.
+ */
 export function clearChat(agentName: string) {
   // Delegate to AgentProxy for session clearing
   const proxy = new AgentProxy(agentName);
@@ -219,7 +275,7 @@ function buildIdentity(agentName: string): string {
     const claudeMdAlt = path.join(AGENTS_DIR, agentName, '.claude', 'CLAUDE.md');
     try {
       if (fs.existsSync(claudeMdAlt)) identity = fs.readFileSync(claudeMdAlt, 'utf-8').trim();
-    } catch (e) { console.error('[lib:chat]', e); }
+    } catch (e) { log.error('Failed to read fallback CLAUDE.md', e); }
   }
   if (!identity) identity = `你是${agentName}，Mind Agency 团队成员。`;
 
@@ -235,6 +291,11 @@ function buildIdentity(agentName: string): string {
 
   // Append L1/L2/L3 boundaries + tools reference (from shared constant)
   identity += `\n\n${SYSTEM_BOUNDARY_PROMPT}`;
+
+  // Instruction compliance: ensure AI follows user's explicit instructions
+  // This prevents the AI from substituting its own topic when the user gives
+  // a specific instruction (e.g., user says "write about X" but agent writes about Y).
+  identity += '\n\n【强制规则 — 指令遵从】用户在对话中给出的任何明确指令（如"写关于X"、"讨论Y"、"分析Z"），你必须严格按照指示执行。不要自行替换用户指定的主题、角度或内容要求。用户说什么就做什么，不要擅自更改。';
 
   return identity;
 }
@@ -257,6 +318,17 @@ interface AgentFullConfig {
   };
 }
 
+/**
+ * Read and cache an agent's `config.json` configuration.
+ *
+ * Returns a typed {@link AgentFullConfig} with roles, allowed/disallowed tools,
+ * permission mode, behavior profile, and other agent-level settings.
+ * Results are cached in the unified agent cache so repeated reads are free.
+ *
+ * @param agentName - The agent whose config should be loaded.
+ * @returns The agent's full configuration, or a default empty-config object if
+ *          the file does not exist or cannot be parsed.
+ */
 export function getAgentConfig(agentName: string): AgentFullConfig {
   const cached = agentCache.get<AgentFullConfig>('config', agentName);
   if (cached) return cached;
@@ -277,7 +349,7 @@ export function getAgentConfig(agentName: string): AgentFullConfig {
       agentCache.set('config', agentName, cfg);
       return cfg;
     }
-  } catch (e) { console.error('[lib:chat]', e); }
+  } catch (e) { log.error('Failed to read agent config', e); }
   const def = { roles: [] };
   agentCache.set('config', agentName, def);
   return def;
@@ -338,6 +410,15 @@ function readClaudeMd(agentName: string): string {
   return content;
 }
 
+/**
+ * Invalidate all cached data for the specified agent.
+ *
+ * Clears the agent's config, identity, session, and membership caches from
+ * the unified cache store. Also invalidates the memory and goals caches so
+ * that subsequent reads pick up fresh data from disk.
+ *
+ * @param agentName - The agent whose caches should be invalidated.
+ */
 export function invalidateAgentCache(agentName: string): void {
   agentCache.invalidateAgent(agentName);
   // Also invalidate baseOptions cache (contains system prompt with memory)
@@ -424,11 +505,11 @@ export function savePartialState(agentName: string, opts: {
 
   ih.sessionId = opts.sessionId || ih.sessionId;
   try {
-    console.log(`[chat] savePartialState: ${agentName}, msgs=${ih.messages.length}, version=${ih._version}`);
+    log.info(`savePartialState: ${agentName}, msgs=${ih.messages.length}, version=${ih._version}`);
     saveChatHistory(agentName, ih, expectedVersion);
-    console.log(`[chat] savePartialState: ${agentName} saved successfully`);
+    log.info(`savePartialState: ${agentName} saved successfully`);
   } catch (err) {
-    console.error(`[chat] savePartialState failed for ${agentName}:`, err);
+    log.error(`savePartialState failed for ${agentName}`, err);
   }
 }
 
@@ -451,6 +532,7 @@ function createProviderStream(
   groupName?: string, modelOverride?: string, agentConfig?: Record<string, unknown> | null,
 ): ReadableStream<ChatEvent> {
   const ts = () => new Date().toISOString();
+  const MAX_PROVIDER_EVENTS = 500; // cap to prevent OOM on long tool chains
   return new ReadableStream<ChatEvent>({
     async start(ctrl) {
       const allEvents: ChatEvent[] = [];
@@ -491,7 +573,8 @@ function createProviderStream(
         });
 
         for await (const evt of stream) {
-          allEvents.push(evt);
+          // Cap events array to prevent memory explosion
+          if (allEvents.length < MAX_PROVIDER_EVENTS) allEvents.push(evt);
           ctrl.enqueue(evt);
           if (evt.type === 'text') { fullReply += evt.content || ''; }
         }
@@ -500,13 +583,35 @@ function createProviderStream(
       } finally {
         clearActivity(agentName);
         untrackQuery(abortController);
-        ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
-        ctrl.close();
+        try {
+          ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
+          ctrl.close();
+        } catch { /* controller may already be closed */ }
       }
     },
   });
 }
 
+// ── Active stream counter for safe process.env mutation ──
+let activeStreams = 0;
+
+/**
+ * Create a streaming chat response for an agent.
+ *
+ * Routes the request through the relay layer (RAG context injection + token
+ * billing) and returns a `ReadableStream<ChatEvent>` that yields thinking,
+ * tool_use, tool_result, text, error, and done events as the AI responds.
+ *
+ * @param agentName   - The agent to chat with.
+ * @param userMessage - The user's message text.
+ * @param groupName   - Optional group context; when provided, group chat
+ *                      history is injected into the prompt.
+ * @param modelOverride - Optional model name to override the agent's default.
+ * @param optsOverrides - Optional provider option overrides (e.g. disable MCP).
+ * @param fresh       - When `true`, skip session continuation so the SDK
+ *                      starts a brand-new session (used after /clear).
+ * @returns A readable stream of {@link ChatEvent} objects.
+ */
 export async function createChatStream(agentName: string, userMessage: string, groupName?: string, modelOverride?: string, optsOverrides?: Record<string, unknown>, fresh?: boolean): Promise<ReadableStream<ChatEvent>> {
   const agentDir = path.join(AGENTS_DIR, agentName);
   if (!fs.existsSync(agentDir)) return quickError(`Agent "${agentName}" not found`);
@@ -516,17 +621,28 @@ export async function createChatStream(agentName: string, userMessage: string, g
   try {
     const { relay } = await import('./relay');
 
-    // Build conversation context for relay
+    // Build system prompt (agent identity + tools + boundaries)
+    const baseOpts = buildBaseOptions(agentName);
+    const groupChatCtx = buildGroupChatContext(agentName, groupName);
+    const goalsCtx = loadGoalContext(agentName);
+
+    // Build user message with context
+    const fullPrompt = groupChatCtx
+      ? groupChatCtx + (goalsCtx ? '\n' + goalsCtx : '') + '\n\n---\n\n' + userMessage
+      : (goalsCtx ? goalsCtx + '\n\n---\n\n' : '') + userMessage;
+
+    // Build conversation context for relay — include last 30 messages for better context retention
     const history = getChatHistory(agentName);
     const messages = [
-      ...history.messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: userMessage },
+      ...history.messages.slice(-30).map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: fullPrompt },
     ];
 
     const result = await relay({
       agent: agentName,
       messages,
       model: modelOverride,
+      systemPrompt: baseOpts.systemPrompt,
     });
 
     // Convert relay response to ReadableStream<ChatEvent>
@@ -547,235 +663,26 @@ export async function createChatStream(agentName: string, userMessage: string, g
 
     return stream;
   } catch (err: any) {
-    console.error(`[chat] ${agentName}: relay error:`, err.message);
+    log.error(`${agentName}: relay error: ${err.message}`, err);
     return quickError(`Relay error: ${err.message}`);
   }
-
-  // Fallback: direct provider call (should not be reached)
-  const agentConfig = loadAgentConfig(agentName);
-  const providerName = (agentConfig?.provider as string) || 'claude-proxy';
-  if (providerName !== 'claude') {
-    const provider = getProvider(providerName);
-    if (provider) {
-      return createProviderStream(provider as AgentProvider, agentName, userMessage, groupName, modelOverride, agentConfig || null);
-    }
-  }
-
-  // Build task context
-  const baseOpts = buildBaseOptions(agentName);
-  const groupChatCtx = buildGroupChatContext(agentName, groupName);
-  const goalsCtx = loadGoalContext(agentName);
-
-  // Skills: RAG uses full accumulated context
-  let skillsCtx = '';
-  try {
-    // Delegate to AgentProxy for skill context loading
-    const agency = await import('./agency').then(m => m.getAgency());
-    const agentProxy = agency.getAgent(agentName);
-    // Build RAG context: full conversation history + user message
-    const history = getChatHistory(agentName);
-    const fullContext = history.messages
-      .map(m => `[${m.role}] ${m.content.slice(0, 300)}`)
-      .join('\n');
-    const ragContext = fullContext ? fullContext + '\n[user] ' + userMessage : userMessage;
-    skillsCtx = await agentProxy.loadSkillsContext(ragContext);
-  } catch (e) { console.error('[lib:chat]', e); }
-
-  const fullPrompt = groupChatCtx
-    ? groupChatCtx + (goalsCtx ? '\n' + goalsCtx : '') + '\n\n---\n\n' + userMessage + (skillsCtx ? '\n\n' + skillsCtx : '')
-    : (goalsCtx ? goalsCtx + '\n\n---\n\n' : '') + userMessage + (skillsCtx ? '\n\n' + skillsCtx : '');
-  const ts = () => new Date().toISOString();
-
-  return new ReadableStream<ChatEvent>({
-    async start(ctrl) {
-      // Register in-memory active stream — frontend re-mounts can read via GET /api/.../chat
-      const allEvents: ChatEvent[] = [];
-      let fullReply = '';
-      let sessionId = '';
-      let hasContent = false;
-      let incrementalSaveCounter = 0;
-      // ── Activity tracking — visible in sidebar ──
-      setActivity(agentName, 'chatting', '对话中');
-      // ── Process tracking — enables clean shutdown ──
-      // Declared before try so it's accessible in both try and catch blocks.
-      const abortController = trackQuery();
-      const electronExe = process.env.MIND_ELECTRON_EXE;
-      let setElectronRunAsNode = false;
-
-      try {
-        // In Electron, tell the SDK to use our Electron binary as the Node.js runtime.
-        // SDK executes: <node> <claude-code-entry> --output-format stream-json ...
-        const opts: any = { ...baseOpts, abortController };
-        if (!fresh) opts.continue = true;
-        if (modelOverride) opts.model = modelOverride;
-        if (electronExe) {
-          (opts as any).executable = electronExe;
-          // SDK spawns child process inheriting process.env — must set before query()
-          // Only mutation in codebase; restored after query completes.
-          process.env.ELECTRON_RUN_AS_NODE = '1';
-          setElectronRunAsNode = true;
-        }
-
-        // Apply CLI command overrides (from /plan, etc.)
-        if (optsOverrides) {
-          for (const [k, v] of Object.entries(optsOverrides)) {
-            opts[k] = v;
-          }
-          if (optsOverrides.permissionMode === 'plan') {
-            console.log(`[chat] plan mode: ${optsOverrides.planModeInstructions || '(no topic)'}`);
-          }
-          // v0.7: Debug log for MCP disable
-          if (optsOverrides.mcpServers && Object.keys(optsOverrides.mcpServers).length === 0) {
-            console.log(`[chat] ${agentName}: MCP tools disabled`);
-          }
-        }
-
-        // SDK binary path: use dynamic path resolution instead of require.resolve()
-        // (require.resolve would make webpack try to bundle the .exe binary.)
-        const sdkBin = process.env.CLAUDE_CODE_PATH
-          || ['node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
-              '../node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
-              'resources/app/node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe']
-              .map(p => path.resolve(process.cwd(), p))
-              .find(p => fs.existsSync(p));
-        if (sdkBin) {
-          opts.pathToClaudeCodeExecutable = sdkBin;
-          console.log('[chat] SDK binary:', sdkBin);
-        } else {
-          console.warn('[chat] SDK binary not found — SDK will use its own resolution');
-        }
-
-        const { query } = await import('@anthropic-ai/claude-agent-sdk');
-        const messages = query({ prompt: fullPrompt, options: opts });
-
-        // Save user message immediately — visible even before first response chunk
-        try { savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId }); } catch (e) { console.error('[lib:chat]', e); }
-
-        // v0.4: Timeout protection — if SDK hangs, show error after 30s
-        let firstChunk = false;
-        const timeout = setTimeout(() => {
-          if (!firstChunk) {
-            ctrl.enqueue({ type: 'error', content: 'Claude SDK 超时（30s 无响应）。请检查：1) API Key 是否配置 2) 网络是否正常 3) API 地址是否正确', timestamp: ts() });
-            ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
-            ctrl.close();
-          }
-        }, 30_000);
-
-        for await (const msg of messages) {
-          if (!firstChunk) { firstChunk = true; clearTimeout(timeout); }
-          if ('session_id' in msg && !sessionId) sessionId = (msg as any).session_id;
-
-          if (isAssistantMsg(msg)) {
-            for (const block of msg.message?.content || []) {
-              if (isThinkingBlock(block) && block.thinking) {
-                allEvents.push({ type: 'thinking', content: block.thinking, timestamp: ts() });
-                ctrl.enqueue(allEvents[allEvents.length - 1]);
-                // Save during thinking phase too — user can leave and come back
-                if (allEvents.filter(e => e.type === 'thinking').length % 3 === 0 && sessionId) {
-                  try { savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId }); } catch (e) { console.error('[lib:chat]', e); }
-                }
-              } else if (isToolUseBlock(block)) {
-                allEvents.push({ type: 'tool_use', content: block.name, toolName: block.name, toolInput: JSON.stringify(block.input || {}, null, 2), timestamp: ts() });
-                ctrl.enqueue(allEvents[allEvents.length - 1]);
-                // v0.4: Save session on every tool call (prevents data loss on page switch)
-                if (sessionId) { try { savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId }); } catch (e) { console.error('[lib:chat]', e); } }
-                // Audit log for file operations
-                const input = block.input as Record<string, any> | undefined;
-                const filePath = input?.file_path || input?.path || '';
-                if (block.name === 'Write' || block.name === 'Edit' || block.name === 'Delete' || block.name === 'Rename') {
-                  try { writeAudit({ agent: agentName, action: `file.${block.name.toLowerCase()}`, resource: filePath || 'unknown', details: block.name === 'Write' ? (input?.content || '').slice(0, 100) : '' }); } catch (e) { console.error('[lib:chat]', e); }
-                } else if (block.name === 'Bash') {
-                  try { writeAudit({ agent: agentName, action: 'file.bash', resource: '', details: (input?.command || '').slice(0, 120) }); } catch (e) { console.error('[lib:chat]', e); }
-                }
-              } else if (isTextBlock(block) && block.text) {
-                fullReply += block.text; hasContent = true;
-                allEvents.push({ type: 'text', content: block.text, timestamp: ts() });
-                ctrl.enqueue(allEvents[allEvents.length - 1]);
-
-                // ── Incremental save: every 8 text chunks, persist partial state ──
-                // Allows users to navigate away and come back to see partial results.
-                incrementalSaveCounter++;
-                if (incrementalSaveCounter % 8 === 0 && sessionId) {
-                  try { savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId }); } catch (e) { console.error('[lib:chat]', e); }
-                }
-              }
-            }
-          }
-          if (isUserMsg(msg)) {
-            for (const block of msg.message?.content || []) {
-              if (isToolResultBlock(block)) {
-                const out = typeof block.content === 'string' ? block.content : JSON.stringify(block.content || '');
-                allEvents.push({ type: 'tool_result', content: out.slice(0, 3000), toolOutput: out.slice(0, 3000), timestamp: ts() });
-                ctrl.enqueue(allEvents[allEvents.length - 1]);
-              }
-            }
-          }
-          if (isResultSuccess(msg)) {
-            if (msg.is_error && !hasContent) {
-              ctrl.enqueue({ type: 'error', content: 'Execution error', timestamp: ts() });
-            }
-            // Record token usage (fire-and-forget via raw http — don't block stream)
-            const usage = getTokenUsage(msg);
-            if (usage) {
-              const tokensIn = usage.input_tokens;
-              const tokensOut = usage.output_tokens;
-              const model = usage.modelUsage ? Object.keys(usage.modelUsage)[0] || 'unknown' : 'unknown';
-              // DeepSeek pricing (CNY per 1M tokens), cache-miss by default
-              // V4-Pro: input ¥3.00, output ¥6.00 | V4-Flash: input ¥1.00, output ¥2.00
-              const isDS = /deepseek/i.test(model);
-              const isFlash = isDS && /flash|chat/i.test(model) && !/pro/i.test(model);
-              // Claude pricing fallback (CNY, ~7.2 rate):
-              // Opus:  $15/$75 → ¥108/540 | Sonnet: $3/$15 → ¥21.6/108 | Haiku: $0.25/$1.25 → ¥1.8/9
-              const isClaude = /claude/i.test(model);
-              const isOpus = isClaude && /opus/i.test(model);
-              const isSonnet = isClaude && /sonnet/i.test(model);
-              const cost = isDS
-                ? (tokensIn * (isFlash ? 1.0 : 3.0) + tokensOut * (isFlash ? 2.0 : 6.0)) / 1_000_000
-                : Number(msg.total_cost_usd) || (isOpus ? (tokensIn * 108 + tokensOut * 540) / 1_000_000
-                    : isSonnet ? (tokensIn * 21.6 + tokensOut * 108) / 1_000_000
-                    : isClaude ? (tokensIn * 3.6 + tokensOut * 18) / 1_000_000
-                    : 0);
-              const payload = JSON.stringify({
-                agent: agentName,
-                tokensIn,
-                tokensOut,
-                cost,
-                model,
-              });
-              try {
-                const apiPort = parseInt(process.env.PORT || '3000', 10);
-                const req = http.request({ hostname: '127.0.0.1', port: apiPort, path: '/api/system/token', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, (res: any) => res.resume());
-                req.on('error', () => {});
-                req.write(payload);
-                req.end();
-              } catch (e) { console.error('[lib:chat]', e); }
-            }
-          }
-        }
-
-        // ── Final save: persist final state ──
-        clearTimeout(timeout);
-        if (setElectronRunAsNode) delete process.env.ELECTRON_RUN_AS_NODE;
-        savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId });
-        ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
-        clearActivity(agentName);
-        untrackQuery(abortController);
-
-      } catch (err: any) {
-        // Restore ELECTRON_RUN_AS_NODE if we set it
-        if (setElectronRunAsNode) delete process.env.ELECTRON_RUN_AS_NODE;
-        clearActivity(agentName);
-        untrackQuery(abortController);
-        // v0.6: Always save session on error — prevents message loss
-        try { savePartialState(agentName, { userMessage, fullReply, allEvents, sessionId }); } catch (e) { console.error('[lib:chat]', e); }
-        ctrl.enqueue({ type: 'error', content: err.message || String(err), timestamp: ts() });
-        ctrl.enqueue({ type: 'done', content: '', timestamp: ts() });
-      }
-      ctrl.close();
-    },
-  });
 }
 
+/**
+ * Send a single message to an agent and wait for the complete reply.
+ *
+ * Convenience wrapper around {@link createChatStream} that reads the full
+ * stream into memory and returns the final text reply and all events.
+ * Automatically queues via the agent queue to prevent concurrent access
+ * (unless already executing inside an agent queue context).
+ *
+ * @param agentName   - The agent to chat with.
+ * @param userMessage - The user's message text.
+ * @param groupName   - Optional group context for the conversation.
+ * @param opts        - Options: `noMcp` disables MCP tool servers.
+ * @returns An object with the complete `reply` text and the full `events` array.
+ * @throws If the stream encounters an unrecoverable error.
+ */
 export async function chatOnce(agentName: string, userMessage: string, groupName?: string, opts?: { noMcp?: boolean }): Promise<{ reply: string; events: ChatEvent[] }> {
   // v0.8: Skip enqueueAgent if already inside one (prevent deadlock)
   const inAgentQueue = (global as any).__currentAgent === agentName;
@@ -785,28 +692,43 @@ export async function chatOnce(agentName: string, userMessage: string, groupName
     const stream = await createChatStream(agentName, userMessage, groupName, undefined, overrides, forceFresh);
     // v0.7: Add overall timeout to prevent infinite hangs
     const MAX_CHAT_TIME = 60_000; // 60 seconds max per chat
+    const MAX_EVENTS = 500;       // cap events array to prevent OOM
     const reader = stream.getReader();
     let reply = '';
     const events: ChatEvent[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Chat timeout after ${MAX_CHAT_TIME}ms`)), MAX_CHAT_TIME);
+      timer = setTimeout(() => reject(new Error(`Chat timeout after ${MAX_CHAT_TIME}ms`)), MAX_CHAT_TIME);
     });
+    const decoder = new TextDecoder();
     const readPromise = (async () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        events.push(value);
-        if (value.type === 'text') reply += value.content || '';
-        if (value.type === 'done') break;
+        // value may be Uint8Array (encoded JSON) or plain object
+        let event: any = value;
+        if (value instanceof Uint8Array) {
+          try { event = JSON.parse(decoder.decode(value)); } catch { continue; }
+        }
+        // Cap events array to prevent memory explosion on long-running tool chains
+        if (events.length < MAX_EVENTS) events.push(event);
+        if (event.type === 'error') throw new Error(event.content || 'Unknown stream error');
+        if (event.type === 'text') reply += event.content || '';
+        if (event.type === 'done') break;
       }
     })();
     try {
       await Promise.race([readPromise, timeoutPromise]);
     } catch (e: any) {
       if (e.message?.includes('timeout')) {
-        console.log(`[chat] ${agentName}: ${e.message}`);
+        log.info(`${agentName}: ${e.message}`);
         reader.cancel().catch(() => {});
       } else { throw e; }
+    } finally {
+      // CRITICAL: clear the timeout timer to prevent memory leak
+      // Without this, each chatOnce call leaks a timer that holds references
+      // to the events array and fullReply string, eventually OOM-ing the worker.
+      if (timer) clearTimeout(timer);
     }
     return { reply, events };
   };
@@ -818,6 +740,10 @@ export async function chatOnce(agentName: string, userMessage: string, groupName
 function quickError(msg: string): ReadableStream<ChatEvent> {
   const ts = new Date().toISOString();
   return new ReadableStream({
-    start(c) { c.enqueue({ type: 'error', content: msg, timestamp: ts }); c.enqueue({ type: 'done', content: '', timestamp: ts }); c.close(); },
+    start(c) {
+      c.enqueue({ type: 'error', content: msg, timestamp: ts } as ChatEvent);
+      c.enqueue({ type: 'done', content: '', timestamp: ts } as ChatEvent);
+      c.close();
+    },
   });
 }

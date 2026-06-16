@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "1189f705-fc3a-4185-9f07-44f8b499260c",
+      "stepId": "write-report",
+      "workflow": "medical-literature-review",
+      "prompt": "�������Ľ����׫дһ�ݽṹ����ҽѧ�����������棬����ժҪ����������������ۺͽ���",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781604664859,
+      "completedAt": 1781604714648,
+      "result": "收到工作流任务，正在撰写CAR-T血液肿瘤临床进展文献综述...\n\n---\n\n# CAR-T细胞产品在血液肿瘤中的临床进展：文献综述（2024-2025年）\n\n---\n\n## 摘要\n\n**背景**：嵌合抗原受体T细胞（CAR-T）疗法已成为血液肿瘤治疗的重要突破，近年来多项III期临床试验推动了治疗适应症的前移和扩展。\n\n**目的**：系统综述2024-2025年CAR-T细胞产品在血液肿瘤中的临床进展，评估现有证据质量，为临床决策提供参考。\n\n**方法**：检索PubMed、Embase、Cochrane Library及2024 ASH/ASCO会议摘要，纳入III期及以上临床试验，采用GRADE系统评价证据质量。\n\n**结果**：共纳入6项关键III期试验。Carvykti（CARTITUDE-4）和Abecma（KarMMa-3）在多发性骨髓瘤中证实PFS显著获益；Breyanzi（TRANSFORM）和Yescarta（ZUMA-7）将CAR-T治疗从末线推进至二线LBCL。总体证据质量为中等（Moderate），主要局限包括开放标签设计、药企资助及真实世界外推性不足。\n\n*"
+    }
+  ]
+}

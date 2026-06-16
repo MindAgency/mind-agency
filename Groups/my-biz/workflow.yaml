@@ -1,0 +1,50 @@
+name: content-marketing
+description: "小企业内容营销流程：调研 -> 写作 -> 审稿 -> 发布"
+
+steps:
+  # Phase 1: 市场调研
+  - id: market-research
+    agent: biz-writer
+    action: execute
+    prompt: >
+      你是一位市场调研专家。请调研"小企业如何用AI提升营销效率"这个主题，
+      输出一份简短的调研报告（300字左右），包含：
+      1) 当前小企业营销痛点
+      2) AI能解决的具体问题
+      3) 3个可行的AI营销策略
+      格式为Markdown。
+
+  # Phase 2: 内容创作（依赖调研结果）
+  - id: write-article
+    agent: biz-writer
+    action: execute
+    dependsOn:
+      - market-research
+    prompt: >
+      基于市场调研结果，撰写一篇面向小企业主的营销文章（800字左右）。
+      标题要吸引人，内容要实用，包含具体案例。
+      文章主题：小企业主必看：5个用AI提升营销效率的实用技巧
+
+  # Phase 3: 审稿
+  - id: review-article
+    agent: biz-reviewer
+    action: execute
+    dependsOn:
+      - write-article
+    prompt: >
+      请审阅这篇文章，检查：
+      1) 语法和表达是否清晰
+      2) 逻辑是否通顺
+      3) 内容是否实用
+      4) 是否有吸引力
+      给出具体的修改建议，如果质量可以就回复APPROVED。
+
+  # Phase 4: 最终修改
+  - id: final-edit
+    agent: biz-writer
+    action: execute
+    dependsOn:
+      - review-article
+    prompt: >
+      根据审稿人的反馈修改文章，使其更加完善。
+      最终输出一篇可以发布的完整文章。

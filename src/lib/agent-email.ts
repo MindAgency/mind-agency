@@ -55,8 +55,8 @@ export async function sendAgentEmail(fromName: string, to: string, subject: stri
     const emailDir = path.join(AGENTS_DIR, to, 'email');
     if (!fs.existsSync(emailDir)) fs.mkdirSync(emailDir, { recursive: true });
 
-    const safeFrom = fromName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
-    const safeSubject = subject.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+    const safeFrom = fromName.replace(/[^a-zA-Z0-9_一-鿿-]/g, '_').slice(0, 30);
+    const safeSubject = subject.replace(/[^a-zA-Z0-9_一-鿿-]/g, '_').slice(0, 50);
     const timestamp = Date.now();
     const filename = `${timestamp}_${safeFrom}_${safeSubject}.md`;
 

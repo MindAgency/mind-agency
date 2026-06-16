@@ -1,0 +1,19 @@
+name: ai-article-workflow
+description: "AI��������׫д����"
+steps:
+  - id: research
+    agent: ai-researcher
+    action: execute
+    prompt: "�������о�2025-2026��AI�������Ҫ��չ"
+  - id: write-outline
+    agent: ai-researcher
+    action: execute
+    dependsOn:
+      - research
+    prompt: "�����о����׫д���´��"
+  - id: review
+    agent: ai-researcher
+    action: execute
+    dependsOn:
+      - write-outline
+    prompt: "���Ĳ��޸����´��"

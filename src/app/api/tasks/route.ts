@@ -1,8 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAgency } from '@/lib/agency';
+/**
+ * Tasks API — workflow task management across agents
+ *
+ * GET    /api/tasks?group=<name>  → list tasks for a group (or all groups)
+ * POST   /api/tasks               → create a new task
+ * PUT    /api/tasks               → update task status (complete/cancel)
+ */
 
-// GET /api/tasks?group=X — list tasks for a group
-export async function GET(request: NextRequest) {
+import { NextRequest } from 'next/server';
+import { apiOk, apiBadRequest, apiInternal } from '@/lib/api-utils';
+import { safeHandler } from '@/lib/api-handler';
+
+export const GET = safeHandler(async (request: NextRequest) => {
+  const { getAgency } = await import('@/lib/agency');
   const { searchParams } = new URL(request.url);
   const group = searchParams.get('group');
 
@@ -18,7 +27,7 @@ export async function GET(request: NextRequest) {
         agentsWithTasks.push(agent.name);
       }
     }
-    return NextResponse.json({ groups: agentsWithTasks });
+    return apiOk({ groups: agentsWithTasks });
   }
 
   // Get tasks for a specific group (from all agents)
@@ -27,68 +36,62 @@ export async function GET(request: NextRequest) {
     const tasks = await agent.loadTasks();
     allTasks.push(...tasks.filter(t => t.workflow === group));
   }
-  return NextResponse.json({ tasks: allTasks });
-}
+  return apiOk({ tasks: allTasks });
+});
 
 // POST /api/tasks — create a task (called by MCP tool or API)
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { group, id, title, description, reward, requiredSkills, maxClaims, postedBy } = body;
+export const POST = safeHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const { group, id, title, description, reward, requiredSkills, maxClaims, postedBy } = body;
 
-    if (!group || !id || !title || !description) {
-      return NextResponse.json({ error: 'group, id, title, description required' }, { status: 400 });
-    }
-
-    const agency = getAgency();
-    const agentName = postedBy || 'system';
-
-    const task = {
-      runId: id,
-      stepId: 'manual',
-      workflow: group,
-      prompt: description,
-      priority: 'normal' as const,
-      status: 'pending' as const,
-      createdAt: Date.now(),
-    };
-
-    await agency.addTask(agentName, task);
-
-    return NextResponse.json({ success: true, task });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  if (!group || !id || !title || !description) {
+    return apiBadRequest('group, id, title, description required');
   }
-}
+
+  const { getAgency } = await import('@/lib/agency');
+  const agency = getAgency();
+  const agentName = postedBy || 'system';
+
+  const task = {
+    runId: id,
+    stepId: 'manual',
+    workflow: group,
+    prompt: description,
+    priority: 'normal' as const,
+    status: 'pending' as const,
+    createdAt: Date.now(),
+  };
+
+  await agency.addTask(agentName, task);
+
+  return apiOk({ task });
+});
 
 // PUT /api/tasks — update a task (claim, select, complete)
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { group, taskId, action, agent, message } = body;
+export const PUT = safeHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const { group, taskId, action, agent, message } = body;
 
-    if (!group || !taskId || !action) {
-      return NextResponse.json({ error: 'group, taskId, action required' }, { status: 400 });
-    }
-
-    const agency = getAgency();
-    const agentName = agent || 'system';
-
-    if (action === 'complete') {
-      await agency.completeTask(agentName, taskId, message || 'Completed');
-    } else if (action === 'cancel') {
-      const proxy = agency.getAgent(agentName);
-      const tasks = await proxy.loadTasks();
-      const task = tasks.find(t => t.runId === taskId);
-      if (task) {
-        task.status = 'failed';
-        task.result = 'Cancelled';
-        await proxy.saveTasks();
-      }
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  if (!group || !taskId || !action) {
+    return apiBadRequest('group, taskId, action required');
   }
-}
+
+  const { getAgency } = await import('@/lib/agency');
+  const agency = getAgency();
+  const agentName = agent || 'system';
+
+  if (action === 'complete') {
+    await agency.completeTask(agentName, taskId, message || 'Completed');
+  } else if (action === 'cancel') {
+    const proxy = agency.getAgent(agentName);
+    const tasks = await proxy.loadTasks();
+    const task = tasks.find(t => t.runId === taskId);
+    if (task) {
+      task.status = 'failed';
+      task.result = 'Cancelled';
+      await proxy.saveTasks();
+    }
+  }
+
+  return apiOk();
+});

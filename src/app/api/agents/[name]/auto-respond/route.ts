@@ -1,3 +1,10 @@
+/**
+ * POST /api/agents/{name}/auto-respond — Trigger agent auto-respond
+ *
+ * Evaluates signal-driven autonomous response rules for the specified
+ * agent. Returns whether a reply was triggered and its content.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { autoRespond } from '@/lib/auto-respond';
 

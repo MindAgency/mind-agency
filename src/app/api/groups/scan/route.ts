@@ -1,3 +1,10 @@
+/**
+ * GET /api/groups/scan?agent=<name> — List all groups
+ *
+ * When an agent query param is provided, returns only groups that agent
+ * belongs to. Otherwise returns all groups in the system.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
 

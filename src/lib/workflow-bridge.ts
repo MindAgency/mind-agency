@@ -6,6 +6,10 @@ import { atomicWrite } from "./atomic";
  * human_approval steps pause the DAG and wait for API approval.
  * All runs and pending approvals are stored in-memory (survives within process).
  * Run metadata persisted to Groups/<name>/workflow-state.json.
+ *
+ * TIMEOUT UNITS: All timeout values in workflow steps are in MILLISECONDS.
+ * Common values: 30000 (30s), 60000 (1min), 300000 (5min), 600000 (10min).
+ * Default: 300000ms (5 minutes) if not specified.
  */
 
 import fs from 'fs';
@@ -13,10 +17,12 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { GROUPS_DIR } from './data-dir';
 import {
-  WorkflowEngine, WorkflowStatus, ChatStepExecutor,
+  WorkflowEngine, WorkflowStatus,
   parseWorkflowYaml, type WorkflowDefinition,
   type WorkflowRunRecord, type StepStatus,
 } from './event-bus';
+import { createStepExecutor } from './workflow/executor';
+import { loadRunCheckpoints } from './workflow-checkpoint';
 
 // ══════════════════════════════ Singleton Engine ═══════════════════════════
 
@@ -31,7 +37,7 @@ export function getEngine(bus?: any): WorkflowEngine {
     engine = (global as any).__workflowEngine || null;
   }
   if (!engine) {
-    engine = new WorkflowEngine(bus, new ChatStepExecutor());
+    engine = new WorkflowEngine(bus, createStepExecutor());
     (global as any).__workflowEngine = engine;
   } else if (bus && !(engine as any).bus) {
     (engine as any).bus = bus;
@@ -83,14 +89,15 @@ export function getRuns(): Array<{
   steps: Record<string, string>; // stepId → status
   pendingApprovals: Array<{ approvalId: string; stepId: string; agent: string; prompt: string }>;
 }> {
-  // Try in-memory first
-  if (engine) {
-    const runs = engine.listRuns();
+  // Try in-memory first (recover from global if module was reloaded)
+  const eng = getEngine();
+  if (eng) {
+    const runs = eng.listRuns();
     if (runs.length > 0) {
-      const approvals = engine.listPendingApprovals();
+      const approvals = eng.listPendingApprovals();
       return runs.map(r => ({
         runId: r.runId,
-        group: (r as any)._group || '',
+        group: (r as any)._group || (r as any).group || '',
         workflowName: r.workflowName,
         status: r.status,
         stepsTotal: r.steps.size,
@@ -105,21 +112,49 @@ export function getRuns(): Array<{
   }
 
   // Fallback to disk (engine cold after restart or hot-reload)
-  if (!fs.existsSync(GROUPS_DIR)) return [];
-  const results: any[] = [];
-  for (const g of fs.readdirSync(GROUPS_DIR, { withFileTypes: true })) {
-    if (!g.isDirectory() || g.name.startsWith('.')) continue;
-    const state = loadWorkflowState(g.name);
-    if (state && (state.status === 'running' || state.status === 'completed' || state.status === 'failed')) {
-      results.push({
-        runId: state.runId, group: g.name, workflowName: state.workflowName,
-        status: state.status, stepsTotal: 0, stepsDone: 0, startedAt: state.startedAt,
-        pendingApprovals: [],
-      });
-    }
+  // Use cached results to avoid blocking the event loop repeatedly
+  const now = Date.now();
+  if (diskRunsCache && (now - diskRunsCache.ts) < DISK_RUNS_CACHE_TTL) {
+    return diskRunsCache.data;
   }
-  return results;
+
+  try {
+    if (!fs.existsSync(GROUPS_DIR)) { diskRunsCache = { data: [], ts: now }; return []; }
+    const groups = fs.readdirSync(GROUPS_DIR, { withFileTypes: true });
+    const results: any[] = [];
+    for (const g of groups) {
+      if (!g.isDirectory() || g.name.startsWith('.')) continue;
+      const state = loadWorkflowState(g.name);
+      if (state && (state.status === 'running' || state.status === 'completed' || state.status === 'failed')) {
+        // Read checkpoint data for step counts
+        let stepsTotal = 0, stepsDone = 0;
+        const steps: Record<string, string> = {};
+        try {
+          const cps = loadRunCheckpoints(g.name, state.runId);
+          stepsTotal = cps.length;
+          for (const cp of cps) {
+            steps[cp.stepId] = cp.status;
+            if (cp.status === 'completed' || cp.status === 'skipped') stepsDone++;
+          }
+        } catch { /* no checkpoints */ }
+        results.push({
+          runId: state.runId, group: g.name, workflowName: state.workflowName,
+          status: state.status, stepsTotal, stepsDone, startedAt: state.startedAt,
+          steps, pendingApprovals: [],
+        });
+      }
+    }
+    diskRunsCache = { data: results, ts: now };
+    return results;
+  } catch (err) {
+    console.error('[workflow-bridge] getRuns disk fallback error:', err);
+    return diskRunsCache?.data || [];
+  }
 }
+
+// Disk fallback cache (avoids blocking the event loop on repeated calls)
+let diskRunsCache: { data: ReturnType<typeof getRuns>; ts: number } | null = null;
+const DISK_RUNS_CACHE_TTL = 5_000; // 5s cache for disk reads
 
 /** Submit a human approval decision and resume the DAG. */
 export function approveWorkflow(
@@ -185,6 +220,7 @@ interface GroupWorkflowState {
   owner: string;
   status: string;
   startedAt: number;
+  completedAt?: number;
   history: { step: string; agent: string; result: string; at: number }[];
 }
 
@@ -227,11 +263,11 @@ async function waitForCompletion(runId: string, group: string): Promise<void> {
 
           if (run.status === WorkflowStatus.COMPLETED) {
             const s = loadWorkflowState(group);
-            if (s) { s.status = 'completed'; saveWorkflowState(group, s); }
+            if (s) { s.status = 'completed'; s.completedAt = run.completedAt || Date.now(); saveWorkflowState(group, s); }
             cleanup(); resolve();
           } else if (run.status === WorkflowStatus.FAILED) {
             const s = loadWorkflowState(group);
-            if (s) { s.status = 'failed'; saveWorkflowState(group, s); }
+            if (s) { s.status = 'failed'; s.completedAt = run.completedAt || Date.now(); saveWorkflowState(group, s); }
             cleanup(); resolve();
           } else {
             // Update progress

@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "9416fbde-0fef-468c-a13e-0c860821361a",
+      "stepId": "review",
+      "workflow": "lawyer-v5-default",
+      "prompt": "Review this contract clause: 'The provider shall deliver services within 30 days of signing.' Identify any legal risks.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781583431862,
+      "completedAt": 1781583477679,
+      "result": "COMPLETED: 已识别条款中的三项主要法律风险：时间起算点模糊、交付标准不明、缺乏违约后果，并提供了修改建议。"
+    }
+  ]
+}

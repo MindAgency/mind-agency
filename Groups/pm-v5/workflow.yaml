@@ -1,0 +1,8 @@
+name: pm-v5-default
+steps:
+  - id: plan
+    agent: pm-v5-bot
+    action: create
+    prompt: >-
+      Create a project plan for launching a new mobile app. Include phases,
+      timeline, and key milestones.

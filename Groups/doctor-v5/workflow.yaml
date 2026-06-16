@@ -1,0 +1,8 @@
+name: doctor-v5-default
+steps:
+  - id: research
+    agent: doctor-v5-bot
+    action: create
+    prompt: >-
+      Summarize the latest findings on mRNA vaccine effectiveness against
+      COVID-19 variants.

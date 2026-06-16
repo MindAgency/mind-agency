@@ -1,3 +1,11 @@
+/**
+ * GET /api/agents/{name}/heartbeat — Agent liveness check
+ *
+ * Returns whether the agent is currently active (last activity within 2
+ * minutes), along with its status, pending task count, and last action
+ * timestamp.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
 

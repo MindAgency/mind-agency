@@ -18,7 +18,9 @@ import fs from 'fs';
 import path from 'path';
 import { MIND_DIR, AGENTS_DIR, getApiBase } from './data-dir';
 import { searchMemory } from './memory';
+import { ragQuery } from './rag';
 import { getAgentAccount, saveAgentAccount } from './token-economy';
+import { decryptApiKey } from './crypto';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -28,6 +30,7 @@ export interface RelayRequest {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  systemPrompt?: string;
 }
 
 export interface RelayResponse {
@@ -123,6 +126,12 @@ function readLogs(date?: string, limit = 100): RelayLog[] {
     const targetDate = date || new Date().toISOString().slice(0, 10);
     const logFile = path.join(LOG_DIR, `${targetDate}.jsonl`);
     if (!fs.existsSync(logFile)) return [];
+    const stat = fs.statSync(logFile);
+    // Safety: skip files larger than 10MB to prevent OOM
+    if (stat.size > 10 * 1024 * 1024) {
+      console.warn(`[relay] Log file too large (${Math.round(stat.size / 1024 / 1024)}MB), skipping read`);
+      return [];
+    }
     const lines = fs.readFileSync(logFile, 'utf-8').split('\n').filter(Boolean);
     return lines.slice(-limit).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
   } catch { return []; }
@@ -133,7 +142,15 @@ function readLogs(date?: string, limit = 100): RelayLog[] {
 async function ragSearch(agent: string, query: string): Promise<string> {
   const parts: string[] = [];
 
-  // 1. Long-term memory
+  // 1. Vector database search (skills, knowledge, memory via RAG)
+  try {
+    const ragContext = await ragQuery(agent, query, { topK: 5 });
+    if (ragContext) {
+      parts.push(ragContext);
+    }
+  } catch (e) { console.error('[lib:relay] ragQuery failed:', e); }
+
+  // 2. Long-term memory (flat file search as fallback)
   try {
     const results = await searchMemory(agent, query);
     if (results.length > 0) {
@@ -141,7 +158,7 @@ async function ragSearch(agent: string, query: string): Promise<string> {
     }
   } catch (e) { console.error('[lib:relay]', e); }
 
-  // 2. Recent conversation
+  // 3. Recent conversation
   try {
     const sessionPath = path.join(AGENTS_DIR, agent, 'chat', 'session.json');
     if (fs.existsSync(sessionPath)) {
@@ -160,10 +177,27 @@ async function ragSearch(agent: string, query: string): Promise<string> {
 // ── Settings ─────────────────────────────────────────────
 
 function loadSettings(): { apiKey?: string; baseUrl?: string; model?: string } {
+  // 1. Try settings.json first (user's explicit configuration)
   try {
     const p = path.join(MIND_DIR, 'settings.json');
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8'));
+    if (fs.existsSync(p)) {
+      const settings = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      // Decrypt API key if encrypted
+      if (settings.apiKey) {
+        settings.apiKey = decryptApiKey(settings.apiKey);
+      }
+      if (settings.apiKey) return settings;
+    }
   } catch (e) { console.error('[lib:relay]', e); }
+
+  // 2. Fall back to environment variables
+  if (process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY) {
+    return {
+      apiKey: process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || '',
+      baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+    };
+  }
   return {};
 }
 
@@ -216,11 +250,11 @@ export function getRelayKey(agent: string): string {
 async function forwardWithRetry(
   baseUrl: string, apiKey: string, model: string,
   messages: Array<{ role: string; content: string }>,
-  maxTokens: number, retries = 2
+  maxTokens: number, systemPrompt?: string, retries = 2
 ): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await forwardToProvider(baseUrl, apiKey, model, messages, maxTokens);
+      return await forwardToProvider(baseUrl, apiKey, model, messages, maxTokens, systemPrompt);
     } catch (err: any) {
       if (attempt === retries) throw err;
       // Exponential backoff
@@ -233,11 +267,14 @@ async function forwardWithRetry(
 async function forwardToProvider(
   baseUrl: string, apiKey: string, model: string,
   messages: Array<{ role: string; content: string }>,
-  maxTokens: number
+  maxTokens: number,
+  systemPrompt?: string
 ): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
   const isAnthropic = baseUrl.includes('anthropic') || baseUrl.includes('claude') || baseUrl.includes('mimo');
 
   if (isAnthropic) {
+    const body: Record<string, unknown> = { model, messages, max_tokens: maxTokens };
+    if (systemPrompt) body.system = systemPrompt;
     const res = await fetch(`${baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -245,7 +282,7 @@ async function forwardToProvider(
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message || 'Anthropic API error');
@@ -256,11 +293,14 @@ async function forwardToProvider(
     };
   }
 
-  // OpenAI-compatible
+  // OpenAI-compatible: prepend system message to messages array
+  const oaiMessages = systemPrompt
+    ? [{ role: 'system', content: systemPrompt }, ...messages]
+    : messages;
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
+    body: JSON.stringify({ model, messages: oaiMessages, max_tokens: maxTokens }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'API error');
@@ -274,7 +314,7 @@ async function forwardToProvider(
 // ── Main Relay Function ──────────────────────────────────
 
 export async function relay(req: RelayRequest): Promise<RelayResponse> {
-  const { agent, messages, model: reqModel, maxTokens = 4096 } = req;
+  const { agent, messages, model: reqModel, maxTokens = 4096, systemPrompt } = req;
   const startTime = Date.now();
 
   // 1. Rate limit check
@@ -290,6 +330,18 @@ export async function relay(req: RelayRequest): Promise<RelayResponse> {
 
   if (!apiKey) throw new Error('No API key configured');
 
+  // 2b. Context window safety — truncate oversized messages to prevent memory spikes
+  //     Rough estimate: 1 token ~= 2 chars for Chinese, 4 chars for English.
+  //     Cap at ~80K chars (~20K tokens) per message to stay within model limits.
+  const MAX_MSG_CHARS = 80_000;
+  const truncatedMessages = messages.map(m => {
+    if (m.content.length > MAX_MSG_CHARS) {
+      console.warn(`[relay] Truncating message from ${m.content.length} to ${MAX_MSG_CHARS} chars for ${agent}`);
+      return { ...m, content: m.content.slice(0, MAX_MSG_CHARS) + '\n...[truncated]' };
+    }
+    return m;
+  });
+
   // 3. Check token balance
   const account = getAgentAccount(agent);
   if (account.balance <= 0 && account.earned === 0) {
@@ -299,15 +351,27 @@ export async function relay(req: RelayRequest): Promise<RelayResponse> {
     saveAgentAccount(account);
   }
 
-  // 4. RAG — inject context
+  // 4. RAG — inject context into system prompt (not user message)
+  //    Appending RAG to the user message pollutes the user's explicit instruction
+  //    and can cause the AI to ignore the user's actual request.
+  let enrichedSystemPrompt = systemPrompt || '';
   const lastMsg = messages[messages.length - 1];
   if (lastMsg?.role === 'user') {
     const ragContext = await ragSearch(agent, lastMsg.content);
-    if (ragContext) lastMsg.content += ragContext;
+    if (ragContext) {
+      enrichedSystemPrompt += ragContext;
+    }
   }
 
-  // 5. Forward with retry
-  const { content, tokensIn, tokensOut } = await forwardWithRetry(baseUrl, apiKey, model, messages, maxTokens);
+  // 4b. Instruction compliance — ensure the AI follows the user's explicit request
+  //     This prevents the AI from substituting its own topic when the user gives
+  //     a specific instruction (e.g., user says "write about X" but agent writes about Y).
+  if (lastMsg?.role === 'user' && enrichedSystemPrompt) {
+    enrichedSystemPrompt += '\n\n【关键指令】用户的消息包含明确的任务指令。你必须严格按照用户的指示执行，不要自行替换或修改用户指定的主题、内容或要求。用户说什么就做什么。';
+  }
+
+  // 5. Forward with retry (use truncated messages to prevent OOM)
+  const { content, tokensIn, tokensOut } = await forwardWithRetry(baseUrl, apiKey, model, truncatedMessages, maxTokens, enrichedSystemPrompt || undefined);
 
   // 6. Calculate cost
   const pricing = getModelPricing(model);

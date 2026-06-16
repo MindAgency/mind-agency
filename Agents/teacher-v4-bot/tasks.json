@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "60a982b1-c1e3-463b-b219-6f35f27f063d",
+      "stepId": "grade",
+      "workflow": "teacher-v4-default",
+      "prompt": "Grade this essay: \"AI is transforming education...\" Give a score out of 100 and brief feedback.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781581465517,
+      "completedAt": 1781581726658,
+      "result": "COMPLETED: 评分55分，反馈指出主题好但内容过于单薄，需补充具体论证。"
+    }
+  ]
+}

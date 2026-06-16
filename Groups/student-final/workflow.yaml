@@ -1,0 +1,6 @@
+name: student-final-default
+steps:
+  - id: explain
+    agent: study-assistant
+    action: create
+    prompt: Explain quantum computing in simple terms

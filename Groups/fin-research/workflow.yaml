@@ -1,0 +1,27 @@
+name: stock-research
+steps:
+  - id: market_overview
+    agent: fin-analyst
+    action: execute
+    prompt: >-
+      ��Ե�ǰA���г�����������������������ơ���Ҫ�����֡�������Ҫ���ߡ����������г������жϡ�
+  - id: sector_analysis
+    agent: fin-analyst
+    action: execute
+    dependsOn:
+      - market_overview
+    prompt: �����г��������������3����ǰֵ�ù�ע����ҵ��飬˵���߼����Ƽ����ɡ�
+  - id: stock_picks
+    agent: fin-analyst
+    action: execute
+    dependsOn:
+      - sector_analysis
+    prompt: >-
+      �������Ƽ�����У���ѡ��1-2ֻ�����Ը��ɣ�����������ͼ�����ļ�Ҫ�������Լ�����/�������顣
+  - id: risk_check
+    agent: fin-analyst
+    action: execute
+    dependsOn:
+      - stock_picks
+    prompt: �������Ƽ����з����������г���Ҫ�������ء�ֹ��λ���顢��λ���顣
+description: AI-powered stock research pipeline

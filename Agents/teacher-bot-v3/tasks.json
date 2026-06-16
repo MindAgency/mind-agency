@@ -1,0 +1,26 @@
+{
+  "pending": [
+    {
+      "runId": "1e0416ed-8183-4f29-9d16-5db1c7ba13bf",
+      "stepId": "grade",
+      "workflow": "teacher-v3-default",
+      "prompt": "Grade this essay: 'AI is transforming education...' Give a score out of 100 and brief feedback.",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781579919359
+    }
+  ],
+  "completed": [
+    {
+      "runId": "e3ef8bee-d0b2-4809-8f13-f4560e5c866e",
+      "stepId": "grade",
+      "workflow": "teacher-v3-default",
+      "prompt": "Grade this essay: 'AI is transforming education...' Give a score out of 100 and brief feedback.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781580355637,
+      "completedAt": 1781580401598,
+      "result": "收到通知！我已准备好接收并执行工作流任务。请提供具体的任务详情。"
+    }
+  ]
+}

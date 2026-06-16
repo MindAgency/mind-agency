@@ -1,0 +1,6 @@
+name: sim-test2-default
+steps:
+  - id: step1
+    agent: sim-agent2
+    action: create
+    prompt: Write a hello world function

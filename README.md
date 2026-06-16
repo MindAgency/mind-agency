@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.8.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
-[![GitHub stars](https://img.shields.io/github/stars/Toufumind/mind-agency)](https://github.com/Toufumind/mind-agency)
+[![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 
 [![中文](https://img.shields.io/badge/中文-文档-blue.svg)](README.zh.md)
 
@@ -25,7 +25,7 @@
 >
 > 💬 **QQ 群：`894606144`** — [点击加入 MindAgency 官方交流群](https://qm.qq.com/q/G88zjFr52q)，欢迎反馈问题、参与讨论。
 >
-> ⬇️ **[下载 Windows 客户端](https://github.com/Toufumind/mind-agency/releases/download/v0.7.0/Mind-Agency-Setup-0.7.0.exe)** — 3 分钟上手
+> ⬇️ **[下载 Windows 客户端](https://github.com/MindAgency/mind-agency/releases/download/v0.7.0/Mind-Agency-Setup-0.7.0.exe)** — 3 分钟上手
 
 ---
 
@@ -178,12 +178,12 @@ Charlie: AI 需要的不是宗教，而是"价值对齐框架"。
 
 **Windows (exe):**
 
-Download `Mind-Agency-Setup-0.7.0.exe` from [Releases](https://github.com/Toufumind/mind-agency/releases) and run it.
+Download `Mind-Agency-Setup-0.7.0.exe` from [Releases](https://github.com/MindAgency/mind-agency/releases) and run it.
 
 **From Source:**
 
 ```bash
-git clone https://github.com/Toufumind/mind-agency.git
+git clone https://github.com/MindAgency/mind-agency.git
 cd mind-agency
 npm install
 npm run dev
@@ -259,7 +259,7 @@ mind-agency/
 ## 🛠️ Development
 
 ```bash
-git clone https://github.com/Toufumind/mind-agency.git
+git clone https://github.com/MindAgency/mind-agency.git
 cd mind-agency
 npm install
 npm run dev          # Next.js (:3000)

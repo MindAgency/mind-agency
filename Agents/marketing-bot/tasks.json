@@ -1,0 +1,48 @@
+{
+  "pending": [
+    {
+      "runId": "a7cb5527-a2f2-4c53-bd75-c647895de700",
+      "stepId": "draft",
+      "workflow": "marketing-ai-default",
+      "prompt": "Write a marketing email for a new AI collaboration platform targeting small businesses",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781579349620
+    }
+  ],
+  "completed": [
+    {
+      "runId": "46eaee0d-b17d-48fd-981a-c77ff8f47e68",
+      "stepId": "social-media",
+      "workflow": "blog-content-pipeline",
+      "prompt": "Based on the blog article by biz-writer, create: 1) 3 Twitter/X posts (280 chars each, with hooks) 2) 1 LinkedIn post (300 words) 3) 1 Xiaohongshu post (Chinese, with emoji and hashtags). Make each platform's tone distinct.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781594874139,
+      "completedAt": 1781594892272,
+      "result": "好的，我已根据博客文章内容，为三个社交媒体平台创建了符合各自风格的帖子。\n\n**任务结果：**\n\n**1. Twitter/X 帖子 (共3条)**\n*   **帖子1 (数据冲击):**\n    70%的营销团队在用AI，但只有15%真正融入了工作流？到2026年，内容竞争的关键不是团队规模，而是AI整合深度。别再“尝鲜”了。\n    #AI营销 #内容战略\n*   **帖子2 (痛点共鸣):**\n    内容个性化=高成本？这个等式该被打破了。AI让你在规模化生产的同时，实现“千人千面”的精准推送。从“手工作坊”到“智能工厂”的时代已来。\n    #内容创作 #效率革命\n*   **帖子3 (工具点名):**\n    2026年内容团队必备引擎？Jasper搞定批量文案，Midjourney迭代视觉素材。用AI矩阵解锁“规模化个性”，提升40%点击率不是梦。\n    #MarTech #AI工具\n\n**2. LinkedIn 帖子 (300字)**\n**标题：AI正从内容“助手”升级为“核心引擎”——我们准备好了吗？**\n\n最新趋势显示，尽管AI工具普及率超过70%，但真正将其深度"
+    },
+    {
+      "runId": "c7709496-c8f8-45f4-ad16-aadd8da43a29",
+      "stepId": "draft",
+      "workflow": "marketing-ai-default",
+      "prompt": "Write a marketing email for a new AI collaboration platform targeting small businesses",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781579536083,
+      "completedAt": 1781579598747,
+      "result": "收到通知。当前无具体工作流任务，我已就位，可随时接收并执行后续指令。"
+    },
+    {
+      "runId": "729adbf6-4622-4339-a59d-48c44d1efab7",
+      "stepId": "draft",
+      "workflow": "marketing-ai-default",
+      "prompt": "Write a marketing email for a new AI collaboration platform targeting small businesses",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781578677531,
+      "completedAt": 1781578748703,
+      "result": ""
+    }
+  ]
+}

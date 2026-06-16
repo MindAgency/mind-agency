@@ -1,0 +1,12 @@
+name: dev-ai-default
+steps:
+  - id: code
+    agent: dev-bot
+    action: create
+    prompt: Write a Python fibonacci function with memoization
+  - id: review
+    agent: dev-bot
+    action: review
+    dependsOn:
+      - code
+    prompt: Review the code for bugs and performance issues

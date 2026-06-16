@@ -1,8 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
+/**
+ * POST /api/agents/{name}/launch — Launch agent terminal
+ *
+ * Opens a terminal window in the agent's working directory running
+ * the claude-deepseek-zhijiao CLI. Cross-platform support (Windows,
+ * macOS, Linux).
+ */
+
+import { NextRequest } from 'next/server';
+import { spawn } from 'child_process';
 import path from 'path';
 import { AGENTS_DIR } from '@/lib/data-dir';
 import { getAgency } from '@/lib/agency';
+import { requireName, apiNotFound, apiOk, apiInternal } from '@/lib/api-utils';
 
 export async function POST(
   request: NextRequest,
@@ -10,44 +19,38 @@ export async function POST(
 ) {
   const { name } = await params;
 
-  // Validate agent name (prevent path traversal)
-  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-    return NextResponse.json({ error: '无效的 Agent 名称' }, { status: 400 });
-  }
+  const validName = requireName(name);
+  if (validName instanceof Response) return validName;
 
   const agency = getAgency();
-  const proxy = agency.getAgent(name);
+  const proxy = agency.getAgent(validName);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: `Agent "${name}" 不存在` }, { status: 404 });
+    return apiNotFound(`Agent "${validName}" not found`);
   }
 
-  const agentDir = path.join(AGENTS_DIR, name);
+  const agentDir = path.join(AGENTS_DIR, validName);
 
-  // Build launch command
+  // Build launch command using spawn (no shell injection)
   const isWindows = process.platform === 'win32';
-  let command: string;
 
-  if (isWindows) {
-    // Windows: open new cmd window
-    command = `start "Mind Agency - ${name}" cmd /k "cd /d ${agentDir} && claude-deepseek-zhijiao"`;
-  } else if (process.platform === 'darwin') {
-    // macOS: open new Terminal window
-    command = `osascript -e 'tell app "Terminal" to do script "cd ${agentDir} && claude-deepseek-zhijiao"'`;
-  } else {
-    // Linux: try common terminals
-    command = `gnome-terminal --working-directory="${agentDir}" -- claude-deepseek-zhijiao 2>/dev/null || x-terminal-emulator -e "cd ${agentDir} && claude-deepseek-zhijiao" 2>/dev/null || echo "unsupported"`;
+  try {
+    if (isWindows) {
+      spawn('cmd', ['/c', 'start', `"Mind Agency - ${validName}"`, 'cmd', '/k', `cd /d "${agentDir}" && claude-deepseek-zhijiao`], {
+        detached: true, stdio: 'ignore',
+      }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('osascript', ['-e', `tell app "Terminal" to do script "cd ${agentDir} && claude-deepseek-zhijiao"`], {
+        detached: true, stdio: 'ignore',
+      }).unref();
+    } else {
+      spawn('gnome-terminal', [`--working-directory=${agentDir}`, '--', 'claude-deepseek-zhijiao'], {
+        detached: true, stdio: 'ignore',
+      }).unref();
+    }
+  } catch (e: any) {
+    return apiInternal(`Failed to launch agent: ${e.message}`);
   }
 
-  exec(command, (error) => {
-    if (error) {
-      console.error(`Failed to launch agent ${name}:`, error.message);
-    }
-  });
-
-  return NextResponse.json({
-    success: true,
-    message: `${name} 的终端已启动`,
-    directory: agentDir,
-  });
+  return apiOk({ message: `${validName} terminal launched`, directory: agentDir });
 }

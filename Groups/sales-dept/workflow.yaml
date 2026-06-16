@@ -1,0 +1,8 @@
+name: sales-dept-email-workflow
+steps:
+  - id: write-email
+    agent: me
+    action: execute
+    prompt: >-
+      ����дһ�������ʼ��������ǣ�����ͻ��μ��ҹ�˾�²�Ʒ�����ᡣ�ʼ�����Ҫ��ʽ��רҵ������ʱ�䡢�ص㡢������̵���Ϣ��
+description: Business email writing workflow

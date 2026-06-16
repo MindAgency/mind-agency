@@ -1,0 +1,60 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "74371aac-c322-482a-8bca-cd4e4a089655",
+      "stepId": "market_overview",
+      "workflow": "aapl-deep-dive",
+      "prompt": "Analyze the current macro environment affecting Apple stock: interest rate outlook, USD strength, China economy status, and tech sector sentiment as of June 2026. Provide a concise summary in Chinese.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781617778235,
+      "completedAt": 1781617808911,
+      "result": "COMPLETED: 2026年6月苹果股票宏观环境分析：利率处于降息周期（4.0-4.25%），美元温和走弱利好海外收入，中国经济增速约4.5-4.8%但消费电子承压，科技板块AI情绪分化但整体中性偏正面。"
+    },
+    {
+      "runId": "55a2fa01-b7b7-4063-91a5-b8efc352a16b",
+      "stepId": "risk_check",
+      "workflow": "stock-research",
+      "prompt": "�������Ƽ����з����������г���Ҫ�������ء�ֹ��λ���顢��λ���顣",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781597381401,
+      "completedAt": 1781597394235,
+      "result": "好的，我将为推荐的两只股票进行当前市场环境下的风险评估，并调用工具报告结果。\n\n```json\n{\n  \"workflow_callback\": {\n    \"runId\": \"55a2fa01-b7b7-4063-91a5-b8efc352a16b\",\n    \"stepId\": \"risk_check\",\n    \"status\": \"COMPLETED\",\n    \"summary\": \"北方华创面临行业周期及估值风险；科大讯飞面临技术落地不及预期与竞争加剧风险。\",\n    \"details\": \"**北方华创风险评估**：\\n1.  **行业周期与需求风险**：半导体设备行业具有强周期性，若全球及国内晶圆厂资本开支放缓或推迟，公司订单和业绩将直接受到影响。\\n2.  **估值风险**：作为热门赛道龙头，市场可能已部分透支其未来增长预期，若业绩增速不达预期，股价面临回调压力。\\n3.  **技术迭代与竞争风险**：需持续高强度研发投入以追赶国际前沿，同时面临国内外同行的激烈竞争。\\n\\n**科大讯飞风险评估**：\\n1.  **技术商业化与落地风险**：尽管技术领先，但AI应用"
+    },
+    {
+      "runId": "55a2fa01-b7b7-4063-91a5-b8efc352a16b",
+      "stepId": "stock_picks",
+      "workflow": "stock-research",
+      "prompt": "�������Ƽ�����У���ѡ��1-2ֻ�����Ը��ɣ�����������ͼ�����ļ�Ҫ�������Լ�����/�������顣",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781597368725,
+      "completedAt": 1781597381381,
+      "result": "根据之前的行业分析，我为您筛选出以下两只代表性个股：\n\n**1. 北方华创**\n*   **选择理由**：作为国内半导体设备领域的龙头企业，其业务涵盖刻蚀、薄膜沉积、清洗等多类核心设备，直接受益于国内晶圆厂扩产及国产替代的持续深化逻辑。若半导体设备行业周期触底回升，公司有望率先获得订单与业绩弹性。\n\n**2. 科大讯飞**\n*   **选择理由**：作为国内人工智能领域的标杆企业，其在智能语音、认知智能及大模型技术方面积累深厚。随着AI技术加速向教育、医疗、办公等垂直场景落地，公司作为应用端的重要参与者，有望分享行业成长红利。\n\n---\n现在，我将通过工具调用向工作流系统报告结果。\n\n```json\n{\n  \"workflow_callback\": {\n    \"runId\": \"55a2fa01-b7b7-4063-91a5-b8efc352a16b\",\n    \"stepId\": \"stock_picks\",\n    \"status\": \"COMPLETED\",\n    \"summary\": \"基于行业分析，推荐关注半导体设备龙头北方华创及人工智能应用龙头科大讯飞。\",\n    \""
+    },
+    {
+      "runId": "55a2fa01-b7b7-4063-91a5-b8efc352a16b",
+      "stepId": "sector_analysis",
+      "workflow": "stock-research",
+      "prompt": "�����г��������������3����ǰֵ�ù�ע����ҵ��飬˵���߼����Ƽ����ɡ�",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781597360744,
+      "completedAt": 1781597368710,
+      "result": "{\n  \"tool_call\": {\n    \"name\": \"workflow_callback\",\n    \"arguments\": {\n      \"runId\": \"55a2fa01-b7b7-4063-91a5-b8efc352a16b\",\n      \"stepId\": \"sector_analysis\",\n      \"status\": \"COMPLETED\",\n      \"summary\": \"推荐关注半导体、人工智能、旅游出行三个行业。\",\n      \"details\": \"1. 半导体：国产替代需求持续，存储与设备板块具备弹性，行业周期或现底部回升迹象。2. 人工智能：作为全球性产业趋势，国内政策与应用落地加速，算力、模型及数据环节值得跟踪。3. 旅游出行：受益于消费复苏及暑期旺季预期，叠加估值修复，业绩兑现能力较强的龙头公司值得关注。\"\n    }\n  }\n}"
+    },
+    {
+      "runId": "55a2fa01-b7b7-4063-91a5-b8efc352a16b",
+      "stepId": "market_overview",
+      "workflow": "stock-research",
+      "prompt": "��Ե�ǰA���г�����������������������ơ���Ҫ�����֡�������Ҫ���ߡ����������г������жϡ�",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781597345208,
+      "completedAt": 1781597360730,
+      "result": "【市场概览】A股市场近期呈现震荡整理格局，主要指数表现分化。上证指数围绕3050点波动，深证成指与创业板指在成长板块带动下表现相对活跃。市场热点集中在科技成长与消费板块，半导体、人工智能概念及新能源产业链受资金青睐；北向资金波动较大，整体仍保持净流入态势，显示外资对部分核心资产的信心。两市成交量温和放大，市场情绪趋于谨慎乐观。\n\n```json\n{\n  \"tool_call\": {\n    \"name\": \"workflow_callback\",\n    \"arguments\": {\n      \"runId\": \"55a2fa01-b7b7-4063-91a5-b8efc352a16b\",\n      \"stepId\": \"market_overview\",\n      \"status\": \"COMPLETED\",\n      \"summary\": \"A股震荡整理，科技成长与消费板块活跃，市场情绪谨慎乐观。\",\n      \"details\": \"1. 指数表现：上证指数围绕3050点波动，深证成指与创业板指因成长板块活跃表现相对突出。2. 行业热点：半导体、人工智能及新能源产业链受"
+    }
+  ]
+}

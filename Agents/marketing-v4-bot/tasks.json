@@ -1,0 +1,14 @@
+{
+  "pending": [
+    {
+      "runId": "7e1d2ee7-e751-431a-88de-a1e6a0c5b8ce",
+      "stepId": "draft",
+      "workflow": "marketing-v4-default",
+      "prompt": "Write a marketing email for an AI platform",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781581466242
+    }
+  ],
+  "completed": []
+}

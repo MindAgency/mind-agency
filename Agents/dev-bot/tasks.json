@@ -1,0 +1,70 @@
+{
+  "pending": [
+    {
+      "runId": "02c5c306-e069-4c71-b596-edfdf7d83693",
+      "stepId": "code",
+      "workflow": "dev-ai-default",
+      "prompt": "Write a Python fibonacci function with memoization",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781579332843
+    }
+  ],
+  "completed": [
+    {
+      "runId": "c0181e61-71c7-4b21-b047-19713864d02f",
+      "stepId": "test",
+      "workflow": "code-review-pipeline",
+      "prompt": "Based on the code review feedback, write comprehensive unit tests using vitest for the reviewed function. Include edge cases.",
+      "priority": "medium",
+      "status": "completed",
+      "createdAt": 1781596367708,
+      "completedAt": 1781596382436,
+      "result": "收到工作流任务，正在为 `mergeObjects` 函数编写单元测试...\n\n## 单元测试代码\n\n```typescript\nimport { describe, it, expect } from 'vitest';\n\n// 假设被测试函数\nfunction mergeObjects<T extends Record<string, any>>(target: T, source: Partial<T>): T {\n  const result = { ...target };\n  for (const key of Object.keys(source)) {\n    if (source[key] !== undefined) {\n      (result as any)[key] = source[key];\n    }\n  }\n  return result;\n}\n\ndescribe('mergeObjects', () => {\n  // 基本合并\n  it('应正确合并两个对象', () => {\n    const target = { a: 1, b: 2 };"
+    },
+    {
+      "runId": "fdee4da0-a482-43ae-ba83-78e0cbb9d2d2",
+      "stepId": "test",
+      "workflow": "code-review-pipeline",
+      "prompt": "Write unit tests for the reviewed code based on the feedback from Alice.",
+      "priority": "medium",
+      "status": "completed",
+      "createdAt": 1781596262254,
+      "completedAt": 1781596273220,
+      "result": "[工作流任务] 已根据上下文执行。\n\n**任务执行情况：**\n根据工作流上下文中的反馈，代码审查步骤因“未收到代码变更内容”而无法执行。因此，当前步骤缺少编写单元测试所必需的输入（被审查的具体代码）。基于此，无法生成有效的单元测试代码。\n\n**结果摘要：**\n无法生成单元测试，因为前置的代码审查任务未提供任何代码变更内容。\n\n**详细说明：**\n工作流任务要求“根据Alice的审查反馈”编写单元测试。但工作流上下文显示，审查步骤已完成，其结果明确指出“代码审查任务无法执行：未收到代码变更内容”。这表明本步骤的输入（待审查的代码）缺失，导致整个流程在此中断。在没有具体代码变更作为目标的情况下，编写针对性单元测试是不可能的。\n\n**后续操作建议：**\n建议检查上游环节，确保代码变更被正确提交和传递至审查步骤。\n\n**工作流回调：**\n```json\n{\n  \"runId\": \"fdee4da0-a482-43ae-ba83-78e0cbb9d2d2\",\n  \"stepId\": \"test\",\n  \"status\": \"COMPLETED\",\n  \"summary\": \"无法生成单元测试：前"
+    },
+    {
+      "runId": "676c86d3-675a-4594-a194-ac73ac5c6ad1",
+      "stepId": "review",
+      "workflow": "dev-ai-default",
+      "prompt": "Review the code for bugs and performance issues",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781579575455,
+      "completedAt": 1781579702618,
+      "result": "收到通知，@workflow-engine。我已准备就绪，随时可以执行工作流任务。请发送具体任务指令。"
+    },
+    {
+      "runId": "676c86d3-675a-4594-a194-ac73ac5c6ad1",
+      "stepId": "code",
+      "workflow": "dev-ai-default",
+      "prompt": "Write a Python fibonacci function with memoization",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781579534838,
+      "completedAt": 1781579575450,
+      "result": "您好！我注意到有人在 workflow 群 @了我。\n\n不过这条消息中没有包含具体的工作流任务内容。请问有什么需要我处理的任务吗？请提供具体的任务指令，我会尽快执行并返回结果。"
+    },
+    {
+      "runId": "d091281e-4e50-47f0-9671-fa17cbc99221",
+      "stepId": "code",
+      "workflow": "dev-ai-default",
+      "prompt": "Write a Python fibonacci function with memoization",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781578663923,
+      "completedAt": 1781578727785,
+      "result": ""
+    }
+  ]
+}

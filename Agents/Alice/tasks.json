@@ -89,9 +89,120 @@
       "priority": "normal",
       "status": "pending",
       "createdAt": 1781344633828
+    },
+    {
+      "runId": "173810b4-f51e-49d0-9aed-2c075b562c3b",
+      "stepId": "review-lesson",
+      "workflow": "math-teaching-weekly",
+      "prompt": "�������ݽ̰������֪ʶ���Ƿ�׼ȷ���Ѷ��Ƿ��ʵ���",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781556278909
+    },
+    {
+      "runId": "872123a0-8eb1-4073-b893-928d88f22cfb",
+      "stepId": "review-lesson",
+      "workflow": "math-teaching-weekly",
+      "prompt": "�������ݽ̰������֪ʶ���Ƿ�׼ȷ���Ѷ��Ƿ��ʵ���",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781557835773
+    },
+    {
+      "runId": "df863397-fc97-4998-bbf3-4f1f291d53f5",
+      "stepId": "review-lesson",
+      "workflow": "math-teaching-weekly",
+      "prompt": "�������ݽ̰������֪ʶ���Ƿ�׼ȷ���Ѷ��Ƿ��ʵ���",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781557843673
+    },
+    {
+      "runId": "03863cd3-189a-4aa3-8919-efc8721df9da",
+      "stepId": "review-lesson",
+      "workflow": "math-teaching-weekly",
+      "prompt": "�������ݽ̰������֪ʶ���Ƿ�׼ȷ���Ѷ��Ƿ��ʵ���",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781558060032
+    },
+    {
+      "runId": "484cc946-8107-4a98-9716-9dffd3815c8d",
+      "stepId": "search",
+      "workflow": "llm-research-lit-review",
+      "prompt": "Search for papers on transformer attention mechanisms",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781588465706
     }
   ],
   "completed": [
+    {
+      "runId": "c0181e61-71c7-4b21-b047-19713864d02f",
+      "stepId": "review",
+      "workflow": "code-review-pipeline",
+      "prompt": "Review this TypeScript function for bugs, type safety, and best practices:\n\n```typescript\nfunction mergeObjects<T extends Record<string, any>>(target: T, source: Partial<T>): T {\n  const result = { ...target };\n  for (const key of Object.keys(source)) {\n    if (source[key] !== undefined) {\n      (result as any)[key] = source[key];\n    }\n  }\n  return result;\n}\n```\n\nProvide specific issues and a corrected version.",
+      "priority": "high",
+      "status": "completed",
+      "createdAt": 1781596351294,
+      "completedAt": 1781596367693,
+      "result": "## TypeScript 函数 Review：`mergeObjects`\n\n### 发现的问题\n\n1.  **类型安全问题**：\n    *   `(result as any)[key] = source[key];` 使用了 `any` 类型断言，完全绕过了 TypeScript 的类型检查，可能导致运行时类型错误。\n    *   `Object.keys(source)` 返回 `string[]`，而 `source[key]` 在严格模式下可能因索引签名问题而报错。\n\n2.  **潜在的 Bug**：\n    *   当 `source` 中存在与 `target` 同名的属性且值为 `undefined` 时，该属性不会被覆盖，保持原值。这与某些深合并库（如 Lodash）的行为不同，后者会将 `undefined` 视为有效的覆盖值。是否为此 Bug 取决于业务需求。\n    *   函数仅执行**浅合并**，嵌套对象会被直接替换，而非递归合并。\n\n3.  **最佳实践**：\n    *   泛型约束 `T extends Record<string, any>` "
+    },
+    {
+      "runId": "fdee4da0-a482-43ae-ba83-78e0cbb9d2d2",
+      "stepId": "review",
+      "workflow": "code-review-pipeline",
+      "prompt": "Review the latest code changes for bugs and style issues. Provide specific feedback.",
+      "priority": "high",
+      "status": "completed",
+      "createdAt": 1781596253360,
+      "completedAt": 1781596262238,
+      "result": "COMPLETED: 代码审查任务无法执行：未收到代码变更内容"
+    },
+    {
+      "runId": "484cc946-8107-4a98-9716-9dffd3815c8d",
+      "stepId": "search",
+      "workflow": "llm-research-lit-review",
+      "prompt": "Search for papers on transformer attention mechanisms",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781588341529,
+      "completedAt": 1781588405504,
+      "result": "COMPLETED: Search done again\nPapers found"
+    },
+    {
+      "runId": "484cc946-8107-4a98-9716-9dffd3815c8d",
+      "stepId": "search",
+      "workflow": "llm-research-lit-review",
+      "prompt": "Search for papers on transformer attention mechanisms",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781588280937,
+      "completedAt": 1781588298966,
+      "result": "COMPLETED: Found 3 papers on transformer attention\n1. Attention Is All You Need (Vaswani et al. 2017) - Original transformer\n2. BERT (Devlin et al. 2019) - Bidirectional attention\n3. GPT-3 (Brown et al. 2020) - Scaling attention"
+    },
+    {
+      "runId": "732cb760-c425-41d8-b7ce-67ae54fb5cfe",
+      "stepId": "final_report",
+      "workflow": "llm-research-paper-review",
+      "prompt": "Compile a final research proposal based on the literature search, critical analysis, and expert review. Format it as a structured research proposal with abstract, objectives, methodology, and expected outcomes.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781587813275,
+      "completedAt": 1781587834444,
+      "result": "COMPLETED: Final research proposal compiled\n# Research Proposal: Adaptive Reasoning Depth Control for Large Language Models\n\n## Abstract\nThis research proposes an adaptive reasoning depth control mechanism that dynamically adjusts the computational effort allocated to reasoning steps in LLMs based on task complexity. Early experiments suggest this approach can maintain accuracy while reducing inference costs by up to 40% on straightforward tasks.\n\n## Objectives\n1. Develop a task complexity class"
+    },
+    {
+      "runId": "732cb760-c425-41d8-b7ce-67ae54fb5cfe",
+      "stepId": "literature_search",
+      "workflow": "llm-research-paper-review",
+      "prompt": "Search for recent papers on large language model reasoning capabilities. Summarize 3-5 key papers from the last year with their main findings.",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781587675674,
+      "completedAt": 1781587762835,
+      "result": "COMPLETED: Completed literature search on LLM reasoning\nFound 5 key papers:\n1. Chain-of-Thought Prompting (Wei et al., 2022) - Demonstrated that step-by-step reasoning improves LLM performance\n2. Tree of Thoughts (Yao et al., 2023) - Extended CoT with branching exploration\n3. Self-Consistency (Wang et al., 2023) - Multiple reasoning paths improve accuracy\n4. ReAct (Yao et al., 2023) - Combining reasoning and acting for better LLM decision-making\n5. Constitutional AI (Bai et al., 2023) - Self-imp"
+    },
     {
       "runId": "c8cbbb72-7df4-4832-a180-8b6c720c801f",
       "stepId": "write",
@@ -575,72 +686,6 @@
       "createdAt": 1781014012963,
       "completedAt": 1781014073102,
       "result": "Agent acknowledged task"
-    },
-    {
-      "runId": "7440e936-fd82-4513-88ae-4e86f67e297f",
-      "stepId": "review",
-      "workflow": "novel-writing",
-      "prompt": "审阅两章内容，给出修改建议，确保风格一致",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781014012982,
-      "completedAt": 1781014066899,
-      "result": "FAILED: 文件系统工具不可用，无法完成小说审阅任务\nrequire is not defined错误，无法读取小说文件执行审阅"
-    },
-    {
-      "runId": "0e162463-39d7-495c-8bca-64a39f3cf5c4",
-      "stepId": "review",
-      "workflow": "novel-writing",
-      "prompt": "审阅两章内容，给出修改建议，确保风格一致",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781014012945,
-      "completedAt": 1781014055753,
-      "result": "FAILED: 文件系统工具不可用，无法完成小说审阅任务\nrequire is not defined错误，无法读取小说文件执行审阅"
-    },
-    {
-      "runId": "5e69a7e5-eddd-4a53-9cd6-71aef434cbd7",
-      "stepId": "theory",
-      "workflow": "CCFA-Subconscious-LLM-Paper",
-      "prompt": "基于文献综述，请构建\"LLM潜意识\"(LLM Subconscious)的理论框架。这是一个全新的概念，请从以下角度展开：\n\n1. 定义\"LLM潜意识\"：\n   - 什么是LLM的\"潜意识\"？它与\"显式推理\"的区别是什么？\n   - 类比人类潜意识：弗洛伊德的潜意识概念 vs LLM的潜空间\n   - 操作性定义：如何在实验中测量和验证LLM潜意识的存在？\n\n2. 理论基础：\n   - 信息论视角：潜空间中的信息压缩与隐式知识编码\n   - 认知科学视角：双过程理论 (dual-process theory) 在LLM中的映射\n   - 计算神经科学视角：类比人脑的意识/潜意识分层\n\n3. 可检验假设：\n   - H1: LLM在没有显式推理链的情况下，其潜空间活动包含推理过程的痕迹\n   - H2: 干扰潜空间表示会导致模型在简单任务上表现下降\n   - H3: 模型的\"直觉\"回答（快速回答）与其\"深思\"回答（长coT）在潜空间中有不同的表征\n\n请输出完整的理论框架文档: theory-framework.md\n",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781013784703,
-      "completedAt": 1781013874292,
-      "result": "FAILED: 文件系统工具不可用，无法完成CCFA论文理论框架任务\nrequire is not defined 错误，无法读写论文文件。4项修改内容已由Charlie准备就绪，等系统恢复后可继续。"
-    },
-    {
-      "runId": "e32ae6d5-25db-47ac-87aa-5f113f6a1098",
-      "stepId": "outline",
-      "workflow": "novel-writing",
-      "prompt": "创作一个短篇小说大纲：主题是AI与人类的友谊，字数500字以内，包含3个角色和5个情节转折",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781013602628,
-      "completedAt": 1781013874280,
-      "result": "FAILED: 文件系统工具不可用，无法完成小说大纲创作任务\nrequire is not defined 错误，持续性系统问题"
-    },
-    {
-      "runId": "dceb0e5c-3285-424d-8c62-474b8182caed",
-      "stepId": "outline",
-      "workflow": "novel-writing",
-      "prompt": "创作一个短篇小说大纲：主题是AI与人类的友谊，字数500字以内，包含3个角色和5个情节转折",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781013602622,
-      "completedAt": 1781013874268,
-      "result": "FAILED: 文件系统工具不可用，无法完成小说大纲创作任务\nrequire is not defined 错误，持续性系统问题"
-    },
-    {
-      "runId": "dbea109e-59a9-4473-9206-c4b9465c3e30",
-      "stepId": "outline",
-      "workflow": "novel-writing",
-      "prompt": "创作一个短篇小说大纲：主题是AI与人类的友谊，字数500字以内，包含3个角色和5个情节转折",
-      "priority": "normal",
-      "status": "failed",
-      "createdAt": 1781013602616,
-      "completedAt": 1781013874256,
-      "result": "FAILED: 文件系统工具不可用，无法完成小说大纲创作任务\nrequire is not defined 错误，持续性系统问题"
     }
   ]
 }

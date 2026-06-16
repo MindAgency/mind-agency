@@ -1,0 +1,8 @@
+name: finance-v5-default
+steps:
+  - id: analyze
+    agent: finance-v5-bot
+    action: create
+    prompt: >-
+      Analyze this investment: Company A has revenue of $10M, profit margin 15%,
+      growing at 20% YoY. Should I invest?

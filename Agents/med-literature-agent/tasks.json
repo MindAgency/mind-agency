@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "1189f705-fc3a-4185-9f07-44f8b499260c",
+      "stepId": "literature-search",
+      "workflow": "medical-literature-review",
+      "prompt": "�������ܽ����CAR-Tϸ���Ʒ���ѪҺ�����е������ٴ��������ݣ��ص��ע2024-2025���III���ٴ����",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781604577431,
+      "completedAt": 1781604624485,
+      "result": "收到工作流任务，正在执行CAR-T细胞产品血液肿瘤临床进展文献搜索...\n\n---\n\n## CAR-T细胞产品在血液肿瘤中的临床进展（2024-2025年III期临床）\n\n---\n\n### 一、已获批的主要CAR-T产品\n\n| 产品名称 | 通用名 | 靶点 | 获批适应症 | 开发公司 |\n|----------|--------|------|------------|----------|\n| Kymriah | tisagenlecleucel | CD19 | B-ALL, DLBCL, FL | Novartis |\n| Yescarta | axicabtagene ciloleucel | CD19 | DLBCL, FL, MCL | Kite/Gilead |\n| Tecartus | brexucabtagene autoleucel | CD19 | MCL, B-ALL | Kite/Gilead |\n| Breyanzi | lisocabtagene maraleucel | CD19 | DLBCL, FL | BMS |\n| Abecma | idec"
+    }
+  ]
+}

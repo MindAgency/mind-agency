@@ -1,0 +1,8 @@
+name: teacher-ai-default
+steps:
+  - id: grade
+    agent: teacher-bot
+    action: create
+    prompt: >-
+      Grade this essay: 'AI is transforming education by providing personalized
+      learning experiences...' Give a score out of 100 and brief feedback.

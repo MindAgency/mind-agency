@@ -1,8 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getLearningProxy } from '@/lib/learning-proxy';
+/**
+ * Learning Records API — workflow step evaluation history
+ *
+ * GET    /api/learning?group=<name>&limit=N  → get learning records for a group
+ * POST   /api/learning                       → manually add a learning record
+ *
+ * Returns evaluation scores, verdicts, and feedback for completed workflow steps.
+ * Supports filtering by agent and workflow name.
+ */
 
-// GET /api/learning?group=<name>&limit=N — get learning records for a group
-export async function GET(request: NextRequest) {
+import { NextRequest, NextResponse } from 'next/server';
+import { safeHandler } from '@/lib/api-handler';
+
+export const GET = safeHandler(async (request: NextRequest) => {
+  const { getLearningProxy } = await import('@/lib/learning-proxy');
   const { searchParams } = new URL(request.url);
   const group = searchParams.get('group');
   const limit = parseInt(searchParams.get('limit') || '20');
@@ -50,34 +60,31 @@ export async function GET(request: NextRequest) {
   const commonFeedback = feedbacks.slice(-5); // Last 5 feedback items
 
   return NextResponse.json({ records, summary, commonFeedback });
-}
+});
 
 // POST /api/learning — manually add a learning record
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { group, workflow, stepId, action, agent, evaluation, outputSnippet } = body;
+export const POST = safeHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const { group, workflow, stepId, action, agent, evaluation, outputSnippet } = body;
 
-    if (!group || !evaluation) {
-      return NextResponse.json({ error: 'group and evaluation required' }, { status: 400 });
-    }
-
-    const learningProxy = getLearningProxy();
-
-    const record = {
-      timestamp: Date.now(),
-      group,
-      workflow: workflow || 'manual',
-      stepId: stepId || 'manual',
-      action: action || 'evaluate',
-      agent: agent || 'user',
-      evaluation,
-    };
-
-    await learningProxy.addRecord(group, record);
-
-    return NextResponse.json({ success: true, record });
-  } catch (e: any) {
-    return NextResponse.json({ error: `Failed to add learning record: ${e.message}` }, { status: 500 });
+  if (!group || !evaluation) {
+    return NextResponse.json({ error: 'group and evaluation required' }, { status: 400 });
   }
-}
+
+  const { getLearningProxy } = await import('@/lib/learning-proxy');
+  const learningProxy = getLearningProxy();
+
+  const record = {
+    timestamp: Date.now(),
+    group,
+    workflow: workflow || 'manual',
+    stepId: stepId || 'manual',
+    action: action || 'evaluate',
+    agent: agent || 'user',
+    evaluation,
+  };
+
+  await learningProxy.addRecord(group, record);
+
+  return NextResponse.json({ success: true, record });
+});

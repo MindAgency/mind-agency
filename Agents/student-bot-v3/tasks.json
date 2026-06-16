@@ -1,0 +1,26 @@
+{
+  "pending": [
+    {
+      "runId": "5d32150b-ac79-43be-8bf6-a88332ab4cc2",
+      "stepId": "explain",
+      "workflow": "student-v3-default",
+      "prompt": "Explain quantum computing simply",
+      "priority": "normal",
+      "status": "pending",
+      "createdAt": 1781579933452
+    }
+  ],
+  "completed": [
+    {
+      "runId": "a7ec6232-f0bc-4786-95e9-95ee42dba7ab",
+      "stepId": "explain",
+      "workflow": "student-v3-default",
+      "prompt": "Explain quantum computing simply",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781580370411,
+      "completedAt": 1781580443369,
+      "result": "收到 @提及，但当前没有具体的任务指令。请提供工作流任务详情，我将立即执行并返回结果。"
+    }
+  ]
+}

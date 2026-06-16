@@ -1,0 +1,12 @@
+name: dep-test-default
+steps:
+  - id: step1
+    agent: dep-bot
+    action: create
+    prompt: Write a title
+  - id: step2
+    agent: dep-bot
+    action: create
+    dependsOn:
+      - step1
+    prompt: Write content based on the title

@@ -1,0 +1,29 @@
+name: Medical Literature Review
+steps:
+  - id: literature_search
+    agent: med-literature-agent
+    action: execute
+    prompt: "�������� GLP-1 ���弤������ 2 �����������е������ٴ��о����ס��ص��ע��1) 2024-2026�귢����RCT�о� 2) ���ͷ��� 3) �ٴ�ָ�ϸ��¡�������������5ƪ���������ף��������⡢���ߡ��ڿ�����ݡ���Ҫ���֡�"
+    priority: 1
+  - id: evidence_appraisal
+    agent: med-reviewer
+    action: execute
+    prompt: "�Լ������� GLP-1 ���弤�������׽���֤������������������׼��1) �о���Ƶȼ� 2) ����������� 3) ƫ�з��� 4) ���һ���ԡ������ÿƪ���׵�֤�ݵȼ���A/B/C����"
+    dependsOn:
+      - literature_search
+    priority: 2
+  - id: summary_report
+    agent: med-writer
+    action: execute
+    prompt: "�������׼�����֤�����������׫дһ�ݽṹ����ҽѧ�����������档�������о�����������ѧ��������Ҫ���֡��ٴ����塢�����ԡ�δ���о�����ȷ������ҽѧ����׼ȷ�����ù淶��"
+    dependsOn:
+      - evidence_appraisal
+    priority: 3
+  - id: quality_check
+    agent: med-reviewer
+    action: execute
+    prompt: "�����������������������ˡ���飺1) ҽѧ��Ϣ׼ȷ�� 2) �߼������� 3) ���������� 4) �Ƿ�������Գ����������޸Ľ��顣"
+    dependsOn:
+      - summary_report
+    priority: 4
+    reviewer: med-literature-agent

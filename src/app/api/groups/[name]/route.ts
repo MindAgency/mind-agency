@@ -1,6 +1,18 @@
+/**
+ * Group Chat API — messages and metadata for a group
+ *
+ * GET    /api/groups/{name}              → get group members, messages, and info
+ * POST   /api/groups/{name}              → send a message to group chat
+ * DELETE /api/groups/{name}?owner=<name>  → delete a group (owner only)
+ *
+ * GET responses are cached for 10 seconds (skip with ?nocache=1).
+ * Messages are broadcast to connected clients via WebSocket in real time.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getGroupRegistry } from '@/lib/group-registry';
 import { broadcastWs } from '@/lib/ws-embedded';
+import { apiOk, apiNotFound, apiBadRequest, apiForbidden } from '@/lib/api-utils';
 
 // Simple cache for group API responses (10s TTL for fresh chat data)
 const groupApiCache = new Map<string, { data: any; ts: number }>();
@@ -22,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const proxy = registry.getOrCreate(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
   }
 
   // Parse limit from query params (default: 20)
@@ -63,7 +75,7 @@ export async function POST(
   const proxy = registry.getOrCreate(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
   }
 
   let from = 'system';
@@ -73,11 +85,11 @@ export async function POST(
     from = (body.from || 'system').trim();
     message = (body.message || '').trim();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return apiBadRequest('Invalid JSON');
   }
-  if (!message) return NextResponse.json({ error: 'Empty message' }, { status: 400 });
+  if (!message) return apiBadRequest('Empty message');
   if (!/^[a-zA-Z0-9_-]+$/.test(from) && from !== 'system') {
-    return NextResponse.json({ error: 'Invalid sender name' }, { status: 400 });
+    return apiBadRequest('Invalid sender name');
   }
 
   // Send message via proxy
@@ -86,20 +98,33 @@ export async function POST(
   // Push to all connected clients in real time
   broadcastWs('group_message', { group: name, from, message, date: new Date().toISOString() });
 
-  return NextResponse.json({ success: true, from, date: new Date().toISOString() });
+  return apiOk({ from, date: new Date().toISOString() });
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ name: string }> }
 ) {
   const { name } = await params;
+
+  // Auth check: only owner can delete group
+  const { searchParams } = new URL(request.url);
+  const owner = searchParams.get('owner');
+  if (!owner) {
+    return apiForbidden('owner param required for authorization');
+  }
 
   const registry = getGroupRegistry();
   const proxy = registry.getOrCreate(name);
 
   if (!proxy.exists()) {
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return apiNotFound('Group not found');
+  }
+
+  // Check ownership
+  const config = (proxy as any).config || {};
+  if (config.owner && config.owner !== owner) {
+    return apiForbidden('Only group owner can delete the group');
   }
 
   // Remove group via registry (this will clean up the proxy)
@@ -114,5 +139,5 @@ export async function DELETE(
     fs.rmSync(groupDir, { recursive: true, force: true });
   }
 
-  return NextResponse.json({ success: true });
+  return apiOk();
 }

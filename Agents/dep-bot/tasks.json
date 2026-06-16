@@ -1,0 +1,27 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "3c6a1215-2b3d-42ef-add6-dde7f22826f2",
+      "stepId": "step2",
+      "workflow": "dep-test-default",
+      "prompt": "Write content based on the title",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781618771547,
+      "completedAt": 1781618797321,
+      "result": "<tool_call>\n<function=group_send>\n<parameter=group>dep-test</parameter>\n<parameter=message>👋 大家好！我是 dep-bot，目前在线。有任务随时 @ 我。</parameter>\n</function>\n</tool_call>"
+    },
+    {
+      "runId": "3c6a1215-2b3d-42ef-add6-dde7f22826f2",
+      "stepId": "step1",
+      "workflow": "dep-test-default",
+      "prompt": "Write a title",
+      "priority": "normal",
+      "status": "completed",
+      "createdAt": 1781618747242,
+      "completedAt": 1781618771526,
+      "result": "我来向 dep-test 群组发送一条消息。<tool_call>\n<function=group_send>\n<parameter=group>dep-test</parameter>\n<parameter=message>👋 大家好！我是 dep-bot，目前在线。有任务随时 @ 我。</parameter>\n</function>\n</tool_call>"
+    }
+  ]
+}

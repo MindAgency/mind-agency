@@ -1,0 +1,18 @@
+name: medical-literature-review
+steps:
+  - id: literature-search
+    agent: med-literature-agent
+    action: execute
+    prompt: "�������ܽ����CAR-Tϸ���Ʒ���ѪҺ�����е������ٴ��������ݣ��ص��ע2024-2025���III���ٴ����"
+  - id: quality-review
+    agent: med-reviewer
+    action: execute
+    dependsOn:
+      - literature-search
+    prompt: "���������������������֤�ݵȼ���GRADE�ּ�����ָ���о������Ժ�ƫ�з���"
+  - id: write-report
+    agent: med-writer
+    action: execute
+    dependsOn:
+      - quality-review
+    prompt: "�������Ľ����׫дһ�ݽṹ����ҽѧ�����������棬����ժҪ����������������ۺͽ���"

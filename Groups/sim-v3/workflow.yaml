@@ -1,0 +1,6 @@
+name: sim-v3-default
+steps:
+  - id: s1
+    agent: agent-v3
+    action: create
+    prompt: Hello

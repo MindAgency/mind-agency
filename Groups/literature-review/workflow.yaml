@@ -1,0 +1,45 @@
+name: LLM-Drug-Discovery-Review
+steps:
+  - id: literature-search
+    agent: Alice
+    action: create
+    dependsOn: []
+    prompt: >-
+      ����2024-2025�����LLM��ҩ�﷢����Ӧ�õ��������ģ�����������10ƪ�ؼ����׵ı��⡢���ߡ���ݺ���Ҫ���ס��ص��ע��(1)��������,
+      (2)�е�Ԥ��, (3)ADMETԤ��, (4)����ɸѡ��
+  - id: gap-analysis
+    agent: Bob
+    action: create
+    dependsOn:
+      - literature-search
+    prompt: >-
+      ����Alice�ṩ�������б���������ǰ�о�����Ҫgap����ս���ر��ע��(1)����ϡȱ����,
+      (2)ģ�Ϳɽ�����, (3)��ģ̬�ںϵ��ѵ�, (4)��ʵ���ҵ��ٴ���ת���ϰ���
+  - id: methodology-review
+    agent: Charlie
+    action: create
+    dependsOn:
+      - literature-search
+    prompt: >-
+      �������������ʹ�õ���Ҫ����������������(1)Ԥѵ������, (2)΢������(RoPE, LoRA��),
+      (3)����ָ��ͻ�׼����, (4)�봫ͳ����(Dock, MD)�ĶԱȡ����������Աȱ���
+  - id: cross-review
+    agent: Alice
+    action: review
+    dependsOn:
+      - gap-analysis
+      - methodology-review
+    prompt: >-
+      ���Bob��gap������Charlie�ķ���������ȷ����(1)�����߼�����, (2)û����©�ؼ�����,
+      (3)����������֧�š���������޸������
+    reviewer: Bob
+  - id: final-synthesis
+    agent: Bob
+    action: create
+    dependsOn:
+      - cross-review
+    prompt: >-
+      �������в��֣�׫д�������������¡��ṹ��Abstract, Introduction, Methodology
+      Review, Applications, Challenges & Gaps, Future Directions,
+      Conclusion��ȷ��ѧ��д��������ø�ʽ�淶��
+description: ������������ģ����ҩ�﷢���е�Ӧ��

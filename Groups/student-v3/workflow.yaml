@@ -1,0 +1,6 @@
+name: student-v3-default
+steps:
+  - id: explain
+    agent: student-bot-v3
+    action: create
+    prompt: Explain quantum computing simply

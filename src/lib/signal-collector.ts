@@ -6,6 +6,7 @@
  */
 
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { AGENTS_DIR, GROUPS_DIR, MIND_DIR } from './data-dir';
 import { loadState, type AgentState } from './state';
@@ -133,7 +134,7 @@ export function hasPendingSignals(agent: string): boolean {
 /**
  * Scan a single agent for signals (extracted from autoRespond's buildSignal)
  */
-export function scanAgentSignals(agentName: string): Signal[] {
+export async function scanAgentSignals(agentName: string): Promise<Signal[]> {
   const signals: Signal[] = [];
   const now = Date.now();
 
@@ -147,17 +148,19 @@ export function scanAgentSignals(agentName: string): Signal[] {
   const groups = getAgentGroups(agentName);
   for (const groupName of groups) {
     const chatDir = path.join(GROUPS_DIR, groupName, 'chat');
-    if (!fs.existsSync(chatDir)) continue;
+    let chatDirExists = false;
+    try { await fsPromises.access(chatDir); chatDirExists = true; } catch { /* not found */ }
+    if (!chatDirExists) continue;
 
     // Check for new messages since last scan
-    const files = fs.readdirSync(chatDir).filter(f => f.endsWith('.md'));
+    const files = (await fsPromises.readdir(chatDir)).filter(f => f.endsWith('.md'));
     const chatCheck = state.groups?.[groupName]?.chatCheck || 0;
     for (const f of files) {
       try {
-        const stat = fs.statSync(path.join(chatDir, f));
+        const stat = await fsPromises.stat(path.join(chatDir, f));
         if (stat.mtimeMs <= chatCheck) continue;
 
-        const content = fs.readFileSync(path.join(chatDir, f), 'utf-8');
+        const content = await fsPromises.readFile(path.join(chatDir, f), 'utf-8');
         if (content.toLowerCase().includes(`@${agentName.toLowerCase()}`)) {
           signals.push({
             agent: agentName,
@@ -175,11 +178,13 @@ export function scanAgentSignals(agentName: string): Signal[] {
 
   // Check for new emails
   const emailDir = path.join(AGENTS_DIR, agentName, 'email');
-  if (fs.existsSync(emailDir)) {
-    const files = fs.readdirSync(emailDir).filter(f => f.endsWith('.md') && !f.startsWith('sent_'));
+  let emailDirExists = false;
+  try { await fsPromises.access(emailDir); emailDirExists = true; } catch { /* not found */ }
+  if (emailDirExists) {
+    const files = (await fsPromises.readdir(emailDir)).filter(f => f.endsWith('.md') && !f.startsWith('sent_'));
     for (const f of files) {
       try {
-        const stat = fs.statSync(path.join(emailDir, f));
+        const stat = await fsPromises.stat(path.join(emailDir, f));
         if (stat.mtimeMs <= (state.emailCheck || 0)) continue;
 
         signals.push({
@@ -196,11 +201,15 @@ export function scanAgentSignals(agentName: string): Signal[] {
   // Check for workflow notifications
   // v1.2: Use AGENTS_DIR (same path as notifyAgent writes to)
   const notifDir = path.join(AGENTS_DIR, agentName, '.workflow-notifications');
-  if (fs.existsSync(notifDir)) {
-    const notifFiles = fs.readdirSync(notifDir).filter(f => f.endsWith('.json'));
+  let notifDirExists = false;
+  try { await fsPromises.access(notifDir); notifDirExists = true; } catch { /* not found */ }
+  if (notifDirExists) {
+    const notifEntries = await fsPromises.readdir(notifDir);
+    const notifFiles = notifEntries.filter(f => f.endsWith('.json'));
     for (const f of notifFiles) {
       try {
-        const notif = JSON.parse(fs.readFileSync(path.join(notifDir, f), 'utf-8'));
+        const raw = await fsPromises.readFile(path.join(notifDir, f), 'utf-8');
+        const notif = JSON.parse(raw);
         signals.push({
           agent: agentName,
           type: 'mention', // Treat workflow tasks as high-priority mentions
@@ -220,17 +229,18 @@ export function scanAgentSignals(agentName: string): Signal[] {
 /**
  * Scan all agents for signals (periodic fallback)
  */
-export function scanAllAgents(): Signal[] {
+export async function scanAllAgents(): Promise<Signal[]> {
   const signals: Signal[] = [];
-  if (!fs.existsSync(AGENTS_DIR)) return signals;
+  let entries: import('fs').Dirent[];
+  try { entries = await fsPromises.readdir(AGENTS_DIR, { withFileTypes: true }); } catch { return signals; }
 
-  const agentNames = fs.readdirSync(AGENTS_DIR, { withFileTypes: true })
+  const agentNames = entries
     .filter(e => e.isDirectory() && !e.name.startsWith('.'))
     .map(e => e.name);
 
   for (const name of agentNames) {
     try {
-      signals.push(...scanAgentSignals(name));
+      signals.push(...await scanAgentSignals(name));
     } catch (e) { console.error('[lib:signal-collector]', e); }
   }
 
@@ -238,20 +248,26 @@ export function scanAllAgents(): Signal[] {
 }
 
 /**
- * Process file change event from watcher
+ * Process file change event from watcher.
+ * Now async -- fire-and-forget with error logging so watcher never blocks.
  */
 export function onFileChange(dir: string): void {
+  // Fire-and-forget: run async scan without blocking the watcher
+  _onFileChangeAsync(dir).catch(e => console.error('[lib:signal-collector] onFileChange error:', e));
+}
+
+async function _onFileChangeAsync(dir: string): Promise<void> {
   // v1.2: Extract agent name from path, or scan all agents if base dir
   const agentMatch = dir.match(/Agents\/([^/]+)/);
   if (agentMatch) {
     // Specific agent directory changed
-    const signals = scanAgentSignals(agentMatch[1]);
+    const signals = await scanAgentSignals(agentMatch[1]);
     for (const sig of signals) {
       enqueueSignal(sig);
     }
   } else if (dir.endsWith('Agents') || dir.endsWith('Agents/')) {
     // Base Agents directory changed — scan all agents
-    const signals = scanAllAgents();
+    const signals = await scanAllAgents();
     for (const sig of signals) {
       enqueueSignal(sig);
     }
@@ -262,7 +278,7 @@ export function onFileChange(dir: string): void {
   if (groupMatch) {
     const groupName = groupMatch[1];
     // Scan all agents that might have new mentions in this group
-    const signals = scanAllAgents();
+    const signals = await scanAllAgents();
     for (const sig of signals) {
       if (sig.group === groupName || sig.type === 'mention') {
         enqueueSignal(sig);
@@ -270,7 +286,7 @@ export function onFileChange(dir: string): void {
     }
   } else if (dir.endsWith('Groups') || dir.endsWith('Groups/')) {
     // Base Groups directory changed — scan all agents
-    const signals = scanAllAgents();
+    const signals = await scanAllAgents();
     for (const sig of signals) {
       enqueueSignal(sig);
     }

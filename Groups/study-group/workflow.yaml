@@ -1,0 +1,19 @@
+name: Study Session
+steps:
+  - id: explain-concept
+    type: ai
+    agent: Alice
+    action: explain
+    prompt: "Explain the concept of quantum entanglement in simple terms for a college student"
+  - id: create-quiz
+    type: ai
+    agent: Bob
+    action: create-quiz
+    prompt: "Create 3 quiz questions based on the explanation"
+    dependsOn: explain-concept
+  - id: review
+    type: ai
+    agent: Charlie
+    action: review
+    prompt: "Review the quiz questions and provide answers"
+    dependsOn: create-quiz

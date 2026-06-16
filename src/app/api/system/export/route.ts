@@ -1,10 +1,23 @@
-import { NextResponse } from 'next/server';
+/**
+ * GET /api/system/export?key=<admin_key> — Export full system backup
+ *
+ * Downloads a JSON file containing all agents, groups, workflows,
+ * messages, and token records. Requires ADMIN_KEY authentication.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
 import { getAgency } from '@/lib/agency';
 import fs from 'fs';
 import path from 'path';
 
-/** GET /api/system/export — download a full JSON backup of all Mind Agency data */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Auth: require admin key
+  const { searchParams } = new URL(request.url);
+  const key = searchParams.get('key');
+  if (!key || key !== process.env.ADMIN_KEY) {
+    return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Admin key required' } }, { status: 401 });
+  }
+
   try {
     const agency = getAgency();
     const manifest: Record<string, any> = { exportedAt: new Date().toISOString(), agents: {}, groups: {} };

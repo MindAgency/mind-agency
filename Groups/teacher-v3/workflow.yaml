@@ -1,0 +1,8 @@
+name: teacher-v3-default
+steps:
+  - id: grade
+    agent: teacher-bot-v3
+    action: create
+    prompt: >-
+      Grade this essay: 'AI is transforming education...' Give a score out of
+      100 and brief feedback.

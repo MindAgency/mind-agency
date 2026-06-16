@@ -21,7 +21,7 @@ interface Props {
   isOwner: boolean;
   allAgents: string[];
   workflow: { name: string; steps: number } | null;
-  onSetTab: (tab: 'chat' | 'workflow' | 'tasks') => void;
+  onSetTab: (tab: 'chat' | 'workflow' | 'kanban') => void;
   onFetchWorkflow: () => void;
   onClose: () => void;
   onManageGroup: (action: string, agent?: string, extra?: any) => void;

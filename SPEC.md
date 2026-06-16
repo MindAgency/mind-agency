@@ -132,6 +132,17 @@ fetch(`${getApiBase()}/api/endpoint`);
 ### Phase 3: Architecture (架构优化)
 
 - [ ] **T10: Consolidate proxy pattern** — Deferred (low ROI, each proxy has unique methods)
+
+### Phase 4: API Quality (接口规范化)
+
+- [x] **T11: Shared API error/success utility** — `src/lib/api-utils.ts`
+- [x] **T12: Standardize error format** — All routes use `{ error: { code, message } }`
+- [x] **T13: Standardize success format** — All routes use `{ ok: true }`
+- [x] **T14: exec → spawn** — `agents/[name]/launch` uses spawn now
+- [x] **T15: Auth on group DELETE** — Requires owner param
+- [x] **T16: Auth on system export** — Requires admin key
+- [x] **T17: Name validation** — All `[name]` routes validate with regex
+- [x] **T18: Error messages in English** — No more mixed Chinese/English
 - [x] **T11: Externalize theme CSS** ✅ (already externalized via scripts/themes.mjs → themes-generated.css)
 - [x] **T12: Consolidate build system** ✅ (electron-builder removed)
 - [x] **T13: Fix process.env mutation** ✅ (only 1 mutation existed: ELECTRON_RUN_AS_NODE in chat.ts, now scoped with cleanup)
@@ -159,3 +170,135 @@ fetch(`${getApiBase()}/api/endpoint`);
 2. 是否需要添加 E2E 测试（Playwright）？
 3. 主题系统是否需要支持用户自定义主题？
 4. 是否需要将文件系统存储迁移到数据库？
+
+---
+
+## API Reference
+
+### Error Format
+
+所有错误响应统一格式：
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Human-readable error message",
+    "details": {}
+  }
+}
+```
+
+HTTP 状态码：
+- **400** — 请求参数错误
+- **404** — 资源不存在
+- **422** — 验证失败（语义错误）
+- **500** — 服务器内部错误
+
+### Groups
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/groups` | 列出所有 group |
+| POST | `/api/groups` | 创建 group |
+| GET | `/api/groups/[name]` | 获取 group 信息（成员、配置） |
+| PUT | `/api/groups/[name]` | 更新 group 配置 |
+| DELETE | `/api/groups/[name]` | 删除 group |
+| GET | `/api/groups/[name]/config` | 获取 group 配置（owner、admins） |
+| PUT | `/api/groups/[name]/config` | 更新 group 配置 |
+| GET | `/api/groups/[name]/files` | 获取 group 文件列表 |
+| GET | `/api/groups/[name]/search` | 搜索 group 内容 |
+| POST | `/api/groups/scan` | 扫描磁盘 group 目录 |
+
+### Workflow
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/groups/[name]/workflow` | 获取 workflow YAML |
+| POST | `/api/groups/[name]/workflow` | 触发 / 审批 / 回调 / 认领 |
+| PUT | `/api/groups/[name]/workflow` | 更新 workflow YAML |
+| DELETE | `/api/groups/[name]/workflow` | 删除 workflow |
+| GET | `/api/groups/[name]/workflow?action=runs` | 获取运行状态 |
+| GET | `/api/groups/[name]/workflow?action=history` | 获取运行历史 |
+
+**POST 参数：**
+- `triggerStepId` — 触发指定 step（触发 workflow）
+- `runId` + `stepId` + `status` + `summary` — 回调（agent 完成 step）
+- `runId` + `stepId` + `claim` + `agent` — 认领 step
+- `approvalId` + `decision` — 审批（APPROVED/REJECTED）
+- `yaml` / `steps` — 更新 YAML
+
+### Agents
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/agents` | 列出所有 agent |
+| GET | `/api/agents/[name]/config` | 获取 agent 配置 |
+| PUT | `/api/agents/[name]/config` | 更新 agent 配置 |
+| POST | `/api/agents/[name]/launch` | 启动 agent |
+| POST | `/api/agents/[name]/heartbeat` | Agent 心跳 |
+| GET | `/api/agents/[name]/tasks` | 获取 agent 任务列表 |
+| POST | `/api/agents/[name]/auto-respond` | 触发 auto-respond |
+
+### Chat & Polling
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/poll?group=X` | 轮询 group 聊天消息 |
+| GET | `/api/poll/agent?agent=X` | 轮询 agent 消息 |
+| POST | `/api/relay` | 转发消息到 agent |
+| GET | `/api/emails` | 获取邮件/消息 |
+
+### RAG
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/rag?agent=X&query=Y` | RAG 搜索 |
+| POST | `/api/rag` | 触发索引（index_all / index_knowledge / clear） |
+
+### System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/system/status` | 系统状态 |
+| GET | `/api/system/settings` | 系统设置 |
+| PUT | `/api/system/settings` | 更新系统设置 |
+| GET | `/api/system/providers` | AI provider 列表 |
+| GET | `/api/system/models` | 可用模型列表 |
+| GET | `/api/system/pending` | 待处理任务 |
+| GET | `/api/system/skills` | Agent skills |
+| POST | `/api/system/update` | 更新系统 |
+| GET | `/api/system/export` | 导出数据 |
+| GET | `/api/system/analytics` | 分析数据 |
+| GET | `/api/health` | 健康检查 |
+
+### Economy
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/economy/account?agent=X` | 获取账户余额 |
+| POST | `/api/economy/deposit` | 充值 token |
+| POST | `/api/economy/transfer` | 转账 |
+| GET | `/api/economy/leaderboard` | 排行榜 |
+
+### Tasks & Learning
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/tasks?group=X` | 获取任务列表 |
+| POST | `/api/tasks` | 创建任务 |
+| PUT | `/api/tasks` | 更新任务状态 |
+| GET | `/api/learning` | 获取学习记录 |
+| GET | `/api/scoring` | 获取评分数据 |
+
+### Orchestrate
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/orchestrate` | 触发多 agent 编排 |
+
+### Audit
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/audit` | 获取审计日志 |

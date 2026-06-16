@@ -21,6 +21,9 @@ import { AGENTS_DIR, GROUPS_DIR, MCP_DIR, MIND_DIR, default as DATA_DIR, getApiB
 import { agentCache } from './cache';
 import { getEventBus, EventType, createEvent } from './event-bus';
 import { randomUUID } from 'crypto';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('agent-proxy');
 
 import { getMemoryContext } from './memory';
 import { loadGoalContext } from './cli-commands';
@@ -45,6 +48,13 @@ import { readMemory, writeMemory, searchMemory, listMemory } from './memory';
 import { AgentIdentity, getAgentIdentity } from './agent-identity';
 import { scheduleFullIndex, scheduleSessionIndex } from './rag-indexer';
 
+/** Minimal type for claude-agent-sdk streaming messages */
+interface StreamingMessage {
+  type: 'assistant' | 'result';
+  content?: string | Array<{ type: string; text?: string; name?: string; input?: unknown; content?: unknown; tool_use_id?: string }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
+}
+
 // ── AgentProxy class ──────────────────────────────────────
 
 export class AgentProxy {
@@ -62,9 +72,20 @@ export class AgentProxy {
   private _sessionLoaded = false;
 
   // claude.exe process (lifecycle-bound)
-  private _warmQuery: any = null;
+  private _warmQuery: { close(): void } | null = null;
   private _processReady = false;
   private _processError: string | null = null;
+
+  // Last error from swallowed catch blocks — callers can inspect
+  private _lastError: string | null = null;
+
+  get lastError(): string | null {
+    return this._lastError;
+  }
+
+  clearLastError(): void {
+    this._lastError = null;
+  }
 
   // Token usage
   private _tokenUsage = { input: 0, output: 0 };
@@ -273,7 +294,10 @@ export class AgentProxy {
       const claudeMdAlt = path.join(AGENTS_DIR, this.name, '.claude', 'CLAUDE.md');
       try {
         if (fs.existsSync(claudeMdAlt)) identity = fs.readFileSync(claudeMdAlt, 'utf-8').trim();
-      } catch (e) { console.error('[lib:agent-proxy]', e); }
+      } catch (e) {
+        log.error('buildIdentity: failed to read alt CLAUDE.md', e);
+        this._lastError = `buildIdentity: failed to read alt CLAUDE.md: ${e instanceof Error ? e.message : String(e)}`;
+      }
     }
     if (!identity) identity = `你是${this.name}，Mind Agency 团队成员。`;
 
@@ -316,7 +340,10 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
     try {
       const file = path.join(AGENTS_DIR, this.name, 'CLAUDE.md');
       if (fs.existsSync(file)) return fs.readFileSync(file, 'utf-8').trim();
-    } catch (e) { console.error('[lib:agent-proxy]', e); }
+    } catch (e) {
+      log.error('readClaudeMd: failed to read CLAUDE.md', e);
+      this._lastError = `readClaudeMd: failed to read CLAUDE.md: ${e instanceof Error ? e.message : String(e)}`;
+    }
     return '';
   }
 
@@ -358,10 +385,14 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
           const raw = fs.readFileSync(path.join(chatDir, f), 'utf-8');
           const truncated = raw.length > 1500 ? raw.slice(-1500) : raw;
           msgs.push(`[${f.replace('.md', '')}]\n${truncated}`);
-        } catch (e) { console.error('[lib:agent-proxy]', e); }
+        } catch (e) {
+          log.error(`buildGroupChatContext: failed to read ${f}`, e);
+          this._lastError = `buildGroupChatContext: failed to read ${f}: ${e instanceof Error ? e.message : String(e)}`;
+        }
       }
       return `\n群聊${groupName}最近消息:\n${msgs.join('\n---\n')}`;
-    } catch {
+    } catch (e) {
+      this._lastError = `buildGroupChatContext: outer read failed: ${e instanceof Error ? e.message : String(e)}`;
       return `\n群聊${groupName}:读取失败.`;
     }
   }
@@ -413,7 +444,7 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
   // ── Chat (via claude.exe) ──────────────────────────────
 
   /** Parse streaming messages into reply + events */
-  private parseChatEvents(messages: AsyncIterable<any>): Promise<{ reply: string; events: ChatEvent[]; inputTokens: number; outputTokens: number }> {
+  private parseChatEvents(messages: AsyncIterable<StreamingMessage>): Promise<{ reply: string; events: ChatEvent[]; inputTokens: number; outputTokens: number }> {
     return (async () => {
       let reply = '';
       const events: ChatEvent[] = [];
@@ -430,7 +461,8 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
               } else if (block.type === 'tool_use') {
                 events.push({ type: 'tool_use', content: block.name, toolName: block.name, toolInput: JSON.stringify(block.input, null, 2), timestamp: new Date().toISOString() });
               } else if (block.type === 'tool_result') {
-                events.push({ type: 'tool_result', content: block.content, toolName: block.tool_use_id, toolOutput: typeof block.content === 'string' ? block.content.slice(0, 500) : '', timestamp: new Date().toISOString() });
+                const resultContent = typeof block.content === 'string' ? block.content : '';
+                events.push({ type: 'tool_result', content: resultContent, toolName: block.tool_use_id, toolOutput: resultContent.slice(0, 500), timestamp: new Date().toISOString() });
               }
             }
           } else if (typeof msg.content === 'string') {
@@ -473,7 +505,11 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
         { role: 'user', content: userMessage },
       ];
 
-      const result = await relay({ agent: this.name, messages });
+      // Build system prompt (agent identity + instructions + boundaries)
+      // Without this, the agent has no context about its role or instructions
+      const systemPrompt = this.buildSystemPrompt(groupName);
+
+      const result = await relay({ agent: this.name, messages, systemPrompt });
 
       // Persist to session
       this._session.messages.push(
@@ -495,9 +531,10 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
           output: result.usage.tokensOut,
         },
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.clearStatus();
-      console.error(`[agent-proxy] ${this.name}: chat error:`, err.message);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`${this.name}: chat error: ${msg}`, err);
       throw err;
     }
   }
@@ -507,12 +544,12 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
   async startProcess(): Promise<void> {
     if (this._processReady) return;
     if (this._processError) {
-      console.log(`[agent-proxy] ${this.name}: process previously failed: ${this._processError}`);
+      log.info(`${this.name}: process previously failed: ${this._processError}`);
       return;
     }
 
     try {
-      console.log(`[agent-proxy] ${this.name}: starting claude.exe...`);
+      log.info(`${this.name}: starting claude.exe...`);
 
       // Load API settings from settings.json
       let apiKey = '';
@@ -524,9 +561,12 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
           apiKey = settings.apiKey || '';
           baseUrl = settings.baseUrl || '';
         }
-      } catch (e) { console.error('[lib:agent-proxy]', e); }
+      } catch (e) {
+        log.error('startProcess: failed to load API settings', e);
+        this._lastError = `startProcess: failed to load API settings: ${e instanceof Error ? e.message : String(e)}`;
+      }
 
-      const opts: any = {
+      const opts: Record<string, unknown> = {
         cwd: path.join(AGENTS_DIR, this.name),
         systemPrompt: this.buildSystemPrompt(),
         mcpServers: this.buildMcpConfig(),
@@ -544,7 +584,10 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
             const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
             if (settings.model) opts.model = settings.model;
           }
-        } catch (e) { console.error('[lib:agent-proxy]', e); }
+        } catch (e) {
+          log.error('startProcess: failed to load model setting', e);
+          this._lastError = `startProcess: failed to load model setting: ${e instanceof Error ? e.message : String(e)}`;
+        }
       }
 
       // Set API configuration via env option
@@ -573,10 +616,11 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
       const { startup } = await import('@anthropic-ai/claude-agent-sdk');
       this._warmQuery = await startup({ options: opts });
       this._processReady = true;
-      console.log(`[agent-proxy] ${this.name}: claude.exe ready`);
-    } catch (err: any) {
-      this._processError = err.message;
-      console.error(`[agent-proxy] ${this.name}: failed to start claude.exe:`, err.message);
+      log.info(`${this.name}: claude.exe ready`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this._processError = msg;
+      log.error(`${this.name}: failed to start claude.exe: ${msg}`, err);
     }
   }
 
@@ -584,11 +628,14 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
     if (this._warmQuery) {
       try {
         this._warmQuery.close();
-      } catch (e) { console.error('[lib:agent-proxy]', e); }
+      } catch (e) {
+        log.error('stopProcess: failed to close warm query', e);
+        this._lastError = `stopProcess: failed to close warm query: ${e instanceof Error ? e.message : String(e)}`;
+      }
       this._warmQuery = null;
       this._processReady = false;
       this._processError = null;
-      console.log(`[agent-proxy] ${this.name}: claude.exe stopped`);
+      log.info(`${this.name}: claude.exe stopped`);
     }
   }
 
@@ -602,7 +649,10 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
     try {
       const bus = getEventBus();
       bus.emit(createEvent(event, payload, this.name));
-    } catch (e) { console.error('[lib:agent-proxy]', e); }
+    } catch (e) {
+      log.error(`emitEvent: failed to emit ${event}`, e);
+      this._lastError = `emitEvent: failed to emit ${event}: ${e instanceof Error ? e.message : String(e)}`;
+    }
   }
 
   emitStatusChanged(status: string): void {

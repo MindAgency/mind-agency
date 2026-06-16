@@ -1,0 +1,26 @@
+name: aapl-deep-dive
+description: "Apple (AAPL) deep dive investment analysis pipeline"
+steps:
+  - id: market_overview
+    agent: fin-analyst
+    action: execute
+    prompt: "Analyze the current macro environment affecting Apple stock: interest rate outlook, USD strength, China economy status, and tech sector sentiment as of June 2026. Provide a concise summary in Chinese."
+  - id: fundamental_analysis
+    agent: comp-analyst
+    action: execute
+    prompt: "Using the market overview from previous step, analyze Apple fundamental metrics: revenue breakdown by segment (iPhone, Services, Mac, iPad, Wearables), profit margins trend, free cash flow, and R&D spending. Compare with Microsoft and Google. Summarize in Chinese."
+    dependsOn:
+      - market_overview
+  - id: risk_assessment
+    agent: Alice
+    action: execute
+    prompt: "Based on the fundamental analysis, identify top 5 investment risks for Apple: regulatory, competitive, geopolitical, valuation, and execution risks. Rate each risk High/Medium/Low. Provide risk mitigation factors. Summarize in Chinese."
+    dependsOn:
+      - fundamental_analysis
+  - id: final_verdict
+    agent: fin-analyst
+    action: execute
+    prompt: "Synthesize all previous analyses into a final investment verdict for AAPL: 12-month target price range, buy/hold/sell recommendation, position sizing suggestion, and key catalysts to watch. Format as a professional research note in Chinese."
+    dependsOn:
+      - risk_assessment
+    reviewer: comp-analyst

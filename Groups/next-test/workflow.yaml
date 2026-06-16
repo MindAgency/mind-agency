@@ -1,0 +1,6 @@
+name: next-test-default
+steps:
+  - id: s1
+    agent: next-agent
+    action: create
+    prompt: Write hello world

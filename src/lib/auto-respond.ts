@@ -19,6 +19,7 @@
  */
 
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { createHash } from 'crypto';
 import { chatOnce, getAgentConfig } from './chat';
@@ -27,8 +28,15 @@ import { loadState, saveState, ensureGroup, getAgentGroups, invalidateGroupsCach
 import { setActivity, clearActivity } from './agent-activity';
 import { agentCache } from './cache';
 import { AgentProxy } from './agent-proxy';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('auto-respond');
 
 // ── Signal debounce: per-agent last-spawn time ─────────
+
+// Module-level last error for observability from silent catch blocks
+let _lastError: string | null = null;
+export function getAutoRespondLastError(): string | null { return _lastError; }
 
 const lastSpawn = new Map<string, number>();
 const DEBOUNCE_URGENT = 5_000;
@@ -66,27 +74,29 @@ interface AgentConfig {
 // Use cached getAgentConfig from chat.ts instead of reading config.json directly
 function getConfig(agentName: string): AgentConfig {
   const config = getAgentConfig(agentName);
+  const raw = config as unknown as Record<string, unknown>;
   return {
-    autoRespondToEmail: (config as any).autoRespondToEmail ?? false,
-    autoProcessGroupInvites: (config as any).autoProcessGroupInvites ?? false,
-    notifyOnEmail: (config as any).notifyOnEmail ?? true,
-    notifyOnGroupMention: (config as any).notifyOnGroupMention ?? true,
+    autoRespondToEmail: typeof raw.autoRespondToEmail === 'boolean' ? raw.autoRespondToEmail : false,
+    autoProcessGroupInvites: typeof raw.autoProcessGroupInvites === 'boolean' ? raw.autoProcessGroupInvites : false,
+    notifyOnEmail: typeof raw.notifyOnEmail === 'boolean' ? raw.notifyOnEmail : true,
+    notifyOnGroupMention: typeof raw.notifyOnGroupMention === 'boolean' ? raw.notifyOnGroupMention : true,
   };
 }
 
 // ── Email scanning ──────────────────────────────────────
 
 /** Scan a single email directory, return files newer than `since` (ms timestamp). */
-function scanEmailDir(dir: string, since: number): EmailInfo[] {
-  if (!fs.existsSync(dir)) return [];
+async function scanEmailDir(dir: string, since: number): Promise<EmailInfo[]> {
+  let entries: string[];
+  try { entries = await fsPromises.readdir(dir); } catch { return []; }
   const results: EmailInfo[] = [];
-  for (const f of fs.readdirSync(dir)) {
+  for (const f of entries) {
     if (!f.endsWith('.md')) continue;
     const fp = path.join(dir, f);
-    const st = fs.statSync(fp);
+    const st = await fsPromises.stat(fp);
     if (st.mtimeMs <= since) continue;
     // Only read content if mtime passes (avoids unnecessary I/O)
-    const raw = fs.readFileSync(fp, 'utf-8');
+    const raw = await fsPromises.readFile(fp, 'utf-8');
     const fm = raw.match(/^---\nfrom:\s*(.+?)\nto:\s*(.+?)\nsubject:\s*(.+?)\n/);
     if (!fm) continue;
     results.push({ from: fm[1].trim(), subject: fm[3].trim(), filename: f, mtime: st.mtimeMs });
@@ -97,9 +107,9 @@ function scanEmailDir(dir: string, since: number): EmailInfo[] {
 // ── Group chat scanning ─────────────────────────────────
 
 /** Parse a chat .md file into individual message blocks. */
-function parseChatMessages(filePath: string): { from: string; date: string; body: string; offset: number }[] {
+async function parseChatMessages(filePath: string): Promise<{ from: string; date: string; body: string; offset: number }[]> {
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
+    const raw = await fsPromises.readFile(filePath, 'utf-8');
     const msgs: { from: string; date: string; body: string; offset: number }[] = [];
     // Split on "---\nfrom:" (YAML frontmatter start of each message)
     const blocks = raw.split(/\n(?=---\nfrom:)/);
@@ -110,7 +120,7 @@ function parseChatMessages(filePath: string): { from: string; date: string; body
       }
     }
     return msgs;
-  } catch { return []; }
+  } catch (e) { _lastError = `parseChatMessages: ${e instanceof Error ? e.message : String(e)}`; return []; }
 }
 
 // ── Signal builder ──────────────────────────────────────
@@ -120,7 +130,7 @@ function parseChatMessages(filePath: string): { from: string; date: string; body
  *
  * Returns null if nothing new.
  */
-function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty: boolean } | null {
+async function buildSignal(agent: string): Promise<{ signal: Signal; state: AgentState; dirty: boolean } | null> {
   const state = loadState(agent);
   let dirty = false;
   const now = Date.now();
@@ -135,32 +145,34 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
   };
 
   // ── 0. Pending invitations ──────────────────────────
-  if (fs.existsSync(GROUPS_DIR)) {
-    for (const g of fs.readdirSync(GROUPS_DIR, { withFileTypes: true })) {
+  try {
+    const groupsEntries = await fsPromises.readdir(GROUPS_DIR, { withFileTypes: true });
+    for (const g of groupsEntries) {
       if (!g.isDirectory() || g.name.startsWith('.')) continue;
       const invDir = path.join(GROUPS_DIR, g.name, '.invitations');
-      if (!fs.existsSync(invDir)) continue;
       const invFile = path.join(invDir, `${agent.toLowerCase()}.json`);
-      if (fs.existsSync(invFile)) {
-        try {
-          const inv = JSON.parse(fs.readFileSync(invFile, 'utf-8'));
-          signal.mentions.push({
-            group: g.name,
-            from: inv.invitedBy || 'unknown',
-            snippet: `邀请你加入 ${g.name} 群组`,
-          });
-          signal.invitations = signal.invitations || [];
-          signal.invitations.push({ group: g.name, invitedBy: inv.invitedBy || 'unknown' });
-          signal.urgent = true;
-          dirty = true;
-        } catch (e) { console.error('[lib:auto-respond]', e); }
-      }
+      try {
+        const raw = await fsPromises.readFile(invFile, 'utf-8');
+        const inv = JSON.parse(raw);
+        signal.mentions.push({
+          group: g.name,
+          from: inv.invitedBy || 'unknown',
+          snippet: `邀请你加入 ${g.name} 群组`,
+        });
+        signal.invitations = signal.invitations || [];
+        signal.invitations.push({ group: g.name, invitedBy: inv.invitedBy || 'unknown' });
+        signal.urgent = true;
+        dirty = true;
+      } catch { /* no invitation file -- expected */ }
     }
-  }
+  } catch { /* GROUPS_DIR doesn't exist */ }
+
+  // Yield to event loop between major scan phases
+  await sleepMs(0);
 
   // ── 1. Personal email ─────────────────────────────
   const persDir = path.join(AGENTS_DIR, agent, 'email');
-  const newPersEmails = scanEmailDir(persDir, state.emailCheck);
+  const newPersEmails = await scanEmailDir(persDir, state.emailCheck);
   if (newPersEmails.length > 0) {
     signal.personalEmails = newPersEmails.length;
     state.emailCheck = now;
@@ -175,7 +187,7 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
 
     // 2a. Group email
     const gEmailDir = path.join(GROUPS_DIR, g, 'Agents', agent, 'email');
-    const newGEmails = scanEmailDir(gEmailDir, gs.emailCheck);
+    const newGEmails = await scanEmailDir(gEmailDir, gs.emailCheck);
     if (newGEmails.length > 0) {
       signal.groupEmails[g] = newGEmails.length;
       gs.emailCheck = now;
@@ -184,21 +196,23 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
 
     // 2b. Group chat -- new messages since lastCheck
     const chatDir = path.join(GROUPS_DIR, g, 'chat');
-    if (fs.existsSync(chatDir)) {
+    let chatDirExists = false;
+    try { await fsPromises.access(chatDir); chatDirExists = true; } catch { /* not found */ }
+    if (chatDirExists) {
       let newCount = 0;
-      const chatFiles = fs.readdirSync(chatDir)
+      const chatFiles = (await fsPromises.readdir(chatDir))
         .filter(f => f.endsWith('.md'))
         .sort();
 
       for (const cf of chatFiles) {
         const fp = path.join(chatDir, cf);
         try {
-          const st = fs.statSync(fp);
+          const st = await fsPromises.stat(fp);
           // File modified since last check -> may contain new messages
           if (st.mtimeMs <= gs.chatCheck) continue;
-        } catch { continue; }
+        } catch (e) { _lastError = `buildSignal stat: ${e instanceof Error ? e.message : String(e)}`; continue; }
 
-        for (const msg of parseChatMessages(fp)) {
+        for (const msg of await parseChatMessages(fp)) {
           const msgTs = new Date(msg.date).getTime();
           if (msgTs <= gs.chatCheck) continue;
           if (msg.from.toLowerCase() === agent.toLowerCase()) continue;
@@ -233,6 +247,9 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
     }
   }
 
+  // Yield to event loop between scan phases
+  await sleepMs(0);
+
   // ── 3. Clean up stale groups from state ────────────
   for (const g of Object.keys(state.groups)) {
     if (!currentGroups.includes(g)) delete state.groups[g];
@@ -241,15 +258,19 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
   // ── 2c. Workflow notifications ─────────────────────
   // v1.2: Use AGENTS_DIR (same path as notifyAgent writes to)
   const notifDir = path.join(AGENTS_DIR, agent, '.workflow-notifications');
-  if (fs.existsSync(notifDir)) {
-    const notifFiles = fs.readdirSync(notifDir).filter(f => f.endsWith('.json'));
+  let notifDirExists = false;
+  try { await fsPromises.access(notifDir); notifDirExists = true; } catch { /* not found */ }
+  if (notifDirExists) {
+    const notifEntries = await fsPromises.readdir(notifDir);
+    const notifFiles = notifEntries.filter(f => f.endsWith('.json'));
     const oneHourAgo = Date.now() - 3600_000;
     for (const f of notifFiles) {
       try {
-        const notif = JSON.parse(fs.readFileSync(path.join(notifDir, f), 'utf-8'));
+        const raw = await fsPromises.readFile(path.join(notifDir, f), 'utf-8');
+        const notif = JSON.parse(raw);
         // v0.6: Clean up notifications older than 1 hour
         if (notif.createdAt && notif.createdAt < oneHourAgo) {
-          try { fs.unlinkSync(path.join(notifDir, f)); } catch (e) { console.error('[lib:auto-respond]', e); }
+          try { await fsPromises.unlink(path.join(notifDir, f)); } catch (e) { log.error('Failed to delete old notification', e); }
           continue;
         }
         signal.mentions.push({
@@ -259,7 +280,7 @@ function buildSignal(agent: string): { signal: Signal; state: AgentState; dirty:
         });
         signal.urgent = true;
         dirty = true;
-      } catch (e) { console.error('[lib:auto-respond]', e); }
+      } catch (e) { log.error('Failed to parse workflow notification', e); }
     }
   }
 
@@ -312,11 +333,15 @@ function signalToPrompt(agent: string, sig: Signal, groupName?: string): string 
     lines.push('   拒绝: decide(group, decision="REJECTED", reason="拒绝邀请")');
   }
 
-  // @mentions
+  // @mentions — include the actual task prompt from snippet
   if (sig.mentions.length > 0) {
     lines.push(`@提及:`);
     for (const m of sig.mentions) {
       lines.push(`  ${m.from} 在 ${m.group} 群 @了你`);
+      // Include the actual task content from the snippet
+      if (m.snippet) {
+        lines.push(`  任务内容: ${m.snippet}`);
+      }
     }
   }
 
@@ -330,9 +355,11 @@ function signalToPrompt(agent: string, sig: Signal, groupName?: string): string 
 
 async function processWorkflowCallbacks(agent: string, reply: string): Promise<void> {
   const notifDir = path.join(AGENTS_DIR, agent, '.workflow-notifications');
-  if (!fs.existsSync(notifDir)) return;
-
-  const notifFiles = fs.readdirSync(notifDir).filter(f => f.endsWith('.json'));
+  let notifFiles: string[];
+  try {
+    const entries = await fsPromises.readdir(notifDir);
+    notifFiles = entries.filter(f => f.endsWith('.json'));
+  } catch { return; }
   if (notifFiles.length === 0) return;
 
   const { getEngine } = await import('./workflow-bridge');
@@ -340,34 +367,50 @@ async function processWorkflowCallbacks(agent: string, reply: string): Promise<v
 
   for (const f of notifFiles) {
     try {
-      const notif = JSON.parse(fs.readFileSync(path.join(notifDir, f), 'utf-8'));
+      const raw = await fsPromises.readFile(path.join(notifDir, f), 'utf-8');
+      const notif = JSON.parse(raw);
 
       // Check if agent's reply contains workflow_callback call
       const callbackMatch = reply?.match(/workflow_callback\s*\(\s*runId\s*=\s*"([^"]+)"\s*,\s*stepId\s*=\s*"([^"]+)"\s*,\s*status\s*=\s*"([^"]+)"\s*,\s*summary\s*=\s*"([^"]+)"/);
       let output;
       if (callbackMatch) {
         output = `${callbackMatch[3]}: ${callbackMatch[4]}`;
-        console.log(`[autoRespond] ${agent}: found workflow_callback in text for ${notif.stepId}`);
+        log.info(`${agent}: found workflow_callback in text for ${notif.stepId}`);
       } else {
-        output = reply || 'Agent acknowledged task';
+        output = reply || '';  // Empty output will be detected as placeholder by callback handler
       }
 
       const ok = engine.callback(notif.runId, notif.stepId, output);
       if (ok) {
-        console.log(`[autoRespond] ${agent}: completed workflow step ${notif.stepId}`);
+        log.info(`${agent}: completed workflow step ${notif.stepId}`);
       } else {
-        console.log(`[autoRespond] ${agent}: callback returned false for ${notif.stepId}`);
+        log.info(`${agent}: callback returned false for ${notif.stepId}`);
       }
       // Clean up notification file regardless
-      try { fs.unlinkSync(path.join(notifDir, f)); } catch (e) { console.error('[lib:auto-respond]', e); }
+      try { await fsPromises.unlink(path.join(notifDir, f)); } catch (e) { log.error('Failed to delete notification file', e); }
     } catch (e) {
-      console.log(`[autoRespond] ${agent}: notification ${f} callback error:`, e);
+      log.info(`${agent}: notification ${f} callback error:`, e);
     }
   }
 }
 
 // ── Main entry ──────────────────────────────────────────
 
+/**
+ * Run the auto-respond cycle for a single agent.
+ *
+ * Scans all notification channels (personal email, group email, group chat,
+ * @mentions, workflow tasks, and group invitations) and builds a signal. If
+ * actionable signals exist and the agent is enabled, a chat prompt is sent
+ * and the agent decides whether to act. Results are debounced per-agent to
+ * prevent duplicate spawns from overlapping watchers and polls.
+ *
+ * @param agent   - The agent name to process.
+ * @param options - Optional: `groupName` to scope signal scanning, `force` to
+ *                  bypass debounce and auto-respond enablement checks.
+ * @returns An object indicating whether the agent was triggered, its reply
+ *          text (if any), and a reason string when not triggered.
+ */
 export async function autoRespond(
   agent: string,
   options?: { groupName?: string; force?: boolean }
@@ -391,7 +434,7 @@ export async function autoRespond(
   // where two concurrent calls read the same state and overwrite each other
   return enqueueAgent(agent, async () => {
     // Build signal (reads state -- now serialized per agent)
-    const result = buildSignal(agent);
+    const result = await buildSignal(agent);
 
     // Nothing to do
     if (!result) {
@@ -441,7 +484,7 @@ export async function autoRespond(
     try {
       // v0.6: Check total time budget (5 minutes max for entire auto-respond)
       if (Date.now() - startTime > 300_000) {
-        console.log(`[autoRespond] ${agent}: time budget exhausted after ${Date.now() - startTime}ms`);
+        log.info(`${agent}: time budget exhausted after ${Date.now() - startTime}ms`);
         break;
       }
       setActivity(agent, 'processing', signal.urgent ? '处理通知' : '检查更新');
@@ -456,17 +499,18 @@ export async function autoRespond(
       try {
         await processWorkflowCallbacks(agent, reply);
       } catch (e) {
-        console.log(`[autoRespond] ${agent}: workflow callback error:`, e);
+        log.info(`${agent}: workflow callback error:`, e);
       }
 
       return { triggered: true, reply };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       const isLast = attempt === maxRetries - 1;
       if (isLast) {
-        return { triggered: false, reason: `all ${maxRetries} attempts failed: ${e.message}` };
+        return { triggered: false, reason: `all ${maxRetries} attempts failed: ${msg}` };
       }
       const delay = Math.pow(2, attempt + 1) * 1000;
-      console.log(`[autoRespond] ${agent} chatOnce failed (attempt ${attempt + 1}/${maxRetries}): ${e.message}. Retrying in ${delay}ms...`);
+      log.info(`${agent} chatOnce failed (attempt ${attempt + 1}/${maxRetries}): ${msg}. Retrying in ${delay}ms...`);
       await sleepMs(delay);
     }
   }
@@ -480,6 +524,20 @@ export async function autoRespond(
 
 const lastHeartbeat = new Map<string, number>();
 
+/**
+ * Send a periodic heartbeat nudge to an agent.
+ *
+ * Unlike {@link autoRespond}, no signal scanning or task injection occurs --
+ * the agent simply receives a lightweight wake-up prompt asking it to check
+ * for pending work and report progress. Calls are throttled by `intervalMs`
+ * to prevent excessive wake-ups.
+ *
+ * @param agent      - The agent name to wake.
+ * @param intervalMs - Minimum interval (in ms) between consecutive heartbeats
+ *                     for the same agent. Calls within this window are skipped.
+ * @returns An object indicating whether the agent was triggered, its reply
+ *          text (if any), and a reason string when not triggered.
+ */
 export async function agentHeartbeat(agent: string, intervalMs: number): Promise<{ triggered: boolean; reply?: string; reason?: string }> {
   return enqueueAgent(agent, async () => {
     const config = getConfig(agent);
@@ -498,8 +556,9 @@ export async function agentHeartbeat(agent: string, intervalMs: number): Promise
         const { reply } = await chatOnce(agent, '[Heartbeat] 你被唤醒了。请自主检查是否有需要处理的事项。如果有，在群里同步进展。如果没有，忽略这条消息即可。用中文。');
         clearActivity(agent);
         return { triggered: true, reply };
-      } catch (e: any) {
-        if (attempt === 2) return { triggered: false, reason: `all 3 attempts failed: ${e.message}` };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (attempt === 2) return { triggered: false, reason: `all 3 attempts failed: ${msg}` };
         await sleepMs(Math.pow(2, attempt + 1) * 1000);
       }
     }
@@ -509,11 +568,17 @@ export async function agentHeartbeat(agent: string, intervalMs: number): Promise
 
 // ── Batch poll ──────────────────────────────────────────
 
+// Concurrency limit: process at most N agents at a time to avoid flooding the event loop
+const POLL_BATCH_SIZE = 3;
+// Overall timeout: abort polling if it takes longer than this
+const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function pollAllAgents(groupName?: string): Promise<{ agent: string; triggered: boolean; reason?: string }[]> {
-  // Use AgentProxy for listing agents
+  // Use AgentProxy for listing agents (async readdir to avoid sync blocking)
   const agents: string[] = [];
-  if (fs.existsSync(AGENTS_DIR)) {
-    for (const entry of fs.readdirSync(AGENTS_DIR, { withFileTypes: true })) {
+  try {
+    const entries = await fsPromises.readdir(AGENTS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const agentProxy = new AgentProxy(entry.name);
         if (agentProxy.exists()) {
@@ -521,18 +586,45 @@ export async function pollAllAgents(groupName?: string): Promise<{ agent: string
         }
       }
     }
+  } catch { /* AGENTS_DIR doesn't exist */ }
+
+  if (agents.length === 0) return [];
+
+  const results: { agent: string; triggered: boolean; reason?: string }[] = [];
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+  // Process agents in batches to avoid flooding the event loop
+  for (let i = 0; i < agents.length; i += POLL_BATCH_SIZE) {
+    // Check overall timeout
+    if (Date.now() >= deadline) {
+      log.warn(`pollAllAgents: timeout reached, ${agents.length - i} agents remaining`);
+      for (const remaining of agents.slice(i)) {
+        results.push({ agent: remaining, triggered: false, reason: 'timeout' });
+      }
+      break;
+    }
+
+    const batch = agents.slice(i, i + POLL_BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (a) => {
+        try {
+          const result = await autoRespond(a, { groupName });
+          return { agent: a, triggered: result.triggered, reason: result.reason };
+        } catch (e) {
+          _lastError = `pollAllAgents(${a}): ${e instanceof Error ? e.message : String(e)}`;
+          return { agent: a, triggered: false, reason: 'error' };
+        }
+      })
+    );
+    results.push(...batchResults);
+
+    // Yield to event loop between batches so other requests can be served
+    if (i + POLL_BATCH_SIZE < agents.length) {
+      await sleepMs(0);
+    }
   }
 
-  return Promise.all(
-    agents.map(async (a) => {
-      try {
-        const result = await autoRespond(a, { groupName });
-        return { agent: a, triggered: result.triggered, reason: result.reason };
-      } catch {
-        return { agent: a, triggered: false, reason: 'error' };
-      }
-    })
-  );
+  return results;
 }
 
 // ── Targeted single-agent poll (v0.4: MCP direct notify) ──
@@ -542,7 +634,8 @@ export async function pollAgent(agent: string, groupName?: string): Promise<{ ag
   try {
     const result = await autoRespond(agent, { groupName });
     return { agent, triggered: result.triggered, reason: result.reason };
-  } catch {
+  } catch (e) {
+    _lastError = `pollAgent(${agent}): ${e instanceof Error ? e.message : String(e)}`;
     return { agent, triggered: false, reason: 'error' };
   }
 }

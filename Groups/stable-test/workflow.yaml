@@ -1,0 +1,6 @@
+name: stable-test-default
+steps:
+  - id: s1
+    agent: stable-agent
+    action: create
+    prompt: Write hello world
