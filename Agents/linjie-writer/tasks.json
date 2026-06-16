@@ -1,0 +1,16 @@
+{
+  "pending": [],
+  "completed": [
+    {
+      "runId": "e6a70ce5-1e5c-405a-897a-b2edfad04f3b",
+      "stepId": "research",
+      "workflow": "article-writing",
+      "prompt": "Research and outline a 1000-word article about \"ΪʲôAIд����Ҫ���Ĺػ�\" (Why AI Writing Needs Human Touch). Provide: 1) A compelling title, 2) 3 main arguments, 3) Supporting evidence for each, 4) A conclusion",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781629502756,
+      "completedAt": 1781629537839,
+      "result": ""
+    }
+  ]
+}
