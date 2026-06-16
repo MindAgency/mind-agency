@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.4.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
-[![GitHub stars](https://img.shields.io/github/stars/Toufumind/mind-agency)](https://github.com/Toufumind/mind-agency)
+[![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 [![Website](https://img.shields.io/badge/Website-mindagency.cn-blue.svg)](https://mindagency.cn)
 
 </div>
@@ -80,12 +80,12 @@ Alice 写代码，Bob 审查，Charlie 测试。有分歧？投票决定。需�
 
 ### Windows
 
-从 [Releases](https://github.com/Toufumind/mind-agency/releases) 下载 `Mind-Agency-Setup-0.4.0.exe`，双击安装。
+从 [Releases](https://github.com/MindAgency/mind-agency/releases) 下载 `Mind-Agency-Setup-0.4.0.exe`，双击安装。
 
 ### 从源码
 
 ```bash
-git clone https://github.com/Toufumind/mind-agency.git
+git clone https://github.com/MindAgency/mind-agency.git
 cd mind-agency
 npm install
 npm run dev
@@ -193,7 +193,7 @@ mind-agency/
 ## 开发
 
 ```bash
-git clone https://github.com/Toufumind/mind-agency.git
+git clone https://github.com/MindAgency/mind-agency.git
 cd mind-agency
 npm install
 npm run dev          # Next.js (:3000)
