@@ -96,7 +96,7 @@ export class SkillProxy {
       skillId: r.skillId,
       skillName: r.skillName,
       content: r.content,
-      score: 0, // TF-IDF score not exposed by underlying function
+      score: r.score || 0,
     }));
   }
 

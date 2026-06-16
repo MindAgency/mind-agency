@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   icons: { icon: '/favicon.svg' },
 };
 
+import OnboardingTour from '@/components/onboarding-tour';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
@@ -20,7 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <OnboardingTour />
+        </Providers>
       </body>
     </html>
   );

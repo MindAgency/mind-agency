@@ -518,9 +518,16 @@ export async function createChatStream(agentName: string, userMessage: string, g
 
     // Build conversation context for relay
     const history = getChatHistory(agentName);
+    let skillContext = '';
+    try {
+      skillContext = await getSkillProxy().loadSkillsContext(agentName, userMessage);
+    } catch (e) { console.error('[lib:chat]', e); }
+    const routedUserMessage = skillContext
+      ? `${userMessage}\n\n---\n\n${skillContext}`
+      : userMessage;
     const messages = [
       ...history.messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: userMessage },
+      { role: 'user', content: routedUserMessage },
     ];
 
     const result = await relay({

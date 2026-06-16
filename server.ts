@@ -501,15 +501,16 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
   // ── GET /workflows/runs — List workflow runs ──────────────────────────
   if (req.method === 'GET' && pathname === '/workflows/runs') {
-    try {
-      const { listRuns } = await import('./src/lib/workflow-bridge.js');
-      const runs = listRuns();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, runs }));
-    } catch (e: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message }));
-    }
+    import('./src/lib/workflow-bridge.js')
+      .then(({ getRuns }) => {
+        const runs = getRuns();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, runs }));
+      })
+      .catch((e: any) => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      });
     return;
   }
 
@@ -518,9 +519,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     readBody(req, res).then(async body => {
       if (body === null) return;
       try {
-        const { runId, stepId, approved } = JSON.parse(body);
-        const { approveStep } = await import('./src/lib/workflow-bridge.js');
-        const result = await approveStep(runId, stepId, approved !== false);
+        const { approvalId, decision, comment } = JSON.parse(body);
+        const { approveWorkflow } = await import('./src/lib/workflow-bridge.js');
+        const result = approveWorkflow(approvalId, decision === 'REJECTED' ? 'REJECTED' : 'APPROVED', comment);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (e: any) {

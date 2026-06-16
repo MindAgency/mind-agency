@@ -46,21 +46,21 @@ export default function EmailList({ emails, selectedEmail, onSelect, loading }: 
                 : 'bg-canvas border-border hover:border-border-strong'
             }`}
           >
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <h4 className="text-[13px] font-medium text-foreground truncate">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h4 className="text-base font-medium text-foreground truncate">
                 {email.subject}
               </h4>
               {email.date && (
-                <span className="text-[11px] text-muted-foreground shrink-0">
+                <span className="text-xs text-muted-foreground shrink-0 mt-0.5">
                   {email.date.slice(5)}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1 mb-1">
-              <User size={11} className="text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground">{email.from}</span>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <User size={14} className="text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">{email.from}</span>
             </div>
-            <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
               {email.body.slice(0, 80)}
             </p>
           </button>

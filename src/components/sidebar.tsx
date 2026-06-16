@@ -150,11 +150,13 @@ export default function Sidebar() {
 
           {/* Members section */}
           {!collapsed ? (
-            <section>
-              <SectionHeader title={t('members')} icon={Users}
-                isOpen={!sectionsClosed.has('members')}
-                onToggle={() => ts('members')}
-                onAdd={() => setCreating('agent')} />
+            <section id="tour-sidebar-agents">
+              <div id="tour-sidebar-create">
+                <SectionHeader title={t('members')} icon={Users}
+                  isOpen={!sectionsClosed.has('members')}
+                  onToggle={() => ts('members')}
+                  onAdd={() => setCreating('agent')} />
+              </div>
               {!sectionsClosed.has('members') && (
                 <div className="space-y-0.5">
                   {agents.filter(a => a.name !== 'me').map(a => (

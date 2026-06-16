@@ -1,13 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/sidebar';
-import { Settings, Key, Palette, Server, Cpu, Save, Loader2, ChevronRight, Zap, Puzzle } from 'lucide-react';
+import { Settings, Palette, Server, Cpu, Save, Loader2, ChevronRight, Zap, Puzzle, Wrench, BookOpen } from 'lucide-react';
 import { useT } from '@/components/i18n';
 import { useTheme, THEMES, type ThemeId } from '@/lib/theme';
 import ProviderProfiles from '@/components/settings/ProviderProfiles';
 import SkillsPanel from '@/components/settings/SkillsPanel';
+import ToolsPanel from '@/components/settings/ToolsPanel';
+import SkillDraftsPanel from '@/components/settings/SkillDraftsPanel';
 
-type Tab = 'appearance' | 'providers' | 'skills' | 'system' | 'agent';
+type Tab = 'appearance' | 'providers' | 'skills' | 'skill-drafts' | 'tools' | 'system' | 'agent';
 
 const TABS: { id: Tab; icon: React.ReactNode; labelZh: string; labelEn: string }[] = [
   { id: 'appearance', icon: <Palette size={15}/>, labelZh: '外观', labelEn: 'Appearance' },
@@ -16,6 +18,10 @@ const TABS: { id: Tab; icon: React.ReactNode; labelZh: string; labelEn: string }
   { id: 'system',    icon: <Server size={15}/>,   labelZh: '系统', labelEn: 'System' },
   { id: 'agent',     icon: <Cpu size={15}/>,      labelZh: 'Agent', labelEn: 'Agent' },
 ];
+TABS.splice(3, 0,
+  { id: 'skill-drafts', icon: <BookOpen size={15}/>, labelZh: 'Skill Drafts', labelEn: 'Skill Drafts' },
+  { id: 'tools', icon: <Wrench size={15}/>, labelZh: 'Tools', labelEn: 'Tools' },
+);
 
 export default function SettingsPage() {
   const { lang, t, setLang } = useT();
@@ -148,6 +154,14 @@ export default function SettingsPage() {
 
                 {tab === 'skills' && (
                   <SkillsPanel lang={lang} />
+                )}
+
+                {tab === 'skill-drafts' && (
+                  <SkillDraftsPanel lang={lang} />
+                )}
+
+                {tab === 'tools' && (
+                  <ToolsPanel lang={lang} />
                 )}
 
                 {tab === 'system' && (

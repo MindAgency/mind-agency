@@ -37,6 +37,9 @@ import { consensusTools, handleConsensusTool } from './tools/consensus.js';
 import { memoryTools, handleMemoryTool } from './tools/memory.js';
 import { taskTools, handleTaskTool } from './tools/task.js';
 import { economyTools, handleEconomyTool } from './tools/economy.js';
+import { searchTools, handleSearchTool } from './tools/search.js';
+import { hierarchyTools, handleHierarchyTool } from './tools/hierarchy.js';
+import { managedTools, handleManagedTool } from './tools/managed.js';
 
 let agentName = '';
 
@@ -50,6 +53,9 @@ const tools = [
   ...memoryTools(),
   ...taskTools(),
   ...economyTools(),
+  ...searchTools(),
+  ...hierarchyTools(),
+  ...managedTools(),
 ];
 
 const rl = createInterface({ input: process.stdin });
@@ -99,7 +105,7 @@ rl.on('line', async (line: string) => {
       }
 
       // v0.4: Try modular handlers first — return true if handled.
-      const modHandlers = [handleGroupTool, handleCommunicationTool, handleWorkflowTool, handleAgentTool, handleConsensusTool, handleMemoryTool, handleTaskTool, handleEconomyTool];
+      const modHandlers = [handleGroupTool, handleCommunicationTool, handleWorkflowTool, handleAgentTool, handleConsensusTool, handleMemoryTool, handleTaskTool, handleEconomyTool, handleSearchTool, handleHierarchyTool, handleManagedTool];
       for (const handler of modHandlers) {
         try {
           if (await handler(name, a, agentName, respond, id)) return;

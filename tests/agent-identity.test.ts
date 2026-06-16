@@ -10,6 +10,9 @@ vi.mock('../src/lib/data-dir', () => ({
   MIND_DIR: path.join(__dirname, '.test-data', '.mind'),
   GROUPS_DIR: path.join(__dirname, '.test-data', 'Groups'),
   MCP_DIR: path.join(__dirname, '..', 'mcp'),
+  DATA_DIR: path.join(__dirname, '.test-data'),
+  getApiBase: () => 'http://127.0.0.1:3000',
+  getWsBase: () => 'http://127.0.0.1:3001',
   default: path.join(__dirname, '.test-data'),
 }));
 

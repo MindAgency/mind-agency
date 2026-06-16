@@ -316,20 +316,20 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
   return (
     <div className="flex flex-col h-full bg-canvas">
       {toastMsg && (
-        <div className="fixed top-4 right-4 z-50 bg-canvas border border-border rounded-xl px-4 py-3 shadow-lg animate-in flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center"><Mail size={14} className="text-muted" /></div>
-          <div><p className="text-[11px] text-muted-foreground">New email</p><p className="text-[13px] text-foreground font-medium">{toastMsg}</p></div>
+        <div className="fixed top-4 right-4 z-50 bg-canvas border border-border rounded-xl px-5 py-4 shadow-lg animate-in flex items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center"><Mail size={18} className="text-muted" /></div>
+          <div><p className="text-xs text-muted-foreground">New email</p><p className="text-sm text-foreground font-medium">{toastMsg}</p></div>
         </div>
       )}
 
-      <div className="flex items-center justify-between px-6 py-2 shrink-0 select-none">
-        <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-full bg-surface-alt flex items-center justify-center text-[10px] font-medium text-muted">{agentName[0]}</span>
-          <span className="text-[13px] font-medium text-foreground">{agentName}</span>
+      <div className="flex items-center justify-between px-6 py-3 shrink-0 select-none">
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-full bg-surface-alt flex items-center justify-center text-sm font-medium text-muted">{agentName[0]}</span>
+          <span className="text-base font-medium text-foreground">{agentName}</span>
         </div>
       </div>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0" id="tour-chat-panel">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Scrollable messages container */}
 
@@ -338,9 +338,9 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
         {msgs.length === 0 && (
           <div className="flex items-center justify-center h-[60vh] text-center">
             <div>
-              <p className="text-[15px] text-muted-foreground font-medium">Mind Agency</p>
-              <p className="text-[13px] text-muted-foreground mt-1">开始和 {agentName} 对话</p>
-              <p className="text-[12px] text-muted-foreground mt-2">输入 <code className="text-muted-foreground">/help</code> 查看命令</p>
+              <p className="text-lg text-muted-foreground font-medium">Mind Agency</p>
+              <p className="text-base text-muted-foreground mt-2">开始和 {agentName} 对话</p>
+              <p className="text-sm text-muted-foreground mt-3">输入 <code className="text-muted-foreground">/help</code> 查看命令</p>
             </div>
           </div>
         )}
@@ -349,8 +349,8 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
             return (
               <div key={i} ref={(el) => { if (el) historyRefs.current.set(i, el); }}
                 className="flex justify-end" id={`msg-${i}`}>
-                <div className="max-w-[75%] bg-surface-alt rounded-2xl rounded-br-sm px-4 py-2.5">
-                  <p className="text-[14px] text-foreground leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                <div className="max-w-[75%] bg-surface-alt rounded-3xl rounded-br-md px-5 py-3">
+                  <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                 </div>
               </div>
             );
@@ -358,7 +358,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           if (msg.role === 'system') {
             return (
               <div key={i} className="flex justify-start">
-                <div className="max-w-[85%] bg-surface border border-border rounded-xl px-4 py-3 text-[13px] text-muted leading-relaxed font-mono">
+                <div className="max-w-[85%] bg-surface border border-border rounded-2xl px-5 py-4 text-sm text-muted leading-relaxed font-mono">
                   <Markdown text={msg.content} />
                 </div>
               </div>
@@ -411,40 +411,40 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
           <div className="absolute bottom-[calc(100%+4px)] left-0 right-0 bg-canvas border border-border rounded-2xl shadow-xl max-h-[280px] overflow-y-auto z-20 py-1 mb-1">
             {filteredCmds.map((item, i) => (
               <button key={item.cmd} onClick={() => selectCmd(item.cmd)}
-                className={`w-full text-left px-4 py-2.5 transition-colors flex items-start gap-3 ${i === cmdIdx ? 'bg-surface' : 'hover:bg-surface/50'}`}>
-                <span className="text-[13px] font-medium text-foreground font-mono whitespace-nowrap">{item.cmd}</span>
-                <span className="text-[12px] text-muted-foreground leading-snug">{item.desc}</span>
+                className={`w-full text-left px-5 py-3 transition-colors flex items-start gap-4 ${i === cmdIdx ? 'bg-surface' : 'hover:bg-surface/50'}`}>
+                <span className="text-sm font-medium text-foreground font-mono whitespace-nowrap">{item.cmd}</span>
+                <span className="text-sm text-muted-foreground leading-snug">{item.desc}</span>
               </button>
             ))}
           </div>
         )}
         <div className="max-w-[820px] mx-auto">
-          <div className="flex items-center gap-1.5 mb-1.5 px-1 relative">
+          <div className="flex items-center gap-1.5 mb-1.5 px-1 relative" id="tour-model-selector">
             {/* Model selector dropdown */}
             <button onClick={() => setShowModels(!showModels)}
-              className="text-[11px] px-2 py-0.5 rounded-md flex items-center gap-1 text-muted-foreground hover:text-muted transition-colors border border-border">
-              <Cpu size={11} /> {models.length === 0 ? '无模型' : (models.find(m => m.id === model)?.label || model)} <ChevronDown size={10} />
+              className="text-sm px-3 py-1 rounded-lg flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors border border-border">
+              <Cpu size={14} /> {models.length === 0 ? '无模型' : (models.find(m => m.id === model)?.label || model)} <ChevronDown size={14} />
             </button>
             {showModels && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowModels(false)} />
-                <div className="absolute bottom-full left-0 mb-1 bg-canvas border border-border rounded-xl shadow-xl z-20 py-1 min-w-[160px]">
+                <div className="absolute bottom-full left-0 mb-1 bg-canvas border border-border rounded-xl shadow-xl z-20 py-2 min-w-[200px]">
                   {models.map(m => (
                     <button key={m.id} onClick={() => setModelPersist(m.id)}
-                      className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${model === m.id ? 'bg-surface-alt text-foreground font-medium' : 'text-muted hover:bg-surface-hover'}`}>
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${model === m.id ? 'bg-surface-alt text-foreground font-medium' : 'text-muted hover:bg-surface-hover'}`}>
                       {m.label}
                     </button>
                   ))}
                 </div>
               </>
             )}
-            <div className="w-px h-3 bg-border mx-1" />
+            <div className="w-px h-4 bg-border mx-2" />
             <button onClick={() => setThinkingMode(!thinkingMode)}
-              className={`text-[11px] px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 ${thinkingMode ? 'bg-primary-muted text-primary font-medium' : 'text-muted-foreground hover:text-muted'}`}>
-              <Brain size={12} /> 深度思考
+              className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${thinkingMode ? 'bg-primary-muted text-primary font-medium' : 'text-muted-foreground hover:text-muted'}`}>
+              <Brain size={14} /> 深度思考
             </button>
           </div>
-          <div className="flex items-end gap-2 bg-canvas border border-border rounded-2xl px-4 py-3 shadow-sm focus-within:border-border-strong focus-within:shadow-md transition-all">
+          <div className="flex items-center gap-2 bg-canvas border border-border rounded-2xl px-4 py-3 shadow-sm focus-within:border-border-strong focus-within:shadow-md transition-all">
             <textarea ref={inputRef as any} value={input}
               onChange={e => {
                 const v = e.target.value; setInput(v); inputValueRef.current = v;
@@ -461,18 +461,18 @@ const ChatPanel = forwardRef<ChatPanelHandle, { agentName: string }>(function Ch
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder={`给 ${agentName} 发消息...`}
               rows={1}
-              className="flex-1 bg-transparent border-0 outline-none text-[14px] text-foreground placeholder:text-muted-foreground resize-none"
+              className="flex-1 bg-transparent border-0 outline-none text-base text-foreground placeholder:text-muted-foreground resize-none"
               autoFocus />
             {busy ? (
               <button onClick={() => abortRef.current?.abort()}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-destructive text-canvas hover:bg-destructive transition-all shrink-0"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-destructive text-canvas hover:bg-destructive transition-all shrink-0"
                 title="停止">
-                <span className="w-3 h-3 bg-white rounded-sm" />
+                <span className="w-4 h-4 bg-white rounded-sm" />
               </button>
             ) : (
               <button onClick={send} disabled={!input.trim() || !sendReady}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-foreground text-canvas hover:opacity-90 disabled:opacity-20 transition-all shrink-0">
-                <ArrowUp size={14} />
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-foreground text-canvas hover:opacity-90 disabled:opacity-20 transition-all shrink-0">
+                <ArrowUp size={18} />
               </button>
             )}
           </div>
@@ -490,7 +490,7 @@ export default ChatPanel;
 const MdText = React.memo(function MdText({ text }: { text: string }) {
   const isLong = text.length > 500;
   return (
-    <div className={`text-[14px] text-muted leading-relaxed ${isLong ? 'max-h-[300px] overflow-y-auto' : ''}`}>
+    <div className={`text-base text-muted leading-relaxed ${isLong ? 'max-h-[400px] overflow-y-auto' : ''}`}>
       <Markdown text={text} />
     </div>
   );
@@ -499,11 +499,11 @@ const Think = React.memo(function Think({ text }: { text: string }) {
   const [on, setOn] = useState(false);
   if (!text) return null;
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}<Brain size={11} className="text-primary" /> Thinking
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<Brain size={14} className="text-primary" /> Thinking
       </button>
-      {on && <div className="mt-1 ml-6 pl-3 border-l-2 border-primary/30 text-muted-foreground leading-relaxed whitespace-pre-wrap">{text}</div>}
+      {on && <div className="mt-2 ml-7 pl-4 border-l-2 border-primary/30 text-muted-foreground leading-relaxed whitespace-pre-wrap">{text}</div>}
     </div>
   );
 });
@@ -521,39 +521,39 @@ const Tool = React.memo(function Tool({ name, input }: { name: string; input: st
   const isDelete = short === 'Delete' || parsed?.tool_name === 'Delete';
 
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         {isFileOp ? (
-          <FileText size={11} className={isWrite ? 'text-success' : isEdit ? 'text-info' : 'text-destructive'} />
+          <FileText size={14} className={isWrite ? 'text-success' : isEdit ? 'text-info' : 'text-destructive'} />
         ) : (
-          <Wrench size={11} className="text-info" />
+          <Wrench size={14} className="text-info" />
         )}
         {isFileOp ? (
-          <span className="flex items-center gap-1">
-            <span className={`text-[10px] px-1 py-0.5 rounded ${isWrite ? 'bg-success-muted text-success' : isEdit ? 'bg-info-muted text-info' : 'bg-destructive-muted text-destructive'}`}>
+          <span className="flex items-center gap-2">
+            <span className={`text-xs px-1.5 py-0.5 rounded-md ${isWrite ? 'bg-success-muted text-success' : isEdit ? 'bg-info-muted text-info' : 'bg-destructive-muted text-destructive'}`}>
               {short}
             </span>
-            <span className="text-muted-foreground truncate max-w-[180px]">{filePath}</span>
+            <span className="text-muted-foreground truncate max-w-[220px]">{filePath}</span>
           </span>
         ) : short}
       </button>
       {on && (
-        <div className="mt-1 ml-6 pl-3 border-l-2 border-info/30 max-h-[300px] overflow-y-auto">
+        <div className="mt-2 ml-7 pl-4 border-l-2 border-info/30 max-h-[400px] overflow-y-auto">
           {isFileOp && filePath && (
-            <div className="text-[11px] text-muted-foreground mb-1 font-mono">{filePath}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-mono">{filePath}</div>
           )}
           {isEdit && parsed?.old_string && parsed?.new_string ? (
-            <div className="text-[11px] font-mono">
-              <div className="text-destructive/70 bg-destructive/5 rounded px-2 py-1 mb-0.5 whitespace-pre-wrap">{parsed.old_string}</div>
-              <div className="text-success/70 bg-success/5 rounded px-2 py-1 whitespace-pre-wrap">{parsed.new_string}</div>
+            <div className="text-xs font-mono">
+              <div className="text-destructive/70 bg-destructive/5 rounded-md px-3 py-2 mb-1 whitespace-pre-wrap">{parsed.old_string}</div>
+              <div className="text-success/70 bg-success/5 rounded-md px-3 py-2 whitespace-pre-wrap">{parsed.new_string}</div>
             </div>
           ) : isWrite && parsed?.content ? (
-            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{parsed.content.slice(0, 2000)}{parsed.content.length > 2000 ? '\n...(truncated)' : ''}</pre>
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{parsed.content.slice(0, 2000)}{parsed.content.length > 2000 ? '\n...(truncated)' : ''}</pre>
           ) : isDelete ? (
-            <div className="text-[11px] text-destructive">删除文件: {filePath}</div>
+            <div className="text-xs text-destructive">删除文件: {filePath}</div>
           ) : (
-            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap">{input}</pre>
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{input}</pre>
           )}
         </div>
       )}
@@ -564,12 +564,12 @@ const Result = React.memo(function Result({ output }: { output: string }) {
   const [on, setOn] = useState(false);
   if (!output) return null;
   return (
-    <div className="text-[12px]">
-      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left">
-        {on ? <ChevronDown size={11} /> : <ChevronRight size={11} />}<FileText size={11} className="text-success" /> Result
+    <div className="text-sm">
+      <button onClick={() => setOn(!on)} className="flex items-center gap-1.5 text-muted-foreground hover:text-muted transition-colors text-left font-medium">
+        {on ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<FileText size={14} className="text-success" /> Result
       </button>
-      {on && <pre className="mt-1 ml-6 pl-3 border-l-2 border-success/30 text-[11px] text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-y-auto">{output}</pre>}
+      {on && <pre className="mt-2 ml-7 pl-4 border-l-2 border-success/30 text-xs text-muted-foreground whitespace-pre-wrap max-h-[300px] overflow-y-auto">{output}</pre>}
     </div>
   );
 });
-const Err = React.memo(function Err({ text }: { text: string }) { return <div className="text-[13px] text-destructive">{text}</div>; });
+const Err = React.memo(function Err({ text }: { text: string }) { return <div className="text-base text-destructive">{text}</div>; });
