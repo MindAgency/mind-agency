@@ -138,6 +138,17 @@
   ],
   "completed": [
     {
+      "runId": "34f525bf-4d36-4e9a-aca8-68108ca3b4b7",
+      "stepId": "review",
+      "workflow": "code-review-pipeline",
+      "prompt": "Review this TypeScript function for bugs, type safety, and best practices:\n\n```typescript\nfunction mergeObjects<T extends Record<string, any>>(target: T, source: Partial<T>): T {\n  const result = { ...target };\n  for (const key of Object.keys(source)) {\n    if (source[key] !== undefined) {\n      (result as any)[key] = source[key];\n    }\n  }\n  return result;\n}\n```\n\nProvide specific issues and a corrected version.",
+      "priority": "high",
+      "status": "failed",
+      "createdAt": 1781626877679,
+      "completedAt": 1781626908473,
+      "result": ""
+    },
+    {
       "runId": "c0181e61-71c7-4b21-b047-19713864d02f",
       "stepId": "review",
       "workflow": "code-review-pipeline",
@@ -674,17 +685,6 @@
       "status": "completed",
       "createdAt": 1781014012997,
       "completedAt": 1781014073118,
-      "result": "Agent acknowledged task"
-    },
-    {
-      "runId": "5e69a7e5-eddd-4a53-9cd6-71aef434cbd7",
-      "stepId": "review-experiments",
-      "workflow": "CCFA-Subconscious-LLM-Paper",
-      "prompt": "你是一位AI实验方法论专家。请审查实验设计：\n1. 实验设计是否严谨？是否有混淆变量？\n2. 基线设置是否合理？\n3. 统计分析方法是否正确？\n4. 预期结果的解读是否有多种可能？是否考虑了替代解释？\n5. 实验规模和计算资源需求是否现实？\n\n回复 APPROVED 或 REJECTED 并给出修改建议。\n",
-      "priority": "normal",
-      "status": "completed",
-      "createdAt": 1781014012963,
-      "completedAt": 1781014073102,
       "result": "Agent acknowledged task"
     }
   ]

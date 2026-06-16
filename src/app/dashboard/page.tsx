@@ -5,7 +5,7 @@ import Sidebar from '@/components/sidebar';
 import { useT } from '@/components/i18n';
 import {
   Users, Hash, Play, CheckCircle, XCircle, Clock, Loader2,
-  Plus, X, ChevronDown, ChevronRight, Zap, Activity,
+  Plus, X, ChevronDown, ChevronRight, Zap, Activity, AlertCircle,
 } from 'lucide-react';
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -77,6 +77,7 @@ export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<WorkflowDef[]>([]);
   const [runs, setRuns] = useState<RunInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
 
   // UI state
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'error' } | null>(null);
@@ -103,11 +104,12 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [agentsRes, groupsRes, workflowsRes, runsRes] = await Promise.allSettled([
+      const [agentsRes, groupsRes, workflowsRes, runsRes, settingsRes] = await Promise.allSettled([
         fetch('/api/agents').then(r => r.json()),
         fetch('/api/groups/scan').then(r => r.json()),
         loadWorkflows(),
         fetch('/api/workflows/run').then(r => r.json()),
+        fetch('/api/system/settings').then(r => r.json()),
       ]);
 
       if (agentsRes.status === 'fulfilled') {
@@ -135,6 +137,11 @@ export default function DashboardPage() {
       }
       if (runsRes.status === 'fulfilled') {
         setRuns(runsRes.value.runs || []);
+      }
+      if (settingsRes.status === 'fulfilled') {
+        setApiKeyConfigured(!!settingsRes.value.apiKey);
+      } else {
+        setApiKeyConfigured(false);
       }
     } catch (e) {
       console.error('[dashboard]', e);
@@ -313,6 +320,25 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {/* ── API Provider Warning Banner ── */}
+          {apiKeyConfigured === false && (
+            <div className="mb-6 flex items-center gap-3 bg-warning/10 border border-warning/30 rounded-xl px-4 py-3">
+              <AlertCircle size={16} className="text-warning shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-foreground">请先配置 AI Provider</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  未检测到已配置的 API Key，AI 功能（自动回复、任务处理等）将无法使用。
+                </p>
+              </div>
+              <a
+                href="/setup"
+                className="shrink-0 px-3 py-1.5 text-[12px] font-medium rounded-lg bg-warning text-canvas hover:opacity-90 transition-opacity"
+              >
+                前往配置
+              </a>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground text-[13px] gap-2">

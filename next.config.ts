@@ -33,13 +33,13 @@ const nextConfig = {
     // ── Cache corruption recovery ────────────────────────────────
     // "webpack_modules is not a function" errors are caused by stale
     // or corrupted filesystem cache entries that reference modules
-    // from a previous compilation. Clear the cache on startup to
-    // ensure a clean slate.
+    // from a previous compilation. Clear the cache on startup for
+    // BOTH client and server builds to ensure a clean slate.
     try {
-      if (isServer && config.cache?.type === 'filesystem') {
+      if (config.cache?.type === 'filesystem') {
         const cacheDir = join(process.cwd(), '.next', 'cache', 'webpack');
         if (existsSync(cacheDir)) {
-          console.log('[next.config] Clearing webpack filesystem cache to prevent stale module references');
+          console.log(`[next.config] Clearing webpack filesystem cache (${isServer ? 'server' : 'client'}) to prevent stale module references`);
           rmSync(cacheDir, { recursive: true, force: true });
           // Rebuild from scratch — use memory cache for this session
           config.cache = { type: 'memory' };
