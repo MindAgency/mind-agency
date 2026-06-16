@@ -47,7 +47,7 @@ export function httpPost(urlStr: string, body: Record<string, unknown>) {
     const req = http.request({
       hostname: u.hostname, port: u.port, path: u.pathname,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), 'Connection': 'keep-alive' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(data), 'Connection': 'keep-alive' },
       timeout: 5000,
     }, (res) => { res.resume(); });
     req.on('error', (e) => {
@@ -86,7 +86,7 @@ export function fetchPost(urlStr: string, body: Record<string, unknown>): Promis
     const req = http.request({
       hostname: u.hostname, port: u.port, path: u.pathname,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(data) },
       timeout: 120000,
     }, (res) => {
       let body = '';

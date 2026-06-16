@@ -45,12 +45,21 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(() => {
     setLoading(true);
     return Promise.all([
-      fetch('/api/agents').then(r => r.json()),
-      fetch('/api/groups/scan').then(r => r.json()),
+      fetch('/api/agents').then(r => {
+        if (!r.ok) throw new Error(`agents ${r.status}`);
+        return r.json();
+      }),
+      fetch('/api/groups/scan').then(r => {
+        if (!r.ok) throw new Error(`groups ${r.status}`);
+        return r.json();
+      }),
     ]).then(([a, g]) => {
       setAgents(a.agents || []);
       setGroups((g.groups || []).map((n: string) => ({ name: n })));
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch((err) => {
+      // Log but don't crash — next poll cycle will retry
+      if (typeof console !== 'undefined') console.warn('[sidebar] refresh failed:', err?.message || err);
+    }).finally(() => setLoading(false));
   }, []);
 
   const [loaded, setLoaded] = useState(false);

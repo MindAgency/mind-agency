@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import { EventBus, EventType, EventBusError, createEvent, WorkflowEngine, parseWorkflowYaml, setEventBus } from './src/lib/event-bus.js';
 import type { EventMessage, WorkflowRunRecord } from './src/lib/event-bus.js';
 import { startScheduler, stopScheduler } from './src/lib/scheduler.js';
+import { startWatcher, stopWatcher } from './src/lib/watcher.js';
 import { killAllClaudeProcesses } from './src/lib/chat.js';
 import { closeDb } from './src/lib/workflow-checkpoint.js';
 import { cancelAllWatchers } from './src/lib/workflow-bridge.js';
@@ -38,7 +39,7 @@ function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
 
   const authHeader = req.headers.authorization;
   if (!authHeader || authHeader !== `Bearer ${SERVER_SECRET}`) {
-    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
     return false;
   }
@@ -52,7 +53,7 @@ function readBody(req: IncomingMessage, res: ServerResponse): Promise<string | n
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_SIZE) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: 'Request body too large' }));
         req.destroy();
         resolve(null);
@@ -80,7 +81,7 @@ initConsensusHandlers();
 
 // v1.2: Timeout monitoring — check every 30s for stuck WAITING steps
 setInterval(() => {
-  try { workflowEngine.checkTimeouts(); } catch {}
+  try { workflowEngine.tick(); } catch (e) { console.error('[server] tick() error:', e); }
 }, 30_000);
 
 // ── Embedded WebSocket Server ─────────────────────────────────────────────
@@ -107,7 +108,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (origin) {
       const allowedOrigins = ['http://127.0.0.1:3000', 'http://localhost:3000'];
       if (!allowedOrigins.includes(origin)) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: 'CSRF: Origin not allowed' }));
         return;
       }
@@ -118,7 +119,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   // ── GET /health ─────────────────────────────────────────────────────
 
   if (req.method === 'GET' && req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       status: 'ok',
       uptime: process.uptime(),
@@ -132,7 +133,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
   if (req.method === 'GET' && req.url === '/events/stats') {
     const stats = bus.getStats();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ...stats, wsClients: wsServer.getClientCount() }, null, 2));
     return;
   }
@@ -146,10 +147,10 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       try {
         const msg = JSON.parse(body);
         const sent = wsServer.broadcast(msg, 'messages');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, clients: sent }));
       } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: 'invalid json' }));
       }
     });
@@ -175,10 +176,10 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         };
 
         bus.emit(event);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, eventId: event.id }));
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
@@ -196,9 +197,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'GET' && pathname === '/api/economy/account') {
     if (!checkAuth(req, res)) return;
     const agent = urlObj?.searchParams.get('agent') || '';
-    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
+    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
     const account = getAgentAccount(agent);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, account }));
     return;
   }
@@ -207,7 +208,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'GET' && pathname === '/api/economy/accounts') {
     if (!checkAuth(req, res)) return;
     const accounts = listAgentAccounts();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, accounts }));
     return;
   }
@@ -219,12 +220,12 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       if (body === null) return;
       try {
         const { agent, amount, from, reason } = JSON.parse(body);
-        if (!agent || !amount) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent and amount required' })); return; }
+        if (!agent || !amount) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent and amount required' })); return; }
         const newBalance = econDeposit(agent, amount, reason || `deposited by ${from || 'system'}`);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, balance: newBalance }));
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
     return;
@@ -237,21 +238,21 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       if (body === null) return;
       try {
         const { from, to, amount, reason } = JSON.parse(body);
-        if (!from || !to || !amount) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'from, to, amount required' })); return; }
+        if (!from || !to || !amount) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'from, to, amount required' })); return; }
         // Anti-abuse check
         const limitError = checkTransferLimits(from, amount);
-        if (limitError) { res.writeHead(429, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: limitError, balance: getBalance(from) })); return; }
+        if (limitError) { res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: limitError, balance: getBalance(from) })); return; }
         const ok = econTransfer(from, to, amount, reason);
         if (ok) {
           recordTransfer(amount);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: true, fromBalance: getBalance(from) }));
         } else {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: false, balance: getBalance(from) }));
         }
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
     return;
@@ -263,7 +264,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const leaderboard = getLeaderboard().map(a => ({
       agent: a.agent, balance: a.balance, tasks: a.transactions.filter(t => t.type === 'reward').length,
     }));
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, leaderboard }));
     return;
   }
@@ -275,14 +276,14 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       if (body === null) return;
       try {
         const { agent, task, amount, quality } = JSON.parse(body);
-        if (!agent || amount === undefined) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent and amount required' })); return; }
+        if (!agent || amount === undefined) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent and amount required' })); return; }
         const account = econReward(agent, amount, task, quality || 'normal');
         // Also record trust
         recordTaskCompletion(agent, quality || 'normal', `task: ${task}`);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, balance: account.balance }));
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
     return;
@@ -292,9 +293,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'GET' && pathname === '/api/economy/pricing') {
     if (!checkAuth(req, res)) return;
     const agent = urlObj?.searchParams.get('agent') || '';
-    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
+    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
     const pricing = getAgentPricing(agent);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, pricing }));
     return;
   }
@@ -306,12 +307,12 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       if (body === null) return;
       try {
         const { agent, ...updates } = JSON.parse(body);
-        if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
+        if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
         const pricing = setAgentPricing(agent, updates);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, pricing }));
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
     return;
@@ -321,10 +322,10 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'GET' && pathname === '/api/economy/trust') {
     if (!checkAuth(req, res)) return;
     const agent = urlObj?.searchParams.get('agent') || '';
-    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
+    if (!agent) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'agent required' })); return; }
     const trust = getAgentTrust(agent);
     const tier = getTrustTier(trust.score);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, trust, tier }));
     return;
   }
@@ -337,9 +338,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (action === 'list_tasks') {
       const group = urlObj?.searchParams.get('group') || '';
       const status = urlObj?.searchParams.get('status') || undefined;
-      if (!group) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'group required' })); return; }
+      if (!group) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'group required' })); return; }
       const tasks = listMarketplaceTasks(group, status);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true, tasks }));
       return;
     }
@@ -348,7 +349,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       const group = urlObj?.searchParams.get('group') || '';
       const task_id = urlObj?.searchParams.get('task_id') || '';
       const task = loadMarketplaceTask(group, task_id);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true, task }));
       return;
     }
@@ -378,12 +379,12 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
           try { skills = require('fs').readdirSync(skillsDir, { withFileTypes: true }).filter((d: any) => d.isDirectory()).map((d: any) => d.name); } catch {}
           return { agent: a.agent, role: pricing.role, trust: trust.score, balance: a.balance, skills };
         });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true, agents }));
       return;
     }
 
-    res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'unknown action' }));
+    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'unknown action' }));
     return;
   }
 
@@ -397,9 +398,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
         if (action === 'complete_task') {
           const task = loadMarketplaceTask(group, task_id);
-          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
+          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
           if (task.status !== 'in_progress' && task.status !== 'assigned') {
-            res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: `task is ${task.status}, cannot complete` })); return;
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: `task is ${task.status}, cannot complete` })); return;
           }
           task.status = 'completed';
           task.completedAt = Date.now();
@@ -415,7 +416,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
           // Record trust
           const trustResult = recordTaskCompletion(agent || task.assignedTo || '', quality || 'normal', `task: ${task_id}`);
 
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: true, reward: finalReward, trustDelta: trustResult.history[trustResult.history.length - 1]?.delta || 0 }));
           return;
         }
@@ -423,7 +424,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         if (action === 'create_task') {
           const { title, description, reward, difficulty, required_skills, max_claims, posted_by } = data;
           if (!group || !task_id || !title || !description) {
-            res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'group, task_id, title, description required' })); return;
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'group, task_id, title, description required' })); return;
           }
           const task = {
             id: task_id, group, title, description,
@@ -438,39 +439,39 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
             createdAt: Date.now(),
           };
           saveMarketplaceTask(task);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: true, task }));
           return;
         }
 
         if (action === 'cancel_task') {
           const task = loadMarketplaceTask(group, task_id);
-          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
+          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
           task.status = 'cancelled';
           saveMarketplaceTask(task);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: true }));
           return;
         }
 
         if (action === 'rate_task') {
           const task = loadMarketplaceTask(group, task_id);
-          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
-          if (task.status !== 'completed') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'can only rate completed tasks' })); return; }
+          if (!task) { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'task not found' })); return; }
+          if (task.status !== 'completed') { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'can only rate completed tasks' })); return; }
           task.rating = rating;
           saveMarketplaceTask(task);
           // Bonus trust for high ratings
           if (rating >= 4 && task.assignedTo) {
             recordTaskCompletion(task.assignedTo, 'bonus', `high rating on ${task_id}`);
           }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: true }));
           return;
         }
 
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'unknown action' }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: 'unknown action' }));
       } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
     return;
@@ -483,16 +484,16 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       try {
         const { group, workflow, triggerStepId } = JSON.parse(body);
         if (!group || !workflow) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ ok: false, error: 'group and workflow required' }));
           return;
         }
         const { triggerWorkflow } = await import('./src/lib/workflow-bridge.js');
         const result = await triggerWorkflow(group, triggerStepId);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(result));
       } catch (e: any) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
@@ -504,11 +505,11 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     import('./src/lib/workflow-bridge.js')
       .then(({ getRuns }) => {
         const runs = getRuns();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: true, runs }));
       })
       .catch((e: any) => {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
       });
     return;
@@ -522,10 +523,10 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         const { approvalId, decision, comment } = JSON.parse(body);
         const { approveWorkflow } = await import('./src/lib/workflow-bridge.js');
         const result = approveWorkflow(approvalId, decision === 'REJECTED' ? 'REJECTED' : 'APPROVED', comment);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(result));
       } catch (e: any) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
       }
     });
@@ -533,7 +534,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   }
 
   // ── Everything else ────────────────────────────────────────────────
-  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ ok: false, error: 'Not Found', path: req.url, method: req.method }));
 });
 
@@ -557,6 +558,9 @@ async function start() {
   // Start scheduler
   startScheduler();
 
+  // Start file system watcher (real-time trigger for auto-respond)
+  startWatcher();
+
   console.log(`[server] Unified server started (HTTP: ${PORT + 1}, WS: ${PORT})`);
 }
 
@@ -567,6 +571,9 @@ async function shutdown() {
 
   // Stop scheduler
   stopScheduler();
+
+  // Stop file watcher
+  try { stopWatcher(); } catch {}
 
   // Kill all claude processes
   try { killAllClaudeProcesses(); } catch {}

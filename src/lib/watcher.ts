@@ -39,7 +39,7 @@ function emitFileChanged(dirs: string[]): void {
     const bus = getEventBus();
     // Emit event for each changed directory
     for (const dir of dirs) {
-      bus.emit(createEvent('file.changed' as any, { path: dir }, 'watcher'));
+      bus.emit(createEvent(EventType.FILE_CHANGED, { path: dir }, 'watcher'));
     }
   } catch {
     // EventBus not ready yet, ignore

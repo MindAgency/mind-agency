@@ -1,6 +1,6 @@
 {
   "name": "mind-agency",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Mind Agency — From Agent to Agency. 一个 AI 做不了的事，一群 AI 可以。",
   "scripts": {
     "build:mcp": "node scripts/build-mcp.mjs",
@@ -87,6 +87,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@lancedb/lancedb": "^0.30.0",
     "@xenova/transformers": "^2.17.2",
     "better-sqlite3": "^12.10.0",

@@ -39,6 +39,7 @@ export enum EventType {
   POLL_RESULT = 'poll.result', POLL_ERROR = 'poll.error',
   WS_CONNECT = 'ws.connect', WS_DISCONNECT = 'ws.disconnect',
   EMAIL_RECEIVED = 'email.received', EMAIL_SENT = 'email.sent',
+  FILE_CHANGED = 'file.changed',
 }
 
 export enum EventBusError {

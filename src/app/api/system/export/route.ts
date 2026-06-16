@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const json = JSON.stringify(manifest, null, 2);
     return new NextResponse(json, {
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Content-Disposition': `attachment; filename="mind-agency-backup-${new Date().toISOString().split('T')[0]}.json"`,
       },
     });

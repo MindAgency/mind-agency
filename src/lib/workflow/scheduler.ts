@@ -195,6 +195,9 @@ function _scheduleInner(state: EngineState, api: EngineAPI, runId: string, run: 
       for (const agent of agents) {
         autoRespond(agent, { groupName: run.group, force: true }).catch((err: unknown) => {
           logger.warn('schedule', `autoRespond failed for ${agent}: ${err instanceof Error ? err.message : String(err)}`);
+          // Fallback: if autoRespond fails (e.g. agent queue busy, AI provider down),
+          // re-schedule so the step stays alive and can be retried by the next poll cycle
+          api.schedule(runId);
         });
       }
     }).catch((err: unknown) => {

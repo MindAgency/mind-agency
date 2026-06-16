@@ -2,7 +2,7 @@
  * Background scheduler — event-driven.
  *
  * Subscribes to EventBus events and triggers agent responses.
- * No file watching needed — all operations go through Proxy.
+ * Also runs periodic auto-respond polling as a fallback.
  */
 
 import { getAgency } from './agency';
@@ -17,6 +17,10 @@ const HEARTBEAT_ACTIVE_MS = 120_000;  // 2 min — when there's recent activity
 const HEARTBEAT_IDLE_MS = 300_000;    // 5 min — when system is idle
 const IDLE_THRESHOLD_MS = 300_000;    // 5 min no activity → switch to idle mode
 let lastActivityTime = Date.now();
+
+// --- Periodic auto-respond polling ---
+const AUTO_POLL_INTERVAL_MS = 30_000; // 30 seconds — check all agents periodically
+let autoPollTimer: ReturnType<typeof setInterval> | null = null;
 
 const stats = { triggered: 0, dispatched: 0 };
 
@@ -67,16 +71,38 @@ export function startScheduler(): void {
     );
     console.log(`[scheduler] subscribed to MESSAGE_MENTION events`);
 
+    // Subscribe to FILE_CHANGED events — bridge watcher → autoRespond
+    bus.subscribe(
+      { event: EventType.FILE_CHANGED },
+      { scope: 'events' },
+      'scheduler:file-changed',
+      async (msg) => {
+        const filePath = msg.payload?.path as string;
+        if (!filePath) return;
+        // Extract agent name from path (Agents/<name>/... or Groups/<name>/...)
+        const { pollAllAgents } = await import('./auto-respond');
+        // Run auto-respond for all agents — targeted extraction would be fragile
+        pollAllAgents().catch((e: unknown) => {
+          console.error(`[scheduler] auto-respond on file.changed failed:`, e);
+        });
+      }
+    );
+    console.log(`[scheduler] subscribed to FILE_CHANGED events`);
+
   }).catch(e => console.log(`[scheduler] failed to subscribe to EventBus: ${e}`));
 
   // Start heartbeat
   startHeartbeat();
+
+  // Start periodic auto-respond polling
+  startAutoPoll();
 
   console.log(`[scheduler] started`);
 }
 
 export function stopScheduler(): void {
   if (heartbeatTimer) { clearTimeout(heartbeatTimer); heartbeatTimer = null; }
+  if (autoPollTimer) { clearInterval(autoPollTimer); autoPollTimer = null; }
   console.log('[scheduler] stopped');
 }
 
@@ -113,4 +139,33 @@ function startHeartbeat(): void {
 
 export function markAgentActive(agentName: string): void {
   lastActivityTime = Date.now();
+}
+
+// ── Periodic auto-respond polling ──────────────────────────
+
+/**
+ * Periodic polling of all agents for auto-respond signals.
+ *
+ * This is the fallback mechanism that ensures agents process pending
+ * emails, @mentions, group messages, and workflow notifications even
+ * if the file watcher misses them or the EventBus event is lost.
+ *
+ * Runs every AUTO_POLL_INTERVAL_MS (30 seconds).
+ */
+function startAutoPoll(): void {
+  const poll = async () => {
+    try {
+      const { pollAllAgents } = await import('./auto-respond');
+      const results = await pollAllAgents();
+      const triggered = results.filter(r => r.triggered);
+      if (triggered.length > 0) {
+        console.log(`[scheduler] auto-poll: triggered ${triggered.map(t => t.agent).join(', ')}`);
+      }
+    } catch (e: unknown) {
+      console.error(`[scheduler] auto-poll error:`, e);
+    }
+  };
+
+  autoPollTimer = setInterval(poll, AUTO_POLL_INTERVAL_MS);
+  console.log(`[scheduler] auto-poll started (${AUTO_POLL_INTERVAL_MS / 1000}s interval)`);
 }

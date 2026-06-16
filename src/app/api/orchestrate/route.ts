@@ -162,7 +162,7 @@ ${yamlSteps}
         port: 3001,
         path: '/workflows/run',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(postData) },
       }, (res) => {
         let data = '';
         res.on('data', (chunk) => data += chunk);

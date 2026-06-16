@@ -25,7 +25,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 export function apiError(code: ErrorCode, message: string, status: number, details?: unknown) {
   return NextResponse.json(
     { error: { code, message, ...(details ? { details } : {}) } },
-    { status }
+    { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
   );
 }
 
