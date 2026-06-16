@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.8.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
-[![GitHub stars](https://img.shields.io/github/stars/Toufumind/mind-agency)](https://github.com/Toufumind/mind-agency)
+[![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 
 [Chinese README](README.zh.md)
 
@@ -108,7 +108,7 @@ The previous README contained mojibake/encoding artifacts in several sections. T
 ### Run From Source
 
 ```bash
-git clone https://github.com/Toufumind/mind-agency.git
+git clone https://github.com/MindAgency/mind-agency.git
 cd mind-agency
 npm install
 npm run dev
