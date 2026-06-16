@@ -1,6 +1,0 @@
-name: auto-test-default
-steps:
-  - id: s1
-    agent: auto-bot
-    action: create
-    prompt: Write a one-paragraph summary of AI trends in 2026

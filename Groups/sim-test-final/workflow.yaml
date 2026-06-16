@@ -1,6 +1,0 @@
-name: sim-test-final-default
-steps:
-  - id: step1
-    agent: sim-final-agent
-    action: create
-    prompt: Write a hello world

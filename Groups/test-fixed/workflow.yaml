@@ -1,6 +1,0 @@
-name: test-fixed-default
-steps:
-  - id: s1
-    agent: test-bot-fixed
-    action: create
-    prompt: Write a Python hello world function

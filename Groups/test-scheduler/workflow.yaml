@@ -1,6 +1,0 @@
-name: test-scheduler-default
-steps:
-  - id: s1
-    agent: test-bot-scheduler
-    action: create
-    prompt: Write a Python fibonacci function
