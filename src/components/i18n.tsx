@@ -6,7 +6,7 @@ type Lang = 'zh' | 'en';
 const messages: Record<Lang, Record<string, string>> = {
   zh: {
     // Nav / sidebar
-    'dashboard': '总览', 'workflows': '工作流', 'usage': '用量', 'audit': '审计', 'settings': '配置', 'learning': '学习',
+    'dashboard': '总览', 'workflows': '工作流', 'usage': '用量', 'audit': '审计', 'settings': '配置', 'learning': '学习', 'management': '管理台',
     'expand_sidebar': '展开侧边栏', 'collapse_sidebar': '收起侧边栏',
     'teams': '群组', 'members': '成员', 'me': '我', 'visualization': '可视化',
     // Stats
@@ -118,7 +118,7 @@ const messages: Record<Lang, Record<string, string>> = {
   },
   en: {
     // Nav / sidebar
-    'dashboard': 'Dashboard', 'workflows': 'Workflows', 'usage': 'Usage', 'audit': 'Audit', 'settings': 'Settings', 'learning': 'Learning',
+    'dashboard': 'Dashboard', 'workflows': 'Workflows', 'usage': 'Usage', 'audit': 'Audit', 'settings': 'Settings', 'learning': 'Learning', 'management': 'Management',
     'expand_sidebar': 'Expand sidebar', 'collapse_sidebar': 'Collapse sidebar',
     'teams': 'Teams', 'members': 'Members', 'me': 'Me', 'visualization': 'Viz',
     // Stats

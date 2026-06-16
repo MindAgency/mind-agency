@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Hash, Users, Activity, Trash2, User, Settings, PanelLeftClose, PanelLeftOpen, TrendingUp, DollarSign, FileText, BarChart3, X } from 'lucide-react';
+import { Hash, Users, Activity, Trash2, User, Settings, PanelLeftClose, PanelLeftOpen, TrendingUp, DollarSign, FileText, BarChart3, X, LayoutDashboard } from 'lucide-react';
 import { useSidebarData } from './sidebar-context';
 import { useNotifications } from './notification-provider';
 import { useT } from './i18n';
@@ -113,6 +113,7 @@ export default function Sidebar() {
 
         <nav className="flex-1 py-3 px-2.5 space-y-4 overflow-y-auto">
           <NavItem href="/" icon={Activity} label={t('dashboard')} />
+          <NavItem href="/dashboard" icon={LayoutDashboard} label={t('management')} />
           <NavItem href="/audit" icon={FileText} label={t('audit')} />
 
           {/* Teams section */}
