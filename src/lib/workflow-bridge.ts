@@ -311,11 +311,21 @@ async function waitForCompletion(runId: string, group: string): Promise<void> {
 
 export function recoverRunningWorkflows(): void {
   if (!fs.existsSync(GROUPS_DIR)) return;
+  const ZOMBIE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
   for (const g of fs.readdirSync(GROUPS_DIR, { withFileTypes: true })) {
     if (!g.isDirectory() || g.name.startsWith('.')) continue;
     const state = loadWorkflowState(g.name);
     if (state && state.status === 'running') {
-      console.log(`[wf] recovered workflow in ${g.name}: ${state.workflowName} (${state.runId.slice(0, 8)}...)`);
+      const elapsed = Date.now() - state.startedAt;
+      if (elapsed > ZOMBIE_TIMEOUT_MS) {
+        // Zombie workflow — mark as failed
+        state.status = 'failed';
+        state.completedAt = Date.now();
+        saveWorkflowState(g.name, state);
+        console.log(`[wf] zombie workflow in ${g.name}: ${state.workflowName} (${state.runId.slice(0, 8)}...) — stuck for ${Math.round(elapsed / 60000)} min, marked as failed`);
+      } else {
+        console.log(`[wf] recovered workflow in ${g.name}: ${state.workflowName} (${state.runId.slice(0, 8)}...)`);
+      }
     }
   }
 }

@@ -206,7 +206,7 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="px-4 py-3 border-t border-border flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="w-1.5 h-1.5 rounded-full bg-success" />
-            {loading ? '...' : t('agents_groups_count', { a: agents.length, g: groups.length })}
+            {loading ? t('loading') : t('agents_groups_count', { a: agents.length, g: groups.length })}
           </div>
         )}
       </aside>

@@ -387,6 +387,43 @@ export class WorkflowEngine {
         }
       }
     }
+
+    // v1.5: Zombie workflow cleanup — detect workflows stuck in "running" for >10 minutes
+    const ZOMBIE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    const now = Date.now();
+    for (const [rid, run] of this.state.runs) {
+      if (run.status !== WorkflowStatus.RUNNING) continue;
+      const elapsed = now - run.startedAt;
+      if (elapsed > ZOMBIE_TIMEOUT_MS) {
+        // Check if all steps are either completed, skipped, or failed
+        let allDone = true;
+        for (const [, stepStatus] of run.steps) {
+          if (stepStatus !== StepStatus.COMPLETED && stepStatus !== StepStatus.SKIPPED && stepStatus !== StepStatus.FAILED) {
+            allDone = false;
+            break;
+          }
+        }
+        if (allDone) {
+          // All steps finished but run wasn't marked complete — likely a scheduling bug
+          run.status = WorkflowStatus.COMPLETED;
+          run.completedAt = now;
+          logger.warn('tick', `Zombie workflow "${run.workflowName}" (${rid.slice(0, 8)}) forced to COMPLETED — all steps done but status was still running`);
+          if (this.state.bus) this.state.bus.emit(createEvent(EventType.TASK_COMPLETED, {
+            taskId: rid, workflow: run.workflowName,
+            reason: 'zombie_cleanup: all steps completed',
+          }, 'workflow-engine'));
+        } else {
+          // Some steps are stuck (pending/in_progress/waiting) — mark as failed
+          run.status = WorkflowStatus.FAILED;
+          run.completedAt = now;
+          logger.warn('tick', `Zombie workflow "${run.workflowName}" (${rid.slice(0, 8)}) forced to FAILED — stuck in running for ${Math.round(elapsed / 60000)} minutes`);
+          if (this.state.bus) this.state.bus.emit(createEvent(EventType.TASK_BLOCKED, {
+            taskId: rid, workflow: run.workflowName,
+            reason: `zombie: stuck for ${Math.round(elapsed / 60000)} minutes`,
+          }, 'workflow-engine'));
+        }
+      }
+    }
   }
 
   getStats(): { totalRuns: number; activeRuns: number; completedRuns: number; failedRuns: number; totalRetries: number; totalRollbacks: number; totalCompensations: number } {
@@ -446,7 +483,7 @@ export class WorkflowEngine {
         const def = parseWorkflowYaml(raw);
         if (!def.steps.find(s => s.id === step.id)) {
           def.steps.push(step);
-          atomicWrite(wfPath, yaml.dump(def));
+          atomicWrite(wfPath, yaml.dump(def, { lineWidth: -1, noRefs: true, quotingType: '"' }));
         }
       }
     } catch (e) { logger.error('misc', 'Unexpected error', e); }

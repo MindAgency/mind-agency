@@ -314,7 +314,7 @@ async function handleUpdate(group: string, body: any) {
       if (s.routes) step.routes = s.routes;
       wfObj.steps.push(step);
     }
-    yaml = yamlLib.dump(wfObj);
+    yaml = yamlLib.dump(wfObj, { lineWidth: -1, noRefs: true, quotingType: '"' });
   } else {
     return NextResponse.json({ error: 'Provide yaml string or {name, steps[]}' }, { status: 400 });
   }

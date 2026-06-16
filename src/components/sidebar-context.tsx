@@ -56,10 +56,14 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     ]).then(([a, g]) => {
       setAgents(a.agents || []);
       setGroups((g.groups || []).map((n: string) => ({ name: n })));
+      setLoading(false);
     }).catch((err) => {
-      // Log but don't crash — next poll cycle will retry
+      // Log but don't crash — next poll cycle will retry.
+      // Only clear loading if we already have data (so sidebar shows "Loading..." not "0 agents / 0 groups")
       if (typeof console !== 'undefined') console.warn('[sidebar] refresh failed:', err?.message || err);
-    }).finally(() => setLoading(false));
+      if (agentsRef.current.length > 0) setLoading(false);
+      // When agentsRef is empty, keep loading=true so sidebar shows loading indicator
+    });
   }, []);
 
   const [loaded, setLoaded] = useState(false);
