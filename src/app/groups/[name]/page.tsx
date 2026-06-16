@@ -74,11 +74,21 @@ export default function GroupPage() {
 
   const fetchGroup = useCallback(() => {
     setLoading(true);
-    fetch(`/api/groups/${name}`).then(r => r.json()).then(d => {
+    // Safety timeout: force loading=false after 8s even if fetch hangs
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
+    fetch(`/api/groups/${name}`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).then(d => {
       setMembers(d.members || []);
       setMessages(d.messages || []);
       if (!pickAgent && d.members?.length > 0) setPickAgent(d.members[0]);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(e => {
+      console.error('[groups page] fetchGroup failed:', e);
+    }).finally(() => {
+      clearTimeout(safetyTimer);
+      setLoading(false);
+    });
   }, [name]);
 
   const fetchConfig = useCallback(() => {

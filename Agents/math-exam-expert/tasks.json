@@ -12,6 +12,17 @@
   ],
   "completed": [
     {
+      "runId": "7cb371ab-94ef-4007-9221-8b177866019c",
+      "stepId": "generate-questions",
+      "workflow": "math-exam-prep-exam",
+      "prompt": "���һ�ݸ�һ��ѧ���п����Ծ���������ѡ����5�������������Ǻ������������3�������У��������2���������ۺϡ����Ǻ���Ӧ�ã���ÿ����ע����ֵ��֪ʶ�㡣�Ѷ��е�ƫ�ѣ������¸߿�Ҫ��",
+      "priority": "normal",
+      "status": "failed",
+      "createdAt": 1781625573459,
+      "completedAt": 1781625625795,
+      "result": ""
+    },
+    {
       "runId": "d04fd50a-d2b0-4b52-ba61-ae8520b2e5d9",
       "stepId": "generate-questions",
       "workflow": "math-exam-prep-exam",

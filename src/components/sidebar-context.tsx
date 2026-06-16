@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { createLogger } from '@/lib/logger';
 
@@ -37,6 +37,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
 
+  // Ref to avoid stale closure in heartbeat poll interval
+  const agentsRef = useRef<AgentInfo[]>([]);
+  agentsRef.current = agents;
+
   // Unified refresh — taste: one intent, one action
   const refresh = useCallback(() => {
     setLoading(true);
@@ -63,9 +67,11 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
     const poll = async () => {
       try {
+        const currentAgents = agentsRef.current;
+        if (currentAgents.length === 0) return;
         // Batch heartbeat check for all agents
         const agentResults = await Promise.all(
-          agents.map(a =>
+          currentAgents.map(a =>
             fetch(`/api/agents/${a.name}/heartbeat`)
               .then(r => r.json())
               .then(d => ({ name: a.name, active: d.active || false, status: d.status || 'idle', detail: d.detail || '' }))
@@ -79,16 +85,16 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     };
 
     // Initial poll
-    if (agents.length > 0) poll();
+    poll();
 
     // Single interval — 15s (was 4 separate intervals: 5s + 10s + 15s)
     const t = setInterval(() => {
       refresh();
-      if (agents.length > 0) poll();
+      poll();
     }, 15_000);
 
     return () => clearInterval(t);
-  }, [loaded, agents.length, refresh]);
+  }, [loaded, refresh]);
 
   // Single WebSocket — unified hook
   const wsUrl = typeof window !== 'undefined' ? `ws://${window.location.hostname}:3001` : null;
