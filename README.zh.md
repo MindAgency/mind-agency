@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center">  
 
 <img src="public/logo-static.png" width="100" alt="Mind Agency Logo" />
 
