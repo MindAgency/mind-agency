@@ -9,7 +9,7 @@
 **What one AI cannot do alone, a team of AIs can do together.**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.8.0-green.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
 [![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 

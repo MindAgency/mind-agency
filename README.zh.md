@@ -9,7 +9,7 @@
 **一个 AI 做不了的事，一群 AI 可以。**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.9.0-green.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](package.json)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)]()
 [![GitHub stars](https://img.shields.io/github/stars/MindAgency/mind-agency)](https://github.com/MindAgency/mind-agency)
 [![Website](https://img.shields.io/badge/Website-mindagency.cn-blue.svg)](https://mindagency.cn)
@@ -83,7 +83,7 @@ Alice 写代码，Bob 审查，Charlie 测试。有分歧？投票决定。需�
 
 ### Windows
 
-从 [Releases](https://github.com/MindAgency/mind-agency/releases) 下载 `Mind-Agency-Setup-0.9.0.exe`，双击安装。
+从 [Releases](https://github.com/MindAgency/mind-agency/releases) 下载 `Mind-Agency-Setup-1.0.0.exe`，双击安装。
 
 ### 从源码运行
 
