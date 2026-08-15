@@ -67,6 +67,9 @@ tests/.test-data/
 **/.workflow-history/
 **/workflows/
 **/outputs/
+!.github/
+!.github/workflows/
+!.github/workflows/release-check.yml
 
 # build artifacts
 /dist-exe/
@@ -111,3 +114,6 @@ test-agency.ts
 test-browser.ts
 test-world-model*.ts
 installer/
+
+# research archive: paper full-text notes
+papers/*.html

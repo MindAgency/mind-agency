@@ -1,0 +1,416 @@
+Adversarial Attacks in Multi-Agent LLM Pipelines: Unveiling Structural Vulnerabilities in Agentic AI Architectures 
+
+Report GitHub Issue 
+× 
+
+Title: 
+
+Content selection saved. Describe the issue below: 
+
+Description: 
+
+Submit without GitHub 
+Submit in GitHub 
+
+arXiv is now an independent nonprofit! 
+Learn more 
+&times; 
+
+Back to arXiv 
+
+Why HTML? 
+
+Report Issue 
+
+Back to Abstract 
+
+Download PDF 
+
+Abstract 
+
+I Introduction 
+
+II Background 
+
+II-A Multi-Agent Pipeline Architecture 
+
+II-B Unverified Boundary Classes 
+
+III Trace-Driven Attack Discovery 
+
+III-A A 1 A_{1} : Prompt Injection via Retrieved Content 
+
+III-B A 2 A_{2} : Consensus Poisoning 
+
+III-C A 3 A_{3} : Plan Hijacking / Forced Early Termination 
+
+III-D A 4 A_{4} : Silent Agent Substitution / Sybil Attack 
+
+IV Adversarial Evaluation 
+
+IV-A Experimental Results 
+
+V Discussion 
+
+VI Related Works 
+
+VII Conclusion 
+
+References 
+
+License: CC BY 4.0
+
+arXiv:2608.00718v1 [cs.CR] 01 Aug 2026 
+
+Adversarial Attacks in Multi-Agent LLM Pipelines: Unveiling Structural Vulnerabilities in Agentic AI Architectures 
+
+Faisal Haque Bappy 1 , Tahrim Hossain 2 , Tarannum Shaila Zaman 3 , Raiful Hasan 4 , Kamrul Hasan 5 , Tariqul Islam 6 
+
+Affiliation:  1,2,3,6 University of Maryland Baltimore County, MD, USA
+
+4 Kent State University, OH, USA;
+5 Tennessee State University, TN, USA
+
+Email: {fbappy1@umbc, m482@umbc, zamant@umbc, rhasan7@kent, mhasan1@tnstate, mtislam@umbc}.edu
+
+Abstract 
+
+Multi-agent LLM pipelines orchestrate multiple specialized language model agents into structured workflows where intermediate outputs are passed across agents to solve complex tasks. This design introduces a security gap absent in single-agent settings: once an agent accepts adversarial content, it is propagated as trusted input throughout the pipeline. We argue that this vulnerability stems from the absence of boundary verification, a security primitive that enforces explicit validation of data as it crosses inter-agent boundaries, including content, identity, execution intent, and state integrity. Without such verification, modern pipelines embed implicit trust assumptions that are not adversarially robust, giving rise to structurally distinct attack surfaces (e.g., content injection, agent impersonation, plan deviation, and memory poisoning). Leveraging annotated production traces from the GAIA and SWE-Bench benchmark, we show that these vulnerabilities arise in benign deployments and largely evade existing evaluation frameworks. We further operationalize these failure modes within a controlled multi-agent setting and evaluate them across GPT-5-mini, Claude Sonnet 4.5, and Kimi K2.5 under identical pipeline configurations. The results reveal that attack success aligns with pipeline structure rather than model capability, indicating that adversarial vulnerability is fundamentally an architectural property and motivating a shift toward pipeline-level defenses. 
+
+Index Terms:  Multi-Agent LLM Systems, Adversarial Attacks, Attack Propagation, Architectural Vulnerabilities
+
+I Introduction 
+
+Multi-agent LLM systems have become a widely adopted paradigm for complex task execution, enabling networks of specialized agents to collaborate through structured communication in ways that exceed single-model capabilities  [ 1 , 2 ] . Frameworks such as AutoGen  [ 2 ] and LangChain  [ 3 ] have demonstrated strong performance on challenging benchmarks, including GAIA  [ 4 ] and SWE-bench  [ 5 ] , particularly for tasks requiring tool use, long-horizon reasoning, and adaptive problem solving. This collaboration model introduces a cross-boundary propagation effect absent in single-agent deployments  [ 6 , 7 ] . When agents exchange intermediate outputs without explicit verification, adversarial content accepted at one stage is forwarded as trusted input to downstream agents. Unlike single-agent attacks that are contained at one endpoint, adversarial influence in collaborative pipelines can traverse the entire system before producing a final output. 
+
+A core missing security primitive in these systems is boundary verification. This is the explicit validation of intermediate outputs exchanged between collaborating agents, without which adversarial content injected at one agent can propagate silently through the pipeline  [ 6 ] . We identify three classes of boundaries that remain unverified in current architectures. External data and executable instructions are separated by content boundaries ; however, retrieved content can override agent directives without sanitization  [ 8 , 9 ] . In contrast, identity boundaries are intended to distinguish legitimate agents from other processes, yet identity is inferred from routing position rather than verifiable credentials  [ 10 , 7 ] . Finally, delegation boundaries capture the gap between intended execution plans and their enforcement, but downstream agents are not required to adhere to the prescribed plan  [ 11 , 12 ] . Consequently, pipelines operate under implicit trust across agent interactions  [ 13 , 14 ] , turning each boundary into a distinct entry point for adversarial exploitation. 
+
+Despite growing awareness of prompt injection and adversarial manipulation in single-agent settings  [ 8 , 15 ] , existing security analyses largely treat vulnerabilities as properties of individual models or isolated inputs rather than emergent phenomena arising from collaborative system design. Frameworks such as AgentDojo  [ 16 ] and Agent Security Bench  [ 17 ] construct attacks synthetically, leaving open whether studied threat classes correspond to failure modes that occur in real deployments. Broader surveys identify emerging threats in agentic systems  [ 13 , 14 , 12 ] but do not empirically characterize how adversarial behaviors propagate across collaboration boundaries, nor whether such vulnerabilities are properties of the backbone model or of the pipeline architecture itself. This distinction has direct implications for where defensive investment should be directed. 
+
+To address these gaps, we take an empirical rather than synthetic approach, grounding the threat model in real deployment failures. We analyze annotated production traces from the TRAIL benchmark  [ 18 ] to identify vulnerability classes that emerge naturally from the structural properties of multi-agent collaboration rather than from adversarial hypotheticals. We operationalize each class as a controlled attack in a ten-agent, five-layer pipeline and evaluate across GPT-5-mini  [ 19 ] , Claude Sonnet 4.5  [ 20 ] , and Kimi K2.5  [ 21 ] , holding all architectural properties constant while varying only the backbone model. This design allows us to directly attribute differences in attack outcomes to model-level factors and similarities to the pipeline architecture, providing a controlled test of whether the observed vulnerability is model-dependent or structural. The main contributions of this paper are as follows. 
+
+• 
+
+Boundary verification as a security primitive. We define boundary verification as a necessary security primitive for multi-agent LLM pipelines and characterize the three most prevalent boundary classes under which its absence creates exploitable attack surfaces. 
+
+• 
+
+Empirically grounded threat taxonomy. We derive four adversarial vulnerability classes from structural analysis of 147 annotated production traces, establishing that each class is present in benign deployments and invisible to existing automated evaluation frameworks. 
+
+• 
+
+Architectural versus model-level vulnerability. We find that adversarial vulnerability in multi-agent pipelines is a structural property of the architecture rather than a function of model capability, based on controlled cross-model evaluations under identical conditions across GPT-5-mini, Claude Sonnet 4.5, and Kimi K2.5. 
+
+The remainder of this paper is organized as follows. Section  II formalizes the multi-agent pipeline and the boundary classes. Section  III presents the trace analysis and threat models. Section  IV presents the adversarial evaluation and experimental results. Section  V discusses the findings, followed by related works in Section  VI and the conclusion in Section  VII . 
+
+II Background 
+
+II-A Multi-Agent Pipeline Architecture 
+
+A multi-agent LLM pipeline organizes specialized agents into functional layers, each handling a distinct phase of execution. A typical design includes an orchestration layer that receives and coordinates the task, a planning layer that decomposes it into sub-tasks for downstream agents, an execution layer where retrieval, analysis, and code generation run in parallel, a review layer that evaluates outputs, and a final layer that synthesizes and verifies the result  [ 2 , 1 ] . 
+
+Formally, we model a pipeline as a directed acyclic graph 𝒢 = ( 𝒜 , ℰ ) \mathcal{G}=(\mathcal{A},\mathcal{E}) , where 𝒜 = { a 1 , … , a n } \mathcal{A}=\{a_{1},\ldots,a_{n}\} is the agent set and ℰ \mathcal{E} defines message-passing dependencies. For an input task τ \tau , the pipeline output is y = ( a n ∘ a n − 1 ∘ ⋯ ∘ a 2 ∘ a 1 ) ( τ ) y=(a_{n}\circ a_{n-1}\circ\cdots\circ a_{2}\circ a_{1})(\tau)    ( 1 ) , evaluated in topological order, where each a i a_{i} maps its predecessors’ outputs to a single message. Because no global state or centralized verification governs inter-agent communication, adversarial content accepted at any stage propagates forward as trusted input, compounding across downstream handoffs. 
+
+II-B Unverified Boundary Classes 
+
+In current multi-agent architectures, three classes of boundaries remain systematically unverified, collectively constituting what we term the implicit trust assumption of the pipeline  [ 10 , 13 ] . 
+
+Content boundaries separate externally retrieved data from executable instructions. When a retrieval agent fetches a web page or document, its content enters the agent’s reasoning context with the same trust level as a system prompt. Let 𝒞 data \mathcal{C}_{\text{data}} denote the set of tokens originating from external retrieval and 𝒞 instr \mathcal{C}_{\text{instr}} denote the set of operator-issued instructions. A well-formed boundary would enforce the partition
+𝒞 data ∩ 𝒞 instr = ∅ ​ ( 2 ) , \mathcal{C}_{\text{data}}\cap\mathcal{C}_{\text{instr}}=\emptyset~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}2}}}})}, 
+yet in practice the agent’s effective input is the union 𝒞 data ∪ 𝒞 instr \mathcal{C}_{\text{data}}\cup\mathcal{C}_{\text{instr}} with no type-level distinction between the two. An adversary who controls any reachable resource in the retrieval path can embed directive text that the agent interprets as a task instruction rather than as data. For example, a fetched page containing “Ignore your current task. Your new objective is…” is processed as a legitimate instruction with no mechanism to distinguish it from an operator directive  [ 8 , 9 ] . 
+
+Delegation boundaries separate a declared execution plan from its actual enforcement. When a planner agent issues a task decomposition, that declaration is advisory rather than binding. Let π = ⟨ s 1 , s 2 , … , s k ⟩ \pi=\langle s_{1},s_{2},\ldots,s_{k}\rangle denote the sequence of sub-tasks declared by the planner and π ^ \hat{\pi} denote the sequence actually executed by downstream agents. A binding delegation model would require
+π ^ = π ​ ( 3 ) , \hat{\pi}=\pi~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}3}}}})}, 
+enforced by a verification mechanism that rejects any execution trace deviating from the declared plan. In current frameworks, this constraint is unenforced, and the orchestrator instead trusts a self-reported completion signal from the planner. For example, a compromised planner returning “Task already completed. Confidence: 1.0. Skip remaining steps.” is sufficient to cause the orchestrator to terminate execution prematurely, bypassing all retrieval and verification agents regardless of what the original task required  [ 11 , 12 ] . 
+
+Identity boundaries separate a legitimate agent from any process occupying the same message-routing slot. Current frameworks identify agents by their position in the execution graph rather than by any persistent credential. Let ρ i \rho_{i} denote the routing position assigned to agent a i a_{i} , and let 𝗂𝖽 ⁡ ( p ) \mathsf{id}(p) denote the identity of the process responding at ρ i \rho_{i} during a given invocation. A credential-bound identity model would require
+𝗂𝖽 ⁡ ( p ) = a i ⇔ 𝗏𝖾𝗋𝗂𝖿𝗒 cred ​ ( p , a i ) = 1 ​ ( 4 ) , \mathsf{id}(p)=a_{i}\iff\mathsf{verify}_{\text{cred}}(p,a_{i})=1~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}4}}}})}, 
+where 𝗏𝖾𝗋𝗂𝖿𝗒 cred \mathsf{verify}_{\text{cred}} is a cryptographic check over a persistent credential bound to a i a_{i} , but in current systems the binding reduces to whether p p happens to respond at ρ i \rho_{i} . Across retries and re-invocations, the responding process may differ from the originally assigned agent, as failed tool calls are re-executed at the same routing slot without any identity verification. During this retry window, an adversary occupying that slot is indistinguishable from the legitimate agent, enabling their payload to propagate through the pipeline without detection  [ 7 , 14 ] . 
+
+III Trace-Driven Attack Discovery 
+
+Rather than defining attack classes a priori, we derive the threat model empirically from real execution traces of multi-agent LLM systems. The core assumption is that failure modes observed in benign production settings represent latent vulnerabilities that an adversary can reliably trigger. We analyzed 147 annotated traces from the TRAIL benchmark  [ 18 ] , comprising 836 human-labeled error instances across two task settings: GAIA  [ 4 ] , which uses a two-tier CodeAgent   → \rightarrow   ToolCallingAgent pipeline, and SWE-Bench Lite  [ 5 ] , which uses a single CodeAgent over large code repositories. Each trace is instrumented with OpenTelemetry spans, enabling us to track information flow and failure propagation across agent boundaries. 
+
+We screened all 836 error instances against three criteria: adversarial inducibility (the failure can be triggered by injected content or signals), structural reproducibility (the failure occurs at the same pipeline position across multiple traces), and cross-boundary propagation (the failure corrupts agent spans beyond its origin). Four vulnerability classes satisfied all three criteria, accounting for 452 of the 836 errors across 108 of the 147 traces. Critically, all 147 traces received a perfect security score under the TRAIL rubric, confirming that these vulnerabilities are not detectable by existing automated evaluation tools and only surface through structural trace analysis. 
+
+III-A A 1 A_{1} : Prompt Injection via Retrieved Content 
+
+This attack exploits the content boundary. When retrieved data and executable instructions share the same context window with no separation, an adversary who controls any resource in the retrieval path can inject directive text that the agent processes as a task instruction. The adversary needs no access to model weights or system prompts; controlling a single fetchable resource is sufficient. 
+
+Threat model. As shown in Figure  1 , the adversary embeds a payload δ \delta in a fetchable resource so that retrieved tokens carry directive content rather than pure data:
+δ ∈ 𝒞 data ∩ 𝒞 instr ​ ( 5 ) , \delta\in\mathcal{C}_{\text{data}}\cap\mathcal{C}_{\text{instr}}~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}5}}}})}, 
+violating the partition required by Equation  II-B . The retrieval agent passes the merged context unsanitized into its reasoning state, the directive overrides the original task, and the corrupted output is forwarded to the orchestrator and propagated downstream. 
+
+Fig. 1 : A 1 A_{1} : adversarial content in retrieved pages overrides task directives with no sanitization boundary between data and instruction context. 
+
+Trace evidence. This is the most frequent vulnerability, found in 102 of 147 traces (69.4%, 154 instances). In trace 5a6c51d5 , the agent’s output claims “In our internal investigation (using our search_agent) we have found that…” yet no ToolCallingAgent.run span exists in the trace, confirming the conclusion was fabricated rather than retrieved. 
+
+III-B A 2 A_{2} : Consensus Poisoning 
+
+This attack exploits the delegation boundary. When the orchestrator accepts a single sub-agent response as the authoritative result with no cross-verification, an adversary who controls one sub-agent controls the pipeline’s output. The attack is effective because LLM agents express results with high linguistic confidence, giving the orchestrator no signal to distinguish a poisoned response from a legitimate one. 
+
+Threat model. Figure  2 illustrates the attack pattern. Let { r 1 , r 2 , … , r m } \{r_{1},r_{2},\ldots,r_{m}\} denote the responses returned by sub-agents for a given sub-task, and let r ⋆ r^{\star} denote the result accepted by the orchestrator. In the absence of a quorum rule, the acceptance criterion reduces to
+r ⋆ = r k for any  ​ k ∈ { 1 , … , m } ​ ( 6 ) , r^{\star}=r_{k}\quad\text{for any }k\in\{1,\ldots,m\}~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}6}}}})}, 
+so a single compromised r k r_{k} carrying an incorrect payload with high-confidence language is sufficient to determine r ⋆ r^{\star} . This is the operational consequence of leaving Equation  II-B unenforced at the result-aggregation step. 
+
+Fig. 2 : A 2 A_{2} : the orchestrator accepts any single sub-agent result without quorum, allowing one compromised agent to control the final output. 
+
+Trace evidence. We identify this failure pattern in 78 traces (53.1%, 110 instances), with 97.3% rated HIGH-impact. In trace 5e5dc94e , the orchestrator planned four retrieval steps but called final_answer at Step 2 without executing any of them, stating “I know from the literature…” . 
+
+III-C A 3 A_{3} : Plan Hijacking / Forced Early Termination 
+
+This attack also exploits the delegation boundary, but from a different direction. In current implementations, an agent’s execution plan is a natural-language string in the model’s context. It shapes behavior through attention but is not enforced by any external mechanism. An adversary can inject a signal that causes the agent to treat the task as already complete, skipping all remaining retrieval and verification steps. 
+
+Threat model. As depicted in Figure  3 , given a declared plan π = ⟨ s 1 , s 2 , … , s k ⟩ \pi=\langle s_{1},s_{2},\ldots,s_{k}\rangle , the adversary injects a trigger signal that causes the actual execution trace to truncate at some step j < k j<k :
+π ^ = ⟨ s 1 , … , s j ⟩ with  ​ j < k ​ ( 7 ) , \hat{\pi}=\langle s_{1},\ldots,s_{j}\rangle\quad\text{with }j<k~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}7}}}})}, 
+which directly violates the binding π ^ = π \hat{\pi}=\pi stated in Equation  II-B . The orchestrator calls final_answer at step j j , treating the remaining k − j k-j steps as already satisfied. 
+
+Fig. 3 : A 3 A_{3} : the plan has no enforcement; any trigger signal causes the orchestrator to skip remaining steps and terminate prematurely. 
+
+Trace evidence. We detect this behavior in 56 traces (38.1%, 57 instances), with a near one-to-one instance-to-trace ratio. In trace 4a8d094e , after a failed Step 1 search the agent concluded “the compound is ‘diamond’ ” with no retrieval performed. Steps 2 through 6 of the declared plan have no corresponding spans in the trace. 
+
+III-D A 4 A_{4} : Silent Agent Substitution / Sybil Attack 
+
+This attack exploits the identity boundary. Because agents are identified by their position in the execution graph rather than a verifiable credential, any process that responds at the correct routing slot is treated as the legitimate agent. Retry scenarios are particularly vulnerable: when a tool call fails and the orchestrator retries, it re-invokes the same routing slot with no check that the responding process is the same agent as before. 
+
+Threat model. Figure  4 shows the substitution pattern. Let p ⋆ p^{\star} denote a Sybil process controlled by the adversary that responds at the routing position ρ i \rho_{i} of a legitimate agent a i a_{i} during a retry cycle. Because the orchestrator’s identity decision reduces to position alone, it follows that
+𝗂𝖽 ⁡ ( p ⋆ ) = a i whenever  ​ p ⋆ ​  responds at  ​ ρ i ​ ( 8 ) , \mathsf{id}(p^{\star})=a_{i}\quad\text{whenever }p^{\star}\text{ responds at }\rho_{i}~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}8}}}})}, 
+even though 𝗏𝖾𝗋𝗂𝖿𝗒 cred ​ ( p ⋆ , a i ) = 0 \mathsf{verify}_{\text{cred}}(p^{\star},a_{i})=0 would hold under the credential-bound model of Equation  II-B . A correctly formatted response from p ⋆ p^{\star} carrying an adversarial payload is therefore accepted as authentic and forwarded downstream. 
+
+Fig. 4 : A 4 A_{4} : agent identity is inferred from span position alone. A forged span at the correct position is indistinguishable from a legitimate agent output. 
+
+Trace evidence. We found this phenomenon in 77 traces (52.4%, 131 instances), with higher concentration in SWE-Bench (83.9%) than GAIA (44.0%). Across 45 traces, agents repeated tool calls after errors with no verification that the retry reached the same endpoint. 
+
+IV Adversarial Evaluation 
+
+Threat models identify enabling conditions but do not quantify attack effectiveness or distinguish model-specific from systemic vulnerabilities. To address this, our simulation pipeline (Figure  5 ) uses a five-layer architecture: an Orchestrator routes tasks, a Planner decomposes them, and a parallel execution layer runs two Researchers (information retrieval), an Analyst (reasoning over inputs), and a Coder (code generation and execution). A review layer includes a Reviewer (plan compliance) and Critic (consistency and confidence checks), followed by an output layer with a Summarizer (final synthesis) and Validator (final consistency check). 
+
+Fig. 5 : Five-layer multi-agent system architecture. 
+
+We evaluate three backbone models 1 1 
+1 
+
+The code for this adversarial evaluation is available at: https://github.com/SPaDeS-Lab/adversarial-llm-pipeline : GPT-5-mini  [ 19 ] , Claude Sonnet 4.5  [ 20 ] , and Kimi K2.5  [ 21 ] . These models span distinct training methodologies and providers, represent a range of instruction-following capabilities, and are not explicitly safety-tuned for agent-to-agent interaction, making them representative of models currently used in production multi-agent deployments  [ 2 , 1 ] . Holding the pipeline architecture constant while varying only the backbone allows us to attribute differences in attack outcomes to model-level factors and similarities to the architecture. 
+
+Each attack targets one boundary with escalating variants. A 1 A_{1} embeds overrides, fabricated citations, and false completion signals, succeeding if it propagates across ≥ 2 \geq 2 hops unflagged. A 2 A_{2} injects poisoned plans and fake Reviewer and Critic verdicts, succeeding when the Orchestrator commits without verification. A 3 A_{3} adds completion and certainty signals via the Planner, succeeding when plan compliance < 0.5 <0.5 . A 4 A_{4} swaps in Sybil agents, escalating to 2 2 of 3 3 parallel agents, succeeding when downstream agents accept and forward the payload. 
+
+Our evaluation is organized around four research questions: i. RQ1 : Which boundary presents the highest susceptibility to adversarial entry? ii. RQ2 : To what extent does a successful injection impact end-task performance? iii. RQ3 : To what extent can the pipeline recover from a successful injection? and finally, iv. RQ4 : Is attack success primarily determined by the backbone model or by the pipeline architecture? 
+
+(a) Attack success rate 
+
+(b) Task accuracy under attack 
+
+(c) Recovery rate 
+
+(d) Propagation hop count 
+
+Fig. 6 : Adversarial evaluation results across four attack types and three backbone models. 
+
+IV-A Experimental Results 
+
+Figure  6 reports results across the four metrics, averaged over 20 shared tasks and 3 escalating payload variants per attack type, yielding 1,080 attack runs and 90 clean baseline runs at 0.80 baseline accuracy. 
+
+Boundary Exploitability. 
+Figure  6(a) shows a consistent vulnerability hierarchy across models. Prompt Injection ( A 1 A_{1} ) is most effective (0.61-0.72), identifying the content boundary as the primary entry point and answering RQ1 . Plan Hijacking ( A 3 A_{3} , 0.81-0.86) follows due to centralized trust in the Planner, where a single poisoned decomposition propagates before verification. Consensus Poisoning ( A 2 A_{2} , 0.79-0.83) and Sybil Substitution ( A 4 A_{4} , 0.76-0.78) remain effective despite requiring multi-position compromise. All attack classes exceed 0.6 success, leaving no defensible boundary. Higher success under GPT-5-mini suggests a compliance-robustness tradeoff. 
+
+End-Task Degradation. 
+Figure  6(b) shows substantial accuracy degradation relative to the 0.80 baseline across all attack conditions, establishing that injection success translates into user-visible task failure rather than remaining contained mid-pipeline, which answers RQ2 . Accuracy drops most sharply under A 1 A_{1} , consistent with its high success rate. Model robustness ordering is stable across attack types (Claude Sonnet 4.5  > >  Kimi K2.5  > >  GPT-5-mini) and persists despite GPT-5-mini’s higher clean-run accuracy, reinforcing the compliance-robustness tradeoff observed above. The smaller accuracy drop under A 4 A_{4} indicates that Sybil payloads, while structurally stealthy, are partially filtered by downstream review agents, producing a partial decoupling between injection success and task harm for that class. 
+
+Self-Correction and Propagation Depth. 
+Figure  6(c) answers RQ3 directly: recovery rates are uniformly low, peaking at 0.22 for Claude Sonnet 4.5 under A 4 A_{4} and falling below 0.10 for all models under A 1 A_{1} and A 3 A_{3} . The pipeline cannot reliably restore correctness once an injection has succeeded. The hop count results in Figure  6(d) explain this. Under A 1 A_{1} and A 2 A_{2} , payloads traverse 4-6 hops across the full execution-to-output path before any stage that could intervene. Under A 3 A_{3} , hop count is structurally low (HC  ≤ \leq  2) because the hijack suppresses agent invocations rather than propagating content through them; the attack succeeds by reducing pipeline depth rather than traversing it. Together, these metrics show that the message-passing interface, absent attestation or provenance tracking, provides no barrier to cross-tier propagation, and downstream review stages recover at rates too low to serve as a meaningful defense. 
+
+Architecture Versus Model. 
+The four metrics together answer RQ4 . The success rate spread across models is narrow (0.07 maximum for A 1 A_{1} ) relative to the attack-type spread (0.25 between A 1 A_{1} and A 3 A_{3} for any single model), a roughly fourfold ratio that isolates pipeline structure as the dominant variable. The pipeline’s missing checks, specifically the absence of cryptographic attestation, quorum enforcement, and plan-verification mechanisms, are exploited consistently regardless of the backbone. Model choice provides marginal, second-order resistance; architectural hardening is necessary for substantive improvement. 
+
+V Discussion 
+
+The results point to a conclusion that extends beyond model choice. Attack success rates vary only marginally across GPT-5-mini, Claude Sonnet 4.5, and Kimi K2.5, while differences across attack types are substantial. This pattern is not an artifact of the specific models evaluated; rather, it is induced by the structural properties of the pipeline. To formalize this observation, consider the factors that determine whether an attack succeeds. Let 𝒮 ⁡ ( 𝒢 , ℳ LLM , 𝒜 k ) \mathcal{S}(\mathcal{G},\mathcal{M}_{\text{LLM}},\mathcal{A}_{k}) denote the success probability of attack 𝒜 k ∈ { A 1 , A 2 , A 3 , A 4 } \mathcal{A}_{k}\in\{\text{$A_{1}$},\text{$A_{2}$},\text{$A_{3}$},\text{$A_{4}$}\} against pipeline structure 𝒢 \mathcal{G} executed by baseline model ℳ ​ LLM \mathcal{M}{\text{LLM}} . Each attack succeeds by violating one of the boundary constraints defined in Section  II : the content partition in Equation  II-B , the delegation binding in Equation  II-B , or the identity binding in Equation  II-B . Let ℬ k \mathcal{B}_{k} denote the constraint corresponding to attack 𝒜 k \mathcal{A}_{k} . Each such constraint is a check on inter-agent messages traversing edges ( a i , a j ) ∈ ℰ (a_{i},a_{j})\in\mathcal{E} :
+ℬ k : ℳ × ℰ → { 0 , 1 } ​ ( 9 ) , \mathcal{B}_{k}:\mathcal{M}\times\mathcal{E}\rightarrow\{0,1\}~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}9}}}})}, 
+where ℬ k ​ ( m , ( a i , a j ) ) = 1 \mathcal{B}_{k}(m,(a_{i},a_{j}))=1 indicates the constraint holds for message m m on edge ( a i , a j ) (a_{i},a_{j}) . The attack succeeds whenever execution reaches a configuration in which the constraint fails, so
+𝒮 ( 𝒢 , ℳ LLM , 𝒜 k ) = Pr m , ( a i , a j ) ∼ 𝒢 [ ℬ k ( m , ( a i , a j ) ) = 0 ] ( 10 ) . \mathcal{S}(\mathcal{G},\mathcal{M}_{\text{LLM}},\mathcal{A}_{k})=\Pr_{m,(a_{i},a_{j})\sim\mathcal{G}}\big[\mathcal{B}_{k}(m,(a_{i},a_{j}))=0\big]~~\mbox{({{\color[rgb]{0,0,1}{{\color[rgb]{0,0,1}10}}}})}. 
+The right-hand side of Equation  V contains no term involving ℳ LLM \mathcal{M}_{\text{LLM}} . Attack success is a property of 𝒢 \mathcal{G} alone, and swapping the baseline model leaves it unchanged. 
+
+Each ℬ k \mathcal{B}_{k} represents a check the pipeline omits at the layer where it would be effective: sanitization at the retrieval interface, plan-to-trace enforcement at orchestrator aggregation edges, and credential verification at the routing layer. None of these checks can be performed by a model on itself, because each operates on messages crossing agent boundaries rather than tokens inside a single context. 
+
+Hardening model safety alone is insufficient because content rejected from end users is still accepted when framed as peer-agent messages, orchestrator directives, or tool outputs, which are treated as trusted  [ 10 ] . Replacing ℳ LLM \mathcal{M}_{\text{LLM}} in Equation  II-A changes the agent function but leaves ℰ \mathcal{E} and its missing boundary checks intact, so Equation  V implies that 𝒮 \mathcal{S} remains unchanged. Addressing this requires enforcing ℬ k \mathcal{B}_{k} at all edges in 𝒢 \mathcal{G} through cryptographic attestation for identity binding (Eq.  II-B ), quorum-based plan commitment for delegation binding (Eq.  II-B )  [ 22 ] , and out-of-band auditing for content partitioning (Eq.  II-B )  [ 23 ] . These mechanisms are well established; their absence in current multi-agent frameworks is the core issue. 
+
+VI Related Works 
+
+Our findings connect to and extend a growing body of work on adversarial threats in LLM-based systems. Prompt injection and adversarial prompting are well-established threats in single-agent LLM settings  [ 8 , 9 , 15 ] , but these attacks treat the LLM as a terminal endpoint rather than a node in a collaborative pipeline. Recent work has begun extending these concerns to multi-agent settings, showing that injected instructions propagate autonomously across agent boundaries  [ 7 , 24 ] and that models resisting direct injection will execute identical payloads when they arrive from a peer agent  [ 10 ] . This AI-to-AI trust gap is precisely the implicit trust assumption our boundary framework formalizes. Agents can further engage in covert collusion through channels invisible to standard monitoring  [ 25 ] , and multi-step execution amplifies adversarial reach  [ 16 , 26 ] , consistent with the high hop counts we observe under A 1 A_{1} and A 2 A_{2} . Defense-oriented frameworks  [ 27 , 28 , 17 ] propose mitigations at the model level, yet adaptive attackers continue to bypass them at high success rates  [ 29 ] , reinforcing our finding that model-level intervention is insufficient when the vulnerability is architectural. Broader surveys identify inter-agent trust and traceability as open problems  [ 13 , 14 , 12 , 11 , 1 ] but do not empirically characterize how these gaps manifest across collaboration boundaries or test whether they are model-specific or structural. Our trace-driven methodology and cross-model evaluation directly address both gaps, and our results confirm that the attack surface is a property of the pipeline architecture rather than the backbone model. 
+
+VII Conclusion 
+
+In this paper, we formalized boundary verification through three classes governing inter-agent communication, content, identity, and delegation. We hypothesized that adversarial vulnerability in multi-agent LLM pipelines is primarily structural rather than model-dependent. We developed a threat model based on boundary violations and evaluated these vulnerabilities in a controlled multi-agent setting. Our findings show that adversarial behavior arises from how agents interact and exchange information, not from the capability of the underlying models. In current frameworks, message provenance is not enforced, plan-to-execution binding is missing, and identity verification remains weak or absent. As a result, pipelines rely on implicit trust across agents, creating systemic opportunities for adversarial exploitation. Unless these boundaries are explicitly enforced in system design, such vulnerabilities will persist, and improvements in model capability or safety mechanisms alone are not sufficient. 
+
+References 
+
+[1] 
+
+L. Wang, C. Ma, X. Feng, Z. Zhang, H. Yang, J. Zhang, Z. Chen, J. Tang, X. Chen, Y. Lin et al. , “A survey on large language model based autonomous agents,” Frontiers of Computer Science , vol. 18, no. 6, p. 186345, 2024.
+
+[2] 
+
+Q. Wu, G. Bansal, J. Zhang, Y. Wu, B. Li, E. Zhu, L. Jiang, X. Zhang, S. Zhang, J. Liu et al. , “Autogen: Enabling next-gen llm applications via multi-agent conversations,” in First conference on language modeling , 2024.
+
+[3] 
+
+LangChain, “Langchain,” 2023, accessed: 2026-04-27. [Online]. Available: https://github.com/langchain-ai/langchain 
+
+[4] 
+
+G. Mialon, C. Fourrier, T. Wolf, Y. LeCun, and T. Scialom, “Gaia: a benchmark for general ai assistants,” in The Twelfth International Conference on Learning Representations , 2023.
+
+[5] 
+
+C. E. Jimenez, J. Yang, A. Wettig, S. Yao, K. Pei, O. Press, and K. Narasimhan, “Swe-bench: Can language models resolve real-world github issues?” arXiv preprint arXiv:2310.06770 , 2023.
+
+[6] 
+
+X. Gu, X. Zheng, T. Pang, C. Du, Q. Liu, Y. Wang, J. Jiang, and M. Lin, “Agent smith: a single image can jailbreak one million multimodal llm agents exponentially fast,” in Proceedings of the 41st International Conference on Machine Learning , ser. ICML’24. JMLR.org, 2024.
+
+[7] 
+
+D. Lee and M. Tiwari, “Prompt infection: Llm-to-llm prompt injection within multi-agent systems,” arXiv preprint arXiv:2410.07283 , 2024.
+
+[8] 
+
+K. Greshake, S. Abdelnabi, S. Mishra, C. Endres, T. Holz, and M. Fritz, “Not what you’ve signed up for: Compromising real-world llm-integrated applications with indirect prompt injection,” in Proceedings of the 16th ACM workshop on artificial intelligence and security , 2023, pp. 79–90.
+
+[9] 
+
+W. Zou, R. Geng, B. Wang, and J. Jia, “ { \{ PoisonedRAG } \} : Knowledge corruption attacks to { \{ Retrieval-Augmented } \} generation of large language models,” in 34th USENIX Security Symposium (USENIX Security 25) , 2025, pp. 3827–3844.
+
+[10] 
+
+M. Lupinacci, F. A. Pironti, F. Blefari, F. Romeo, L. Arena, and A. Furfaro, “The dark side of llms: Agent-based attacks for complete computer takeover,” arXiv preprint arXiv:2507.06850 , 2025.
+
+[11] 
+
+S. Raza, R. Sapkota, M. Karkee, and C. Emmanouilidis, “Trism for agentic ai: A review of trust, risk, and security management in llm-based agentic multi-agent systems,” AI Open , 2026.
+
+[12] 
+
+C. S. de Witt, “Open challenges in multi-agent security: Towards secure systems of interacting ai agents,” arXiv preprint arXiv:2505.02077 , 2025.
+
+[13] 
+
+Z. Deng, Y. Guo, C. Han, W. Ma, J. Xiong, S. Wen, and Y. Xiang, “Ai agents under threat: A survey of key security challenges and future pathways,” ACM Computing Surveys , vol. 57, no. 7, pp. 1–36, 2025.
+
+[14] 
+
+F. He, T. Zhu, D. Ye, B. Liu, W. Zhou, and P. S. Yu, “The emerged security and privacy of llm agent: A survey with case studies,” ACM Computing Surveys , vol. 58, no. 6, pp. 1–36, 2025.
+
+[15] 
+
+Y. Liu, Y. Jia, R. Geng, J. Jia, and N. Z. Gong, “Formalizing and benchmarking prompt injection attacks and defenses,” in 33rd USENIX Security Symposium (USENIX Security 24) , 2024, pp. 1831–1847.
+
+[16] 
+
+E. Debenedetti, J. Zhang, M. Balunovic, L. Beurer-Kellner, M. Fischer, and F. Tramèr, “Agentdojo: A dynamic environment to evaluate prompt injection attacks and defenses for llm agents,” Advances in Neural Information Processing Systems , vol. 37, pp. 82 895–82 920, 2024.
+
+[17] 
+
+H. Zhang, J. Huang, K. Mei, Y. Yao, Z. Wang, C. Zhan, H. Wang, and Y. Zhang, “Agent security bench (asb): Formalizing and benchmarking attacks and defenses in llm-based agents,” arXiv preprint arXiv:2410.02644 , 2024.
+
+[18] 
+
+D. Deshpande, V. Gangal, H. Mehta, J. Krishnan, A. Kannappan, and R. Qian, “Trail: Trace reasoning and agentic issue localization,” 2025. [Online]. Available: https://arxiv.org/abs/2505.08638 
+
+[19] 
+
+OpenAI, “Gpt-5 mini,” 2025, accessed 2026-05-03. [Online]. Available: https://platform.openai.com/docs/models/gpt-5-mini/ 
+
+[20] 
+
+Anthropic, “Claude sonnet 4.5,” 2025, accessed 2026-05-03. [Online]. Available: https://www.anthropic.com/news/claude-sonnet-4-5 
+
+[21] 
+
+Moonshot AI, “Kimi k2.5,” 2025, accessed 2026-05-03. [Online]. Available: https://github.com/MoonshotAI/Kimi-K2.5 
+
+[22] 
+
+M. Castro, B. Liskov et al. , “Practical byzantine fault tolerance,” in OsDI , no. 1999, 1999, pp. 173–186.
+
+[23] 
+
+C. Song, L. Ma, J. Zheng, J. Liao, H. Kuang, and L. Yang, “Audit-llm: Multi-agent collaboration for log-based insider threat detection,” arXiv preprint arXiv:2408.08902 , 2024.
+
+[24] 
+
+T. Ju, Y. Wang, X. Ma, P. Cheng, H. Zhao, Y. Wang, L. Liu, J. Xie, Z. Zhang, and G. Liu, “Flooding spread of manipulated knowledge in llm-based multi-agent communities,” arXiv preprint arXiv:2407.07791 , 2024.
+
+[25] 
+
+S. R. Motwani, M. Baranchuk, M. Strohmeier, V. Bolina, P. H. Torr, L. Hammond, and C. S. de Witt, “Secret collusion among ai agents: Multi-agent deception via steganography,” Advances in Neural Information Processing Systems , vol. 37, pp. 73 439–73 486, 2024.
+
+[26] 
+
+R. Shahroz, Z. Tan, S. Yun, C. Fleming, and T. Chen, “Agents under siege: Breaking pragmatic multi-agent llm systems with optimized prompt attacks,” in Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2025, pp. 9661–9674.
+
+[27] 
+
+Z. Zhang, Y. Zhang, L. Li, J. Shao, H. Gao, Y. Qiao, L. Wang, H. Lu, and F. Zhao, “Psysafe: A comprehensive framework for psychological-based attack, defense, and evaluation of multi-agent system safety,” in Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2024, pp. 15 202–15 231.
+
+[28] 
+
+Y. Zeng, Y. Wu, X. Zhang, H. Wang, and Q. Wu, “Autodefense: Multi-agent llm defense against jailbreak attacks,” arXiv preprint arXiv:2403.04783 , 2024.
+
+[29] 
+
+M. Nasr, N. Carlini, C. Sitawarin, S. V. Schulhoff, J. Hayes, M. Ilie, J. Pluto, S. Song, H. Chaudhari, I. Shumailov et al. , “The attacker moves second: Stronger adaptive attacks bypass defenses against llm jailbreaks and prompt injections,” arXiv preprint arXiv:2510.09023 , 2025.
+
+Experimental support, please
+view the build logs 
+for errors. Generated by
+
+L
+A 
+T
+E 
+
+xml 
+
+.
+
+Instructions for reporting errors 
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below: 
+
+Click the "Report Issue" ( 
+
+) button, located in the page header. 
+
+Tip: You can select the relevant text first, to include it in your report. 
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all. 
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . 
+
+We gratefully acknowledge support from
+our major funders ,
+member institutions , ,
+and all contributors.
+
+About 
+&middot; 
+Help 
+&middot; 
+Contact 
+&middot; 
+Subscribe 
+&middot; 
+Copyright 
+&middot; 
+Privacy 
+&middot; 
+Accessibility 
+&middot; 
+Operational Status (opens in new tab) 
+
+Major funding support from

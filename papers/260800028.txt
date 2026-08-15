@@ -1,0 +1,1222 @@
+Width, Memory, and Delay: A Resource Accountingfor the Limits of Flat Multi-Agent Systems 
+
+Report GitHub Issue 
+× 
+
+Title: 
+
+Content selection saved. Describe the issue below: 
+
+Description: 
+
+Submit without GitHub 
+Submit in GitHub 
+
+arXiv is now an independent nonprofit! 
+Learn more 
+&times; 
+
+Back to arXiv 
+
+Why HTML? 
+
+Report Issue 
+
+Back to Abstract 
+
+Download PDF 
+
+Abstract 
+
+I Introduction 
+
+II Related Work 
+
+III Problem Setup and Testbed 
+
+IV Framework: Three Resources 
+
+V Propositions 
+
+VI Experiments 
+
+VII The Resource Triangle and Design Rules 
+
+VIII Limitations and Outlook 
+
+IX Discussion 
+
+X Conclusion 
+
+A Exploratory Studies 
+
+References 
+
+License: CC BY 4.0
+
+arXiv:2608.00028v1 [cs.MA] 14 Jul 2026 
+
+Width, Memory, and Delay: A Resource Accounting
+
+for the Limits of Flat Multi-Agent Systems 
+
+Oleksandr Kuznetsov
+
+   
+Emanuele Frontoni
+
+Thanks:  Manuscript prepared August 11, 2026.
+
+Thanks:  O.˜Kuznetsov is with the Department of Theoretical and Applied Sciences,
+eCampus University, Via Isimbardi 10, 22060 Novedrate (CO), Italy; with the
+SMARTEST Research Center, eCampus University, Via Isimbardi 10, 22060 Novedrate
+(CO), Italy; and with the Department of Intelligent Software Systems and
+Technologies, School of Computer Science and Artificial Intelligence,
+V.˜N.˜Karazin Kharkiv National University, 4 Svobody Sq., 61022 Kharkiv,
+Ukraine (e-mail: oleksandr.kuznetsov@uniecampus.it; kuznetsov@karazin.ua;
+ORCID: 0000-0003-2331-6326).
+
+Thanks:  E.˜Frontoni is with the Department of Political Sciences, Communication
+and International Relations, University of Macerata, Via Crescimbeni, 30/32,
+62100 Macerata, Italy (e-mail: emanuele.frontoni@unimc.it; ORCID:
+0000-0002-8893-9244).
+
+Abstract 
+
+A recurring question in the design of scalable multi-agent systems—from robot
+swarms to collectives of large-language-model (LLM) agents—is whether adding
+more agents can, on its own, overcome performance limits, or whether a
+qualitatively deeper organization is required. A recent preprint argues
+that flat, homogeneous multi-agent systems face an irreducible,
+population-independent “causal floor” on achievable error, removable only by
+hierarchical (nested-loop) organization. Using a controlled disturbance-rejection
+testbed with an exactly computable optimum, we show this conclusion is too
+strong and replace it with a quantitative resource model built on three
+resources: population width N N , per-agent internal-model memory 
+d d , and prediction across the observation delay τ \tau . We establish
+three claims. (i) The achievable floor is governed not by architectural
+hierarchy but by per-agent internal-model content: a flat, homogeneous swarm
+whose agents carry a matched internal model of the disturbance matches or beats
+a designed two-loop hierarchy at equal per-agent memory—so temporal depth can
+be dynamical (recurrent memory), not architectural (nesting). (ii) The three
+resources are not mutually interchangeable ; we chart the exchange rates
+and the hard non-exchange boundaries on an explicit width × \times memory map,
+including a strict equal-total-state-budget comparison. (iii) A residual floor
+is set by the observation delay and the environment’s unpredictability over that
+horizon, which we verify against the optimal controller (the exact
+minimum-variance characterization is given in Proposition  2 ). We
+quantify the price of replacing oracle knowledge of the disturbance spectrum with
+online learning, provide a preliminary robustness check against a mild bounded nonlinearity and a
+spatially-extended plant, and distill four design rules for practitioners. All
+experiments are released with a reproducible pipeline. 
+
+Index Terms:  Multi-agent systems, scalability, minimum-variance control, internal model
+principle, disturbance rejection, time delay, adaptive control, resource
+trade-offs, large-language-model agents.
+
+I Introduction 
+
+Apractical question now dominates the engineering of
+multi-agent systems: does adding more agents keep paying off? In the
+language-model-agent literature the debate is explicit and unresolved—several
+recent studies report that a well-tuned single agent can match or beat elaborate
+multi-agent workflows [ 19 , 18 ] , while others find that
+scaling helps only when the added agents bring genuine diversity rather
+than replication [ 12 ] . The same tension appears in robot
+swarms and networked control, where consensus and averaging arguments promise
+gains with scale [ 10 , 7 , 13 ] , yet some limits appear
+stubbornly independent of population size. 
+
+A recent preprint [ 9 ] sharpens the pessimistic side into an
+impossibility claim: flat, homogeneous multi-agent systems possess a
+population-independent “causal floor” on achievable error, and only
+hierarchical (nested-loop) organization can lower it. The intuition is
+attractive—some limits do seem to demand a deeper temporal organization—but,
+we argue, the claim conflates two distinct notions under the word “flat”:
+flat in architecture (no nested control loops) and flat in memory 
+(agents without internal dynamical state). The impossibility result holds for
+the second notion and fails for the first, and the two come apart exactly where
+the interesting engineering lives. 
+
+This paper replaces the single flat/deep axis with a resource triangle 
+—width, memory, and delay-prediction (Fig.  1 )—and asks, for each pair of resources,
+whether one can be traded for another and at what rate. The answer is a mix of
+clean exchange laws and hard prohibitions, all recoverable from classical
+stochastic control theory (minimum-variance control [ 2 , 1 ] ,
+the internal model principle [ 5 ] , and the Bode/waterbed
+constraints [ 3 , 15 ] ) once the problem is posed as resource
+accounting rather than architecture. Our contribution is not a new control law;
+it is the reframing, an explicit map of where exchange is and is not possible,
+and a careful empirical verification—against a computable optimum—that pins
+the constants. Because the accounting is stated in terms of averageable noise,
+structured disturbance, and predictability across a delay, it is agnostic to
+whether an “agent” is a controller, a robot, or an LLM; we return to this
+bridge in the conclusion. 
+
+Fig. 1: The resource triangle. Width averages independent measurement noise;
+per-agent internal-model memory covers the structured disturbance; delay sets an
+irreducible innovation floor. A memoryless flat swarm cannot lower the
+structured floor, but a flat swarm whose agents carry an internal model can—so
+temporal depth may be dynamical (memory), not architectural (nesting). 
+
+Contributions 
+
+1. 
+
+A counterexample to the strong flat-systems theorem: a flat homogeneous
+swarm with matched per-agent internal models beats a designed hierarchy
+(Section  VI , Figs.  2 and  4 ). 
+
+2. 
+
+A quantitative width × \times memory map with exchange rates and
+non-exchange boundaries, plus a fixed-budget ( N ⋅ d N\cdot d const) analysis
+(Figs.  4 and  5 ). 
+
+3. 
+
+A delay theorem, stated in resource terms and verified to < 1 % <1\% against
+the optimal predictive controller (Fig.  10 ). 
+
+4. 
+
+The cost of adaptation: how an oracle-free learned internal model
+approaches the oracle, and where it fails (Figs.  7 
+and  8 ). 
+
+5. 
+
+Four practitioner rules and a nonlinear-plant robustness check
+(Section  VII , Fig.  11 ), plus a
+spatially-extended plant confirming the accounting is not an artifact of the
+scalar testbed (Fig.  12 ). 
+
+II Related Work 
+
+Minimum-variance and self-tuning control. The floor we characterize is
+the minimum-variance benchmark of Åström [ 2 ] : for a linear
+plant with delay and a disturbance with rational spectrum, the minimum
+achievable output variance equals the variance of the multi-step-ahead
+prediction error of the disturbance, obtained by polynomial division of the
+noise model. The self-tuning regulator [ 1 ] identifies that model
+online; Harris [ 6 ] turned the benchmark into a closed-loop
+performance monitor still used industrially. Our adaptive baseline is in this
+lineage in spirit—it identifies the disturbance online and cancels it—but is
+not a full AR/RLS minimum-variance self-tuning regulator; it is an adaptive
+internal-model controller specialized to narrowband disturbances (periodogram-
+based frequency identification driving a bank of learned resonators,
+Section  III ). We are explicit about this to avoid claiming more than
+the implementation delivers. 
+
+Internal model principle. Francis and Wonham [ 5 ] showed
+that asymptotic rejection of a disturbance requires the controller to embed a
+model of that disturbance’s generator. This is exactly the “per-agent memory
+buys spectral coverage” axis: a resonator is the internal model of a sinusoid,
+an integrator that of a constant bias, an AR model that of a colored process. 
+
+Fundamental limitations. Bode’s sensitivity integral and its
+delay-constrained descendants—the “waterbed effect” [ 3 , 15 ] 
+—formalize that suppression pushed down in one band re-emerges elsewhere and
+that delay caps the bandwidth over which suppression is possible. We use these to
+explain the notch-depth/robustness-width trade-off (Fig.  7 ) and
+the delay wall (Fig.  10 ) rather than re-deriving them. The Smith
+predictor [ 16 ] and Kalman filter [ 8 ] supply the optimal
+predictive machinery for the delay analysis. 
+
+Multi-agent scaling and emergence. Consensus and cooperative control
+establish ∝ 1 / N \propto 1/N averaging of independent measurement noise
+[ 10 , 7 , 13 ] . The LLM-agent literature is now testing
+whether analogous scaling holds for cognitive agents, with mixed conclusions
+[ 19 , 12 , 18 , 4 ] . The target preprint
+[ 9 ] sits at this intersection; we treat its claim as the
+null hypothesis to be refined. 
+
+Distributed estimation and graph-theoretic internal models. We
+deliberately study two extremes: fully decentralized agents with no
+communication (our width axis) and a fully centralized Kalman fusion (our
+frontier benchmark, Section  III ). Between them lies a large
+literature this paper does not engage experimentally: distributed/consensus
+Kalman filtering lets agents partially fuse measurements over a communication
+graph without a fusion center [ 11 ] , and the internal
+model principle has been extended to networked, graph-constrained settings via
+cooperative output regulation, where each agent embeds a copy of the exogenous
+signal generator and consensus over the graph substitutes for centralized
+coordination [ 17 ] . Limited communication could in principle
+let width partially substitute for memory by letting agents share spectral
+estimates; our resource accounting does not yet include this regime, and we
+flag it as the most direct extension of this work (Section  VIII ). 
+
+III Problem Setup and Testbed 
+
+From here through Section  VII the setting is a physical control
+system; the disturbance is a stochastic signal with known statistics, not a
+model of cognition. The bridge to LLM-agent collectives—where “memory” is
+context and retrieval and “delay” is reasoning latency—is a motivating
+analogy, taken up only in the introduction, the discussion
+(Section  IX ), and Appendix  A ; it is not part
+of the control-theoretic claims. 
+
+Plant. Our testbed is deliberately minimal: a single controlled
+scalar object observed by N N homogeneous agents whose control actions are
+averaged and whose measurement noises are independent. Concretely, one state
+x x evolves under a common disturbance and each agent i i contributes a control
+u i u_{i} from its own noisy, delayed observation: 
+
+x ⁡ [ t + 1 ] = x ⁡ [ t ] + u ¯ ​ [ t ] + d ⁡ [ t ] ​ ( + γ ​ sin ⁡ x ⁡ [ t ] ) , u ¯ ​ [ t ] = 1 N ​ ∑ i u i ​ [ t ] , x[t+1]=x[t]+\bar{u}[t]+d[t]\;(+\,\gamma\sin x[t]),\quad\bar{u}[t]=\tfrac{1}{N}\!\sum_{i}u_{i}[t], 
+
+(1) 
+
+where the optional term introduces plant nonlinearity. This is not a swarm of
+N N independent plants but the canonical setting in which width (more
+agents) and memory (per-agent internal state) can be varied
+orthogonally; Section  VIII discusses the spatially-extended
+generalization. The common disturbance is 
+
+d ⁡ [ t ] = ∑ b A b ​ sin ⁡ ( ϕ b ​ [ t ] ) + p ⁡ [ t ] , p ⁡ [ t ] = a ​ p ​ [ t − 1 ] + e ⁡ [ t ] , d[t]=\sum_{b}A_{b}\sin(\phi_{b}[t])+p[t],\quad p[t]=a\,p[t-1]+e[t], 
+
+(2) 
+
+with ϕ b \phi_{b} accumulating at frequency ω b \omega_{b} (permitting chirp and regime
+switching) and e ⁡ [ t ] e[t] white. Each agent observes 
+
+y i ​ [ t ] = x ⁡ [ t − τ ] + v i ​ [ t ] , v i ∼ 𝒩 ⁡ ( 0 , σ m 2 ) , y_{i}[t]=x[t-\tau]+v_{i}[t],\quad v_{i}\sim\mathcal{N}(0,\sigma_{m}^{2}), 
+
+(3) 
+
+with v i v_{i} independent across agents —this is what population width can
+average away; the common disturbance is what it cannot. The delay is in
+the observation, not in the actuation : u ¯ ​ [ t ] \bar{u}[t] enters x ⁡ [ t + 1 ] x[t+1] 
+immediately, but each agent must choose u i ​ [ t ] u_{i}[t] from information no fresher
+than x ⁡ [ t − τ ] x[t-\tau] . The control problem is therefore predictive—the controller
+must forecast the state and disturbance over a horizon of τ + 1 \tau+1 steps from
+the delayed, noisy observation. 
+
+Aggregate view for centralized baselines. For the mean of N N agents
+with i.i.d. measurement noise, y ¯ ​ [ t ] = x ⁡ [ t − τ ] + v ⁡ [ t ] / N \bar{y}[t]=x[t-\tau]+v[t]/\sqrt{N} , so
+width enters the strong baselines only as measurement-noise reduction—a
+clean separation of the width axis from the memory axis. The Kalman frontier is
+a centralized reference built on this ensemble mean: it is the best
+achievable performance if the agents’ measurements could be perfectly
+fused . Decentralized agents with no communication cannot attain it—each sees
+only its own noisy y i y_{i} —so we use it purely as an upper-bound benchmark and a
+computable optimum for the resource accounting, not as a controller the swarm
+could implement. 
+
+Metric. Steady-state MSE = 𝔼 ⁡ [ x 2 ] =\mathbb{E}[x^{2}] after burn-in, averaged over seeds
+with 95 % 95\% confidence intervals. We also fit MSE ⁡ ( N ) = A ​ N − α + C \mathrm{MSE}(N)=AN^{-\alpha}+C 
+and report the floor C C with bootstrap CIs. 
+
+Controllers. 
+
+• 
+
+Ladder (per-agent memory d d ) : a homogeneous flat swarm whose
+agents carry an internal model of increasing order—P ( d = 0 d{=}0 ), PI ( d = 1 d{=}1 ),
+and PI+resonator banks (PIRES, d = 1 + 2 ​ k d=1+2k for k k resonators). The integrator
+covers bias and very-low-frequency drift; each resonator adds one narrowband
+component, so memory depth is natural and monotone. 
+
+• 
+
+Cascade : a two-loop hierarchy (the preprint’s “deep” system). 
+
+• 
+
+Kalman frontier : oracle-model Kalman-predictive minimum-variance
+control; the computable optimum, with a semi-analytic Riccati floor. 
+
+• 
+
+Adaptive : oracle-free adaptive internal-model control—identifies
+the disturbance tones online (peak-picking on an exponentially-averaged
+periodogram of a decimated, pre-filtered reconstruction) and cancels them with
+phase-locked-loop learned resonators plus soft feedback. It is a heuristic engineering baseline , not a self-tuning
+minimum-variance regulator: it uses periodogram peak-picking rather than
+recursive least squares and has no formal convergence guarantee. We include it
+to quantify the gap between oracle frequency knowledge and practical online
+learning. It also carries additional estimator memory (a spectral buffer,
+oscillator bank, and filter states) beyond 2 ​ k + 1 2k{+}1 states, so we report it as a
+no-oracle baseline and exclude it from equal-memory comparisons. 
+
+IV Framework: Three Resources 
+
+We define the resources so the exchange questions are well posed. 
+
+Width N N . The number of agents sharing the common disturbance and
+averaging independent measurement noise; the resource that reduces the
+averageable error component. 
+
+Per-agent memory d d . The dimension of each agent’s internal dynamical
+state, updated as m i ​ [ t + 1 ] = f ⁡ ( m i ​ [ t ] , y i ​ [ t ] ) m_{i}[t+1]=f(m_{i}[t],y_{i}[t]) . We distinguish
+internal-model memory (state encoding a generator of the disturbance:
+integrator, resonator, AR model) from generic recurrence; only internal-model
+memory buys spectral coverage. 
+
+Temporal depth / prediction. The organization of memory across
+separated timescales, used to predict the plant state and disturbance over the
+delay τ + 1 \tau+1 from the delayed, noisy observation. This is what the preprint
+intuits as “depth”; we argue it is not architectural nesting but the presence,
+in the loop, of a recurrent internal model whose prediction horizon spans τ \tau .
+When that model is fixed we call it recurrent internal-model memory ; when
+it also updates its model online and uses it to predict across the delay we call
+it adaptive predictive memory . (We avoid “recursive”: in a control/RNN
+context “recurrent” is accurate.) 
+
+The refined thesis, in one line: Population width reduces only averageable
+uncertainty. Internal-model memory reduces structured uncertainty. Temporal
+depth is not architectural hierarchy but predictive closed-loop state organized
+across the relevant timescales. Delay sets the irreducible innovation floor. 
+
+V Propositions 
+
+We state the results as propositions with proof sketches; empirical verification
+follows in Section  VI . 
+
+Assumption 1 
+
+(A1) linear plant; (A2) disturbance with rational spectrum (finite sum of
+narrowband tones plus an AR process); (A3) per-agent i.i.d. measurement noise,
+independent across agents; (A4) known plant delay τ \tau . Under
+(A1)–(A4) the minimum-variance machinery of [ 2 ] applies to the
+aggregate. 
+
+Proposition 1 (Width–structure non-exchange) 
+
+Consider controllers of a fixed class and bounded bandwidth, and let the
+disturbance contain power P b P_{b} in a frequency band whose generator is not
+embedded in any agent’s internal model. Then the steady-state error contributed
+by that band is bounded below by a positive constant independent of N N ;
+increasing N N cannot reduce it. (Width lowers the averageable noise
+component but not the structured residual, whose asymptotic rejection
+requires an internal model of the band; a broadband robust controller may
+partially attenuate the band but cannot drive its contribution to zero.) 
+
+Proof: 
+
+Width acts only on the per-agent i.i.d. term v i / N v_{i}/\sqrt{N} in the aggregate;
+the common disturbance d ⁡ [ t ] d[t] is identical across agents and survives averaging
+unchanged. Rejecting power in band b b requires loop gain shaped at ω b \omega_{b} ,
+which by the internal model principle [ 5 ] requires an internal
+model of that band in the loop. Absent such a model, the closed-loop sensitivity
+at ω b \omega_{b} is Θ ⁡ ( 1 ) \Theta(1) in N N , so the band’s contribution to 𝔼 ⁡ [ x 2 ] \mathbb{E}[x^{2}] is
+bounded below by a constant. Verified in Fig.  3 and by the
+L-shaped contours of Fig.  4 .
+∎ 
+
+Proposition 2 (Memory–delay partial exchange; the delay floor) 
+
+Under Assumption  1 , the minimum achievable steady-state variance
+equals the conditional variance of the controlled next state given the delayed,
+noisy observation filtration: 
+
+C min ​ ( τ ) = Var ⁡ ( x ⁡ [ t + 1 ] − x ^ ​ [ t + 1 ∣ ℱ t y ] ) , C_{\min}(\tau)=\mathrm{Var}\!\big(x[t+1]-\hat{x}[t+1\mid\mathcal{F}_{t}^{y}]\big), 
+
+(4) 
+
+ℱ t y = σ ( y [ s ] , u [ s − 1 ] : s ≤ t ) \mathcal{F}_{t}^{y}=\sigma(y[s],u[s{-}1]:s\leq t) , y ⁡ [ s ] = x ⁡ [ s − τ ] + v ⁡ [ s ] y[s]=x[s-\tau]+v[s] . This
+has two contributions: (a) the innovation of the disturbance accumulated over
+the horizon τ + 1 \tau+1 , which no controller can anticipate, and (b) the residual
+state-estimation uncertainty from observing only the delayed, noise-corrupted
+x ⁡ [ t − τ ] x[t-\tau] . Under perfect state measurement it reduces to the classical
+minimum-variance floor—the variance of the ( τ + 1 ) (\tau{+}1) -step disturbance
+prediction error [ 2 ] —but with noisy delayed sensing the
+estimation term must be included. 
+
+Proof: 
+
+Because control acts through the plant without its own delay, x ⁡ [ t + 1 ] x[t+1] is fixed
+by x ⁡ [ t ] x[t] , the applied u ⁡ [ t ] u[t] , and d ⁡ [ t ] d[t] ; the best mean-square u ⁡ [ t ] u[t] cancels
+𝔼 ⁡ [ x ⁡ [ t ] + d ⁡ [ t ] ∣ ℱ t y ] \mathbb{E}[x[t]+d[t]\mid\mathcal{F}_{t}^{y}] , leaving Var ⁡ ( x ⁡ [ t + 1 ] ∣ ℱ t y ) \mathrm{Var}(x[t+1]\mid\mathcal{F}_{t}^{y}) .
+Writing d = ( C / A ) ​ e d=(C/A)e with e e white and applying the ( τ + 1 ) (\tau{+}1) -step division
+C / A = F + z − ( τ + 1 ) ​ G / A C/A=F+z^{-(\tau+1)}G/A isolates the unpredictable innovation F ​ e Fe ; the
+delayed noisy observation adds the Kalman estimation covariance of the current
+state, which the Riccati recursion of the optimal filter [ 8 ] 
+yields in closed form. The sum is C min ​ ( τ ) C_{\min}(\tau) ; it grows with τ \tau , with
+the disturbance memory (larger f k f_{k} for more strongly colored spectra), and
+with the sensing noise σ m 2 / N \sigma_{m}^{2}/N . Verified to < 1 % <1\% in
+Fig.  10 .
+∎ 
+
+Corollary 1 (Delay wall) 
+
+No amount of width or memory removes Var ⁡ ( F ​ e ) \mathrm{Var}(Fe) ; it is the environment’s
+unpredictability over the latency horizon. 
+
+Proposition 3 (Depth without hierarchy) 
+
+There exists a flat, homogeneous swarm (identical agents, no nested loops) whose
+per-agent internal model matches the disturbance and whose steady-state floor is
+at or below that of a designed two-loop hierarchy with the same per-agent
+memory. Hence architectural hierarchy is sufficient but not necessary to lower
+the floor. 
+
+Proof: 
+
+Constructive. Give each agent a PIRES internal model tuned to the disturbance
+bands (memory d = 1 + 2 ⋅ # ​ bands d=1+2\cdot\#\text{bands} ). With the bands cancelled, the flat
+swarm’s floor is the delay/innovation floor of Proposition  2 . It
+suffices to exhibit one flat controller that beats one designed hierarchy: our
+PIRES swarm attains a lower floor than the implemented two-loop cascade at equal
+per-agent memory (Fig.  2 ), so architectural hierarchy is not
+necessary in general. (We do not claim the flat controller beats every 
+hierarchy—a better-tuned or differently-organized cascade might match it; the
+impossibility claim we refute is universal, so a single counterexample is
+enough.) Verified in Fig.  2 and the d = 7 d{=}7 row of
+Fig.  4 .
+∎ 
+
+Proposition 4 (Cost of adaptation, empirical) 
+
+The heuristic no-oracle controller of Section  III approaches a tuned
+internal-model (oracle-frequency) baseline in stationary narrowband settings,
+with a gap that is controlled empirically by the online identification error and
+shrinks as the per-population SNR (hence N N ) grows. Below an identification
+threshold N id N_{\mathrm{id}} its floor is uncontrolled, and under regime switches
+faster than the identification time it is dominated by re-identification
+transients and may exceed that of a robust memoryless loop. We state this as an
+empirical observation, not a convergence theorem: our controller is an
+engineering baseline, not a self-tuning minimum-variance regulator, and a formal
+convergence analysis is beyond this paper’s scope. A tighter regulator (e.g. RLS) would likely narrow the stationary gap; the transient failure under fast
+switching, however, is set by the re-identification time and is therefore
+fundamental to any learning scheme, not an artifact of our estimator. 
+
+Proof: 
+
+For the classical AR/RLS self-tuning regulator the attained limit is the
+minimum-variance floor [ 1 ] ; our resonator-bank controller only
+shares the same qualitative behavior for narrowband disturbances, without a
+convergence guarantee. Identifiability requires the disturbance to rise above the
+reconstruction noise, which scales as σ m 2 / N \sigma_{m}^{2}/N ; below that the periodogram
+peaks are buried. Under switching faster than the estimator’s memory the estimate
+never settles. Observed in the adaptive row of Fig.  4 and in
+Figs.  7 – 8 .
+∎ 
+
+VI Experiments 
+
+Phase 1 (E1–E5) establishes the dichotomy and the counterexample; Phase 2
+(Blocks A–E) turns it into the quantitative accounting and adds the optimal
+frontier and the oracle-free adaptive baseline. Two exploratory studies (E6,
+E7) are deferred to Appendix  A . 
+
+E1–E3 — counterexample (Fig.  2 ). Floors ( 95 % 95\% CI)
+on a single-band task: P 1.40 1.40 , PI 0.32 0.32 , PID 0.12 0.12 , CASCADE 0.107 0.107 , flat
+RES 0.058 0.058 . The flat resonator swarm ( d = 2 d{=}2 ) beats the two-loop cascade at
+equal per-agent memory. To make the comparison fair to the hierarchy, the
+cascade’s loop gains were selected by a grid search (48 combinations over its
+proportional, slow-loop-bandwidth, and slow-loop-integral gains) minimizing MSE
+on the tuning task; the best-tuned gains are then frozen and reused across all
+N N , exactly as for every other controller. The flat swarm still attains the
+lower floor. All scaling exponents α ≈ 1.0 \alpha\approx 1.0 
+(pure 1 / N 1/N noise reduction to a fixed floor). Supports
+Prop.  3 . 
+
+Fig. 2: E1–E3: MSE ( N ) (N) with fitted floors. A flat resonator swarm ( d = 2 d{=}2 )
+attains a lower floor than the two-loop cascade at equal per-agent memory,
+refuting the strong flat-systems claim by counterexample. 
+
+E4 — width cannot buy coverage (Fig.  3 ). On a two-band
+task, an internal model covering one band leaves the other’s power
+N N -independent (MSE at N = 1000 N{=}1000 : 2.96 2.96 uncovered vs. 0.25 0.25 both covered).
+Supports Prop.  1 . 
+
+Fig. 3: E4: an internal model covering one band drives its power down with N N ;
+the uncovered band’s power is N N -independent. Width cannot buy spectral
+coverage. 
+
+E5 — latency waterbed. PI MSE rises → 3.29 0.61\!\to\!3.29 as
+τ : → 10 \tau\!:\!1\!\to\!10 and destabilizes by τ = 20 \tau{=}20 ; the PSD shows the
+waterbed. Motivates Prop.  2 . 
+
+Block A — the width × \times memory map
+(Figs.  4 ,  5 ). MSE over N × d N\times d on a 3-band task.
+Floors at N = 1000 N{=}1000 : d = 0 d{=}0 4.49 4.49 , d = 1 d{=}1 2.40 2.40 , d = 3 d{=}3 2.05 2.05 , d = 5 d{=}5 
+1.66 1.66 , d = 7 d{=}7 0.44 0.44 (monotone, since the PIRES ladder adds an integrator then
+one resonator per band); no-oracle adaptive baseline 0.47 0.47 . The heatmap contours are L-shaped:
+width slides you down a noise ramp to a fixed floor; memory lowers the floor
+itself. A strict equal-budget comparison (exact N ⋅ d = B N\cdot d=B points,
+Fig.  5 ) shows a threshold: at the smallest budget ( B = 1050 B{=}1050 )
+going deep is roughly a wash ( d = 7 d{=}7 with N = 150 N{=}150 gives 2.24 2.24 vs. 2.37 2.37 
+for d = 1 d{=}1 with N = 1050 N{=}1050 ), because too few agents leave the measurement noise
+unaveraged; but past a minimum SNR ( B ≥ 3150 B\geq 3150 ) spending the same states on
+memory dominates decisively ( d = 7 d{=}7 : 0.80 0.80 at B = 3150 B{=}3150 , 0.29 0.29 at
+B = 12600 B{=}12600 , vs. ≈ 2.3 \approx 2.3 for d = 1 d{=}1 at every budget). This directly
+answers the “you just gave each agent more memory” objection.
+Quantifies Props.  1 and  3 . The mechanism
+behind the ladder is visible in the residual spectrum (Fig.  6 ):
+width scales the broadband noise floor, while each unit of internal-model
+memory notches out one more disturbance band. 
+
+Fig. 4: Block A: MSE over N × d N\times d on a 3-band disturbance. Left: each
+per-agent memory level has its own floor; the adaptive controller (red) starts
+worse at small N N and approaches the oracle d = 7 d{=}7 floor at large N N . Right:
+heatmap colored by log 10 \log_{10} MSE (annotated numbers are the raw MSE, not its
+log); the L-shaped contours mean width and memory are not
+interchangeable—width slides down a noise ramp to a fixed floor, while only
+memory (covering another band) lowers the floor itself. 
+
+Fig. 5: Strict equal-budget comparison ( N ⋅ d = B N\cdot d=B , exact points, budgets
+multiples of lcm ⁡ ( 1 , 3 , 5 , 7 ) \mathrm{lcm}(1,3,5,7) ). At the smallest budget ( B = 1050 B{=}1050 )
+measurement noise dominates, so width and depth are equivalent; above a threshold
+SNR, depth (internal-model memory) dominates. This answers the “you just gave
+each agent more memory” objection. 
+
+Fig. 6: Mechanism, in the spectrum. The memoryless P controller averages noise
+but leaves the disturbance peaks intact; the integrator suppresses the lowest
+band; each resonator notches out one more band. Memory reshapes the residual
+spectrum, width only scales it—the internal-model principle made visible. 
+
+Block B — robustness and the oracle’s price
+(Figs.  7 ,  9 ,  8 ). Mismatch × \times damping :
+a sharp resonator ( ρ = 0.9999 \rho{=}0.9999 ) reaches MSE ≈ 0.22 \approx 0.22 within ± 10 % \pm 10\% 
+of ω \omega but degrades to ≈ 0.64 \approx 0.64 at 30 % 30\% detune—worse than
+model-free PI ( 0.49 0.49 ); a soft resonator ( ρ = 0.99 \rho{=}0.99 ) is ≈ 1.0 \approx 1.0 
+everywhere. Depth of suppression ↔ \leftrightarrow width of robustness is a
+conserved trade-off (a Bode waterbed inside the notch), which the full
+mismatch × \times damping surface (Fig.  9 ) confirms is continuous
+across the whole parameter plane, not just at the three damping levels plotted
+in Fig.  7 . The adaptive controller
+( 0.42 0.42 ) beats the strongly detuned oracles ( ≥ 30 % \geq 30\% error) and the
+soft resonator, but a well-centred sharp resonator still wins where it is
+accurate (MSE ≈ 0.22 ​ – ​ 0.33 \approx 0.22\text{--}0.33 within ± 15 % \pm 15\% ). Nonstationary :
+under chirp the adaptive controller wins ( 0.40 0.40 vs. 0.41 0.41 oracle, 0.51 0.51 PI);
+under regime switching PI ( 0.59 0.59 ) edges out adaptive ( 0.79 0.79 ) because of
+re-identification transients—reported honestly. Supports
+Prop.  4 and its failure mode. 
+
+Fig. 7: Block B: frequency mismatch × \times resonator damping. Sharper internal
+models buy suppression depth but pay in fragility; adaptation re-centres the
+notch and escapes the strongly-mistuned regime. 
+
+Fig. 8: Block B, nonstationary disturbances. Under a chirp, learned memory
+tracks; under regime switching, a robust memoryless loop (PI) can beat the
+adaptive controller because each switch triggers a re-identification transient. 
+
+Fig. 9: Memory robustness surface (Block B). Color: log 10 \log_{10} MSE over the
+two internal-model parameters, assumed/true frequency ω ^ / ω \hat{\omega}/\omega and
+resonator damping ρ \rho (annotated numbers are the raw MSE). Sharp resonators
+(top rows) reach the deepest suppression but only in a narrow band around the
+true frequency; damped resonators (bottom) are robust but shallow—the
+depth/robustness waterbed made quantitative. 
+
+Block C — the delay theorem (Fig.  10 ). Across 15
+( a , τ ) (a,\tau) combinations, the simulated optimal MSE matches the semi-analytic
+Riccati floor of Prop.  2 to < 1 % <1\% ; PI diverges past
+τ ≈ 10 ​ – ​ 15 \tau\approx 10\text{--}15 . The floor grows with τ \tau , the noise memory a a ,
+and the sensing noise. Verifies Prop.  2 . 
+
+Fig. 10: Block C: the optimal controller’s simulated MSE (markers) matches the
+semi-analytic Riccati floor (lines) to < 1 % <1\% (max 0.89 % 0.89\% ) across delays
+τ \tau and noise memories a a ; the floor is the disturbance innovation over
+τ + 1 \tau{+}1 plus the delayed-sensing estimation uncertainty. PI (dashed) is shown
+where stable and marked ( ▼ \blacktriangledown ) where it diverges. 
+
+Block E — a mild-nonlinearity robustness check
+(Fig.  11 ). As a preliminary check—not a claim about general
+nonlinear plants—we add a bounded term 0.15 ​ sin ⁡ x 0.15\sin x (this is neither chaotic
+nor non-minimum-phase). The memory ordering holds once width is
+sufficient ( N = 300 N{=}300 : d = 2 d{=}2 1.76 < d = 1 1.76<d{=}1 2.32 < d = 0 2.32<d{=}0 3.65 3.65 ), but at
+small N = 10 N{=}10 integrative memory can amplify measurement noise—PI ( d = 1 d{=}1 ,
+16.4 16.4 ) is then worse than plain P ( d = 0 d{=}0 , 13.6 13.6 ), while the resonator
+( d = 2 d{=}2 , 6.5 6.5 ) still leads. Under nonlinear+switching the stale oracle
+resonator ( 2.07 2.07 ) and adaptive ( 2.45 2.45 ) both beat PI ( 3.75 3.75 ). The linear
+resource accounting is thus robust to this class of bounded 
+nonlinearities; generalization to unbounded nonlinearities (e.g. x 3 x^{3} , or
+non-minimum-phase plants) is left for future work. 
+
+Block F — spatial generalization (Fig.  12 ). To check
+that the accounting is not an artifact of the scalar testbed, we replace the
+single object with a ring of 12 12 diffusively-coupled integrator nodes driven by
+a shared slow mode plus local per-node noise; each node runs a local
+controller fed by N N agents’ delayed, noisy observations. Once the population is
+large enough to average the local noise, the same ordering emerges: the
+memoryless controller (P) saturates at a floor ( ≈ 3.7 \approx 3.7 )
+independent of N N because the shared structured mode survives averaging, the
+integrator (PI) does better, and a resonator tuned to the shared mode reaches
+the lowest floor ( 0.23 0.23 at N = 300 N{=}300 ). Width cures the local noise; only memory
+cures the shared structure—exactly as in the scalar case. This further holds on
+a two-dimensional 6 × 6 6\times 6 grid and, more strikingly, under partial
+observability (Fig.  13 ): when only half the nodes carry
+sensors and actuators, width alone (P) is stuck at a large floor ( ≈ 18.5 \approx 18.5 ),
+but a resonator on the shared mode still attains the lowest error—the memory
+ordering survives both the coupling dimension and incomplete sensing. 
+
+Fig. 11: Block E: on a nonlinear plant, the memory ordering persists once width
+is sufficient (left); under nonlinear plus regime switching, internal-model
+memory (a stale oracle resonator and the adaptive controller) beats memoryless
+PI (right). The oracle resonator still edges the adaptive controller here. 
+
+Fig. 12: Block F: a ring of 12 diffusively-coupled nodes with a shared slow
+disturbance mode. Width (P, gray) saturates at an N N -independent floor because
+the shared mode survives averaging; an integrator (PI) improves; a resonator on
+the shared mode (green) reaches the lowest floor once the population is large
+enough to average the local noise (the ordering emerges above a minimum SNR).
+The scalar-case accounting carries over to the spatially-extended plant. 
+
+Fig. 13: Block F, continued: a two-dimensional 6 × 6 6\times 6 coupled grid. Left:
+full observability. Right: partial observability, where only half the nodes
+carry sensors/actuators and the rest are steered through diffusion. In both
+cases the memory ordering (P > > PI > > PI+resonator) is preserved; partial
+sensing raises every floor but does not change which resource lowers it. 
+
+VII The Resource Triangle and Design Rules 
+
+Table  I summarizes the accounting, and Fig.  14 
+reads it off the width × \times memory map as three regimes: a variance-limited
+corner cured by width, a memory-limited corner cured by internal-model states,
+and the delay/innovation floor that neither removes. 
+
+Fig. 14: Regime map, colored by log 10 \log_{10} MSE (annotated numbers are the raw
+MSE). At low N N the system is variance-limited (add width); at high N N , low
+d d it is memory-limited (add an internal-model state); the bottom-right corner
+approaches the delay/innovation floor that neither resource can lower. 
+
+TABLE I: The resource triangle: what each resource buys, what it cannot, and the governing law. 
+
+Resource 
+
+Buys 
+
+Does not buy 
+
+Rate / law 
+
+Width N N 
+
+averaging of i.i.d. noise 
+
+structural/spectral content 
+
+∝ 1 / N \propto 1/N down to a floor; saturates at N ∗ N^{\ast} 
+
+Per-agent memory d d 
+
+spectral coverage, internal model 
+
+delay compensation by
+itself 
+
+need d ≥ 2 ⋅ # ​ bands d\geq 2\cdot\#\text{bands} ; floor set by uncovered power (Prop.  1 ) 
+
+Prediction over τ \tau 
+
+cancels the predictable part of the disturbance (shifts the floor curve down) 
+
+the innovation : the unpredictable noise over the horizon is never removed 
+
+floor = = disturbance innovation over τ + 1 \tau{+}1 plus delayed-sensing estimation uncertainty (Prop.  2 ) 
+
+Adaptation 
+
+replaces oracle knowledge of ω \omega 
+
+instant tracking 
+
+≈ \approx oracle − - small gap; loses under fast switching (Prop.  4 ) 
+
+Resonator damping 
+
+width of robustness 
+
+depth at that width 
+
+notch waterbed:
+depth × \times bandwidth ≈ \approx const 
+
+Golden rules. 
+
+1. 
+
+Count the disturbance modes first. Each persistent band needs its
+own internal-model state ( ∼ 2 \sim 2 states/band). No number of agents substitutes
+for a missing mode. 
+
+2. 
+
+Add width only up to N ∗ N^{\ast} . Beyond the point where 1 / N 1/N 
+reduction meets the structural floor, agents are ballast; N ∗ N^{\ast} is computable
+from σ m 2 \sigma_{m}^{2} and the target floor. 
+
+3. 
+
+Latency is the hard wall. The floor equals the environment’s
+unpredictability over the observation (feedback) delay. Buy a predictor or cut latency, not
+more agents. 
+
+4. 
+
+Under model uncertainty, detune or adapt. Trade notch depth for
+robustness width; go adaptive only if regimes outlive the identification
+transient. 
+
+VIII Limitations and Outlook 
+
+The core testbed is a single scalar object observed by N N homogeneous agents,
+which isolates the width/memory/delay axes; Block F confirms the accounting
+survives on a spatially-extended chain and a two-dimensional grid, including
+under 50% partial observability (Figs.  12 ,  13 ).
+Further, the plant is a 1-D integrator per node (a nonlinear variant is tested,
+but genuinely chaotic, higher-order, or non-minimum-phase plants are not); the
+tuning grid is coarse (the ordering of floors is robust, though constants
+may shift); the adaptive controller assumes a few narrow tones (broadband or
+heavy-tailed disturbances are out of scope); it loses to a robust PI under fast
+switching (reported, not tuned away). The hierarchical baseline is a single
+tuned two-loop cascade; Proposition  3 is a counterexample to a
+universal claim and does not rule out a better-designed hierarchy (e.g. H ∞ H_{\infty} or model-based nested predictors) matching the flat swarm. We also
+assume no inter-agent communication; Section  III discusses how
+distributed/consensus estimation could partially close the gap to the
+centralized frontier. Measurement noise is i.i.d. across agents and actuators
+are unconstrained; correlated or heterogeneous sensing and actuator saturation
+are not modeled. We do not claim to prove impossibility results; we exhibit a
+counterexample to a strong claim and propose a sharper, classically-grounded
+resource model, verified empirically. Each of these—a second hierarchical
+design, distributed estimation, richer plant classes, correlated/heterogeneous
+noise, and input constraints—is a concrete, testable extension of the same
+resource accounting rather than a departure from it. 
+
+IX Discussion 
+
+A trilemma, not a dichotomy. The debate the target preprint joins is
+usually posed as flat versus deep. Our results recast it as a triangle of
+three non-interchangeable resources (Fig.  1 ): width buys
+averaging, internal-model memory buys structure, and delay imposes a floor.
+Unlike the blockchain “scalability trilemma”, where one must sacrifice one of
+three desirable properties, here the three resources are not competing goods but
+different jobs : the lesson is that no amount of one substitutes for
+another, and that the “depth” the pessimistic view demands is bought by
+recurrent internal-model memory rather than by architectural nesting. 
+
+A biological reading. The account has a suggestive parallel in social
+insects. A colony does not build a hierarchy of “generals” to steer each ant;
+hierarchy is expensive and slow. Instead evolution hard-wires into each
+individual an internal model of the world—instinct—while the size of the
+swarm (width) averages out individual sensing noise. On our axes, instinct is
+per-agent internal-model memory, colony size is width, and the collective
+thrives precisely because structured regularities of the environment are encoded
+in every agent rather than computed by a central authority. The same account
+predicts the failure mode: when the environment changes faster than instincts
+can be updated—faster than the identification time in our Block B switching
+experiment—the swarm cannot re-tune every individual quickly, and a rigid
+internal model is worse than a simple robust reflex. Two caveats keep the analogy
+honest: many insects retain limited online plasticity (bees learn), and
+evolution itself is a slow outer adaptation loop on a generational
+timescale—so the colony does adapt, but on a separated, much slower timescale,
+which is itself an instance of the depth-as-timescale-separation idea rather than
+a counterexample to it. We offer this as intuition, not mechanism. 
+
+Implications for LLM-agent systems. With the caveat that our testbed is
+a physical control system, the accounting offers a hypothesis for cognitive
+collectives. If “memory” maps to an agent’s context and retrieval (its internal
+model of the task domain), “width” to the number of parallel agents, and
+“delay” to reasoning or communication latency, then the recurring empirical
+findings—that a strong single agent with adequate memory can match a
+multi-agent workflow [ 19 , 18 ] , and that scaling helps
+mainly when the added agents bring diversity [ 12 ] —are
+exactly what the trilemma predicts: replication (width) averages noise but cannot
+add missing domain structure, while diversity widens coverage. Whether the
+quantitative laws transfer is an open question our released harness is meant to
+probe. 
+
+X Conclusion 
+
+Recasting the flat/deep question as resource accounting resolves the apparent
+paradox in both control swarms and LLM-agent collectives: width buys only the
+averageable part of the uncertainty, internal-model memory buys the structured
+part, and delay imposes an innovation floor that neither can remove.
+“Hierarchy” is one way to organize predictive memory across timescales, not the
+only one—which is why a strong single agent with adequate memory can
+match a multi-agent workflow [ 19 , 18 ] , and why scaling
+helps mainly when it adds diversity that widens spectral coverage
+[ 12 ] . Whether the same accounting quantitatively governs
+language-model agents—where “memory” is context and retrieval and “delay”
+is reasoning latency—is a concrete and, we believe, testable next question; our
+released harness (Appendix  A ) is a first step. 
+
+Appendix A Exploratory Studies 
+
+These studies are exploratory and not part of the main evidential line. 
+
+A. Emergent timescale specialization (E6). Flat collectives of
+learnable leaky integrators trained by an evolution strategy [ 14 ] 
+reliably split off a single slow agent (learned timescales 20 ​ – ​ 1500 20\text{--}1500 
+vs. 1 ​ – ​ 8 1\text{--}8 for the rest); the heterogeneous multi-band condition is more
+stable ( 0 / 5 0/5 unstable runs) than the homogeneous one ( 2 / 5 2/5 ). This suggests the
+slow state that Prop.  3 inserts by hand can instead emerge 
+in a learned flat collective—heterogeneity creating a form of virtual temporal
+depth. We stress the exploratory status: populations are tiny (8 agents), the ES
+is simple, and a slow specialist appears (less consistently) even in the
+single-band control, so the evidence supports the heterogeneous-vs-homogeneous
+contrast, not a sharp multi-band claim. 
+
+B. LLM-agent analogue (E7, harness only). We provide a harness casting
+flat, flat-ensemble, and “deep” (fast-reactor plus slow-strategist) LLM agents
+onto the same regulation task, with a mock backend for pipeline validation and an
+API backend for real runs. The mock backend yields no scientific result;
+the harness is offered as a future benchmark for whether the width/memory/delay
+accounting transfers to language-model agents. 
+
+Fig. 15: Adaptive controller internals (no oracle). Top: the online frequency
+estimate locks onto the true unknown ω \omega within a few thousand steps.
+Bottom: the sliding-window MSE falls toward the oracle resonator floor as the
+model converges—illustrating the identification threshold and convergence gap
+of Proposition  4 . 
+
+C. Adaptive controller dynamics (Fig.  15 ). The
+no-oracle adaptive controller is not a black box: its periodogram-driven
+frequency estimate converges to the true ω \omega online, and its
+sliding-window error approaches the oracle floor once the estimate locks,
+making concrete the threshold and gap of Proposition  4 . 
+
+Data and Code Availability 
+
+All code, configurations, seeds, and raw results needed to reproduce every
+figure and number in this paper are released under the MIT license at
+https://github.com/KuznetsovKarazin/causal-depth-limits , with a
+versioned, citable snapshot archived on Zenodo (DOI:
+10.5281/zenodo.21295164 ). Results
+regenerate deterministically from the released seeds; a Dockerfile, a Conda
+environment, and continuous integration ( make smoke ,
+make check ) are included. No proprietary data or paid API access is
+required for the core results; the optional real-LLM harness (Appendix,
+make e7-real ) needs an Anthropic API key and its output is excluded
+from the paper’s claims. 
+
+References 
+
+[1] 
+K. J. Åström and B. Wittenmark (1973) 
+
+On self-tuning regulators .
+
+Automatica 9 ( 2 ), pp. 185–199 .
+
+External Links: ISSN 0005-1098 ,
+Document ,
+Link 
+
+Cited by: §I ,
+§II ,
+§V .
+
+[2] 
+K. J. Åström (1970) 
+
+Introduction to stochastic control theory .
+
+Mathematics in Science and Engineering , Vol. 70 , Academic Press , New York .
+
+External Links: ISBN 978-0-12-065650-9 
+
+Cited by: §I ,
+§II ,
+Assumption 1 ,
+Proposition 2 .
+
+[3] 
+H. W. Bode (1945) 
+
+Network analysis and feedback amplifier design .
+
+D. Van Nostrand Company , New York .
+
+External Links: Link 
+
+Cited by: §I ,
+§II .
+
+[4] 
+M. Cemri, M. Z. Pan, S. Yang, L. A. Agrawal, et al. (2025) 
+
+Why do multi-agent LLM systems fail? .
+
+Note: arXiv:2503.13657 
+
+External Links: Document ,
+Link 
+
+Cited by: §II .
+
+[5] 
+B. A. Francis and W. M. Wonham (1976) 
+
+The internal model principle of control theory .
+
+Automatica 12 ( 5 ), pp. 457–465 .
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II ,
+§V .
+
+[6] 
+T. J. Harris (1989) 
+
+Assessment of control loop performance .
+
+The Canadian Journal of Chemical Engineering 67 ( 5 ), pp. 856–861 .
+
+External Links: Document ,
+Link 
+
+Cited by: §II .
+
+[7] 
+A. Jadbabaie, J. Lin, and A. S. Morse (2003) 
+
+Coordination of groups of mobile autonomous agents using nearest neighbor rules .
+
+IEEE Transactions on Automatic Control 48 ( 6 ), pp. 988–1001 .
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II .
+
+[8] 
+R. E. Kalman (1960) 
+
+A new approach to linear filtering and prediction problems .
+
+Journal of Basic Engineering 82 ( 1 ), pp. 35–45 .
+
+External Links: Document ,
+Link 
+
+Cited by: §II ,
+§V .
+
+[9] 
+S. Kovalov (2026) 
+
+Causal depth and limits of scalable multi-agent systems .
+
+Note: Zenodo preprint 
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II .
+
+[10] 
+R. Olfati-Saber, J. A. Fax, and R. M. Murray (2007) 
+
+Consensus and cooperation in networked multi-agent systems .
+
+Proceedings of the IEEE 95 ( 1 ), pp. 215–233 .
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II .
+
+[11] 
+R. Olfati-Saber (2005) 
+
+Distributed Kalman filter with embedded consensus filters .
+
+In Proceedings of the 44th IEEE Conference on Decision and Control
+and 2005 European Control Conference (CDC-ECC’05) ,
+
+pp. 8179–8184 .
+
+External Links: Document ,
+Link 
+
+Cited by: §II .
+
+[12] 
+C. Qian, Z. Xie, Y. Wang, W. Liu, K. Zhu, H. Xia, Y. Dang, Z. Du, W. Chen, C. Yang, Z. Liu, and M. Sun (2025) 
+
+Scaling large language model-based multi-agent collaboration .
+
+International Conference on Learning Representations (ICLR) .
+
+Note: arXiv:2406.07155 
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§X ,
+§II ,
+§IX .
+
+[13] 
+W. Ren and R. W. Beard (2005) 
+
+Consensus seeking in multiagent systems under dynamically changing interaction topologies .
+
+IEEE Transactions on Automatic Control 50 ( 5 ), pp. 655–661 .
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II .
+
+[14] 
+T. Salimans, J. Ho, X. Chen, S. Sidor, and I. Sutskever (2017) 
+
+Evolution strategies as a scalable alternative to reinforcement learning .
+
+arXiv preprint arXiv:1703.03864 .
+
+Note: arXiv:1703.03864 
+
+External Links: Link 
+
+Cited by: Appendix A .
+
+[15] 
+M. M. Seron, J. H. Braslavsky, and G. C. Goodwin (1997) 
+
+Fundamental limitations in filtering and control .
+
+Springer , London .
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§II .
+
+[16] 
+O. J. M. Smith (1957) 
+
+Closer control of loops with dead time .
+
+Chemical Engineering Progress 53 ( 5 ), pp. 217–219 .
+
+Note: The Smith predictor 
+
+External Links: Link 
+
+Cited by: §II .
+
+[17] 
+Y. Su and J. Huang (2012) 
+
+Cooperative output regulation of linear multi-agent systems .
+
+IEEE Transactions on Automatic Control 57 ( 4 ), pp. 1062–1066 .
+
+External Links: Document ,
+Link 
+
+Cited by: §II .
+
+[18] 
+D. Tran and D. Kiela (2026) 
+
+Single-agent LLMs outperform multi-agent systems on multi-hop reasoning under equal thinking token budgets .
+
+Note: arXiv:2604.02460 
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§X ,
+§II ,
+§IX .
+
+[19] 
+J. Xu Y. Ding et al. (2026) 
+
+Rethinking the value of multi-agent workflow: a strong single agent baseline .
+
+Note: arXiv:2601.12307 
+
+External Links: Document ,
+Link 
+
+Cited by: §I ,
+§X ,
+§II ,
+§IX .
+
+Oleksandr Kuznetsov 
+(Member, IEEE) is an Associate Professor at the Department of Theoretical and
+Applied Sciences, eCampus University, Italy, and a Full Professor at the
+Department of Intelligent Software Systems and Technologies, V.N. Karazin Kharkiv
+National University, Ukraine.
+His distinguished career spans over two decades with leadership roles across
+academia, industry, and defense sectors.
+Professor Kuznetsov’s research expertise encompasses applied cryptography,
+post-quantum security, blockchain and decentralized systems, artificial
+intelligence in cybersecurity, biometric authentication, steganography, and IoT
+security. 
+
+Emanuele Frontoni 
+(Member, IEEE) is a Full Professor of computer science with the University of
+Macerata and the Co-Director of the VRAI Vision Robotics & Artificial
+Intelligence Lab.
+His research interests include computer vision and artificial intelligence with
+applications in robotics, video analysis, human behavior analysis, extended
+reality and digital humanities.
+He is the author of over 230 international articles and collaborates with numerous
+national and international companies in technology transfer and innovation
+activities.
+He has been program chair or general chair of various international conferences
+and summer schools (e.g. IEEE/ASME MESA 2016 and 2017, IEEE ECMR 2017, BigDat
+2020, DeepLearn 2021) and co-organizer of many international workshops (e.g. DeepRetail@ICPR 2020, D2CH@CVPR 2021, AI4DH@ICIAP 2022). 
+
+Experimental support, please
+view the build logs 
+for errors. Generated by
+
+L
+A 
+T
+E 
+
+xml 
+
+.
+
+Instructions for reporting errors 
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below: 
+
+Click the "Report Issue" ( 
+
+) button, located in the page header. 
+
+Tip: You can select the relevant text first, to include it in your report. 
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all. 
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . 
+
+We gratefully acknowledge support from
+our major funders ,
+member institutions , ,
+and all contributors.
+
+About 
+&middot; 
+Help 
+&middot; 
+Contact 
+&middot; 
+Subscribe 
+&middot; 
+Copyright 
+&middot; 
+Privacy 
+&middot; 
+Accessibility 
+&middot; 
+Operational Status (opens in new tab) 
+
+Major funding support from

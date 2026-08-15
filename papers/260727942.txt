@@ -1,0 +1,1034 @@
+Scaling LLM-Driven Multi-Agent Systems:Design Principles and Architectural Scalability Analysis 
+
+Report GitHub Issue 
+× 
+
+Title: 
+
+Content selection saved. Describe the issue below: 
+
+Description: 
+
+Submit without GitHub 
+Submit in GitHub 
+
+arXiv is now an independent nonprofit! 
+Learn more 
+&times; 
+
+Back to arXiv 
+
+Why HTML? 
+
+Report Issue 
+
+Back to Abstract 
+
+Download PDF 
+
+Abstract 
+
+I Introduction 
+
+II Background and Related Work 
+
+II-A LLM-Based Multi-Agent Systems 
+
+II-B Multi-Agent Systems for Software Engineering 
+
+II-C Scaling Behavior of Multi-Agent Systems 
+
+III Design Principles 
+
+IV Reference Architecture 
+
+IV-A Group Chat of Summaries 
+
+IV-B Directed Workflow with Optional Loops 
+
+V Experimental Design 
+
+V-A Benchmark and Environment 
+
+V-B Agent Roles and Prompt Design 
+
+V-C Models 
+
+V-D Scaling Configurations 
+
+V-E Metrics 
+
+V-F Procedure 
+
+VI Results 
+
+VI-A Accuracy 
+
+VI-B Consistency 
+
+VI-C Costs 
+
+VI-D Loop utilization 
+
+VII Discussion 
+
+LLM capability as a prerequisite 
+
+Peak performance at intermediate complexity 
+
+Consistency as the central bottleneck 
+
+Implications for practice 
+
+VIII Conclusion 
+
+References 
+
+License: arXiv.org perpetual non-exclusive license
+
+arXiv:2607.27942v1 [cs.MA] 30 Jul 2026 
+
+Scaling LLM-Driven Multi-Agent Systems:
+
+Design Principles and Architectural 
+
+Scalability Analysis 
+
+Linus Sander
+
+Thanks:  Linus Sander and Fengjunjie Pan contributed equally to this work.
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+   
+Fengjunjie Pan
+
+Thanks:  Linus Sander and Fengjunjie Pan contributed equally to this work.
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+   
+Vahid Zolfaghari
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+   
+Andre Schamschurko
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+   
+Nenad Petrovic
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+   
+
+   
+Alois Knoll
+
+Affiliation:  The authors are with Robotics, Artificial Intelligence and Real-Time Systems, School of Computation, Information and Technology, Technical University of Munich, Munich, Germany. {linus.sander, f.pan, v.zolfaghari, andre.schamschurko, nenad.petrovic, k}@tum.de.
+
+Abstract 
+
+LLM based multi-agent systems have the potential to enable collective intelligence and scale toward solving highly complex tasks through coordinated ensembles of specialized agents. However, despite their theoretical potential, the architectural design space remains largely non-systematized and lacks broadly established design principles. Furthermore, the scalability characteristics of such systems are only partially understood so far.
+This paper makes two contributions. We first distill four design principles for scalable MAS architectures from a structured analysis of prior work: simplicity, elastic feedback, sequential workflows with optional loops, and summary-based communication. We operationalize these principles in a reference architecture whose topology is formalized as a constrained directed workflow graph, and we evaluate four configurations of increasing complexity on a standardized benchmark of terminal-based system engineering tasks using two LLMs of differing capability.
+Our findings show that scaling yields measurable accuracy improvements with approximately linear cost growth, but only when the underlying LLM exceeds a minimum capability threshold. Performance peaks at intermediate complexity, then degrades due to timeouts and evaluation limitations. In addition, persistent consistency issues emerge as a central challenge across all scaling levels. These results provide concrete design guidance for practitioners and highlight consistency and evaluation standardization as key targets for future research. 
+
+I Introduction 
+
+Building intelligent agent systems has been a longstanding goal in AI research  [ 37 , 19 ] , and the rapid maturation of large language models (LLMs) has marked a significant step toward achieving it  [ 48 ] . The world knowledge embedded in LLMs  [ 53 ] , advanced reasoning and planning capabilities  [ 1 ] and strong generalizability  [ 4 ] make them powerful foundations for autonomous decision-making and qualify them as natural core controllers in modern agent systems  [ 46 ] . Augmented with memory, sensors, and actuators, LLM based agents represent a promising path toward truly autonomous systems capable of handling complex, uncertain environments  [ 52 , 27 ] . 
+
+However, a single agent remains fundamentally bounded: its working memory is constrained by the LLM’s context window  [ 17 ] , its single perspective reduces robustness  [ 14 ] , and sequential operation imposes a ceiling on task following  [ 26 ] and parallelism  [ 21 ] . These constraints, together with the rich communication capabilities of modern LLMs  [ 8 ] and insights from collective intelligence (CI) and human collaboration, motivate the shift to multi-agent systems (MAS)  [ 11 ] . The principle is simple: multiple specialized agents communicate with each other and reason collectively toward a shared objective  [ 23 ] . 
+
+Fig. 1: Example of a multi-agent system lifecycle. 
+
+Yet, designing an effective and robust MAS that is applicable to real-world domains remains a substantial engineering challenge  [ 5 ] . The design space is vast, spanning communication topologies, agent specialization, workflow orchestration, and memory architectures  [ 24 ] , and no consensus has emerged on consistent approaches to constructing robust and generalizable systems  [ 13 ] . Moreover, scaling agent systems to increase capability inevitably grows complexity, giving rise to new failure modes: communication overload  [ 50 ] , inter-agent inconsistency  [ 3 ] , loss of efficiency  [ 5 ] , and loss of system-wide task alignment  [ 13 ] . Prior scaling studies examine individual dimensions such as agent count  [ 15 , 35 ] or debate rounds  [ 6 ] and consistently report bounded, architecture-dependent benefits, yet a systematic characterization of how accuracy, cost, and reliability jointly evolve under principled architectural scaling is still missing. 
+
+This paper makes four contributions. First, we derive four literature-grounded design principles for scalable MAS architectures. Second, we present a reference architecture that operationalizes these principles through summary-based group communication and a formally constrained directed workflow graph with agent-controlled feedback loops. Third, we report an empirical scalability analysis across four configurations and two model tiers, characterizing accuracy, cost, consistency, and feedback loop utilization. Fourth, we distill our findings into actionable design guidance and identify run-to-run consistency as the central open problem for production-grade MAS. 
+
+II Background and Related Work 
+
+II-A LLM-Based Multi-Agent Systems 
+
+LLM-based agents operate through an iterative observation–reasoning–action loop and are commonly augmented with role instructions, tools, memory, and feedback mechanisms  [ 52 , 44 , 39 ] . Multi-agent systems (MAS) extend this architecture by distributing responsibilities across agents that coordinate toward a shared objective  [ 11 , 40 ] . 
+
+Two architectural dimensions are particularly relevant  [ 24 ] . Agent profiles define roles, responsibilities, tool access, and positions in the workflow  [ 23 , 15 ] , while the communication strategy determines which agents interact, what information they exchange, and how control moves through the system  [ 50 ] . Common structures include sequential, hierarchical, debate-based, and group communication topologies, with coordination mechanisms such as peer feedback, debate, and leader orchestration  [ 10 , 27 ] . However, additional interaction can introduce redundant information and coordination overhead  [ 6 ] . MAS performance therefore depends not only on agent count, but also on how roles and information flows are organized for the task  [ 13 ] . 
+
+II-B Multi-Agent Systems for Software Engineering 
+
+Software engineering (SE) is well suited to agent-based collaboration because tasks can be decomposed across roles and evaluated through executable feedback. Tests, runtime errors, and static-analysis results provide signals for iterative repair, making testing and review common components of SE-oriented MAS  [ 9 , 49 , 18 ] . 
+
+Existing systems range from role-rich workflows, such as MetaGPT , ChatDev , and AgileCoder   [ 15 , 34 , 30 ] , to more minimal approaches, including AutoCodeRover , Agentless , and SWE-agent   [ 49 , 51 ] . The latter show that strong search, editing, and execution capabilities can rival more elaborate agent organizations. Terminal-based coding agents further extend this setting to interactive system-engineering tasks in which agents inspect unfamiliar environments, execute tools, interpret feedback, and revise their plans  [ 2 , 32 ] . This tool-rich setting forms the evaluation domain of our study. 
+
+II-C Scaling Behavior of Multi-Agent Systems 
+
+MAS can be scaled through agent count, communication rounds, feedback-loop depth, and repeated planning or reflection  [ 42 ] . Prior work reports improvements from additional agents or coordination  [ 15 , 35 ] , but these gains are often bounded. In debate-based systems, performance may plateau or decline as communication becomes redundant and context becomes saturated  [ 6 , 25 ] . Dynamic agent generation and repeated repair workflows similarly show that scaling benefits depend on the underlying architecture and task  [ 33 , 18 , 50 ] . 
+
+Most prior studies vary a single scaling dimension, focus on static reasoning benchmarks, and report average task success. It therefore remains unclear how accuracy, cost, communication load, and run-to-run consistency jointly change as a coherent MAS architecture is scaled in an interactive, tool-rich environment. We address this gap by evaluating progressively more complex configurations within a shared reference architecture. 
+
+III Design Principles 
+
+Four design principles, drawing on the survey findings presented above, form a foundation for scalable MAS architectures. 
+
+P1 (Simplicity): MAS design often yields unnecessarily complex systems, a tendency considered a poor design pattern. It undermines transparency, coordination efficiency, real-world applicability, and rigorous evaluation  [ 5 , 30 , 20 ] . Minimalistic approaches challenge this tendency directly: designs such as Agentless and the Mini SWE-Agent  [ 41 ] demonstrate that simplicity is fully compatible with strong performance. Architectural complexity should therefore be introduced incrementally and only where empirical need has been established. 
+
+P2 (Elastic feedback): Feedback, in all its forms, is one of the most fundamental mechanisms for enhancing MAS performance  [ 12 , 8 , 27 ] . Effective systems must be able to adapt to increasing task complexity without sacrificing efficiency on simpler tasks  [ 16 , 44 ] , and defining principled termination conditions remains an open challenge  [ 14 ] .
+In MAS debate architectures, additional debate rounds tend to help only up to a point, with the optimum depending on architecture and task  [ 3 , 42 ] . Similarly, practitioners developing SE-domain MASs highlight the importance of designing flexible feedback cycles  [ 30 , 18 , 34 ] .
+Ultimately, the optimal number of feedback cycles is task-dependent and cannot be predetermined. Architectures should let individual agents assess at runtime whether further feedback is warranted, dynamically balancing refinement with forward progress. 
+
+P3 (Sequential workflow with optional loops): Scaling collaborating agents requires careful orchestration  [ 11 ] and a communication strategy that sustains rising volume  [ 14 , 27 , 50 ] . Furthermore, the system’s topology and workflow must dynamically accommodate tasks of varying complexity while avoiding overload and interaction chaos   [ 5 , 12 ] . Yet, overly dynamic and flexible topologies, may undermine consistency and robustness, and can drive up token costs  [ 40 , 42 ] .
+Focusing on a specific domain helps clarify the task structure, environment, useful agent roles, and typical workflow phases and feedback loops. This approach has proven effective in the SE domain  [ 30 , 34 ] .
+We argue that, given a clear understanding of the target domain, one can construct a primarily sequential workflow with selectively inserted loops back to earlier stages. This yields a topology that balances stability and adaptability: the core workflow stays fixed, while feedback loops add flexibility where needed. The shortest path handles simple tasks efficiently and loops accommodate complex cases. 
+
+P4 (Summary-based communication): Scaling an MAS increases agents, interactions, and communication volume, making information overload and LLM context limits a real concern. During its turn, an agent reasons, uses tools, and iterates internally. None of these detailed action traces or full reasoning chains should be shared with subsequent agents. Instead, once the agent completes its work, it should share only a concise natural-language summary with the next agents to come. This preserves communication flexibility while suppressing noise propagation. 
+
+IV Reference Architecture 
+
+The proposed framework operationalizes P1–P4 through two core components: a shared communication channel of agent summaries and a set of topology design rules. 
+
+IV-A Group Chat of Summaries 
+
+A shared group chat channel serves as the central repository for all inter-agent information. Upon completing its sub-task, each agent contributes a natural-language summary to this channel. The instruction is minimal by design, agents are simply told to write a summary of what they did when finished or stuck, granting expressive freedom through unconstrained natural language while mitigating unnecessary chatter. Subsequent agents receive the full accumulated group chat history as context, ensuring coherence and avoiding redundant work within a shared execution environment  [ 13 ] . Since every agent produces one summary per step in the sequential workflow, the overall context grows linearly. 
+
+Figure  1 illustrates the straightforward process: the chat is initialised with the user’s task; the active agent reads all prior messages, performs its work, and appends a summary; the next agent then inherits this enriched context. 
+
+This design directly realises P1 and P4. The group chat also doubles as a concise progress overview and a natural entry point for human feedback: any message added by a user becomes part of the shared context and is automatically available to all subsequent agents. While summaries and shared message pools are well-established in MAS design  [ 15 , 25 , 30 , 34 ] , our approach is distinguished by their combination with a sequential workflow and fully unfiltered context access. 
+
+IV-B Directed Workflow with Optional Loops 
+
+A well-designed workflow is crucial for MAS efficiency and for ensuring smooth collaboration among agents  [ 5 , 13 ] . Based on principles P1–P3, we establish a set of general rules for topology design. 
+
+The topology is defined as a directed graph G w = ( A , E , s , T ) G_{w}=(A,E,s,T) , where A A is a non-empty set of individual agents (vertices), E E is a set of directed edges defining the workflow, s ∈ A s\in A is the designated start agent (first invoked after task submission), and T ⊆ A T\subseteq A , | T | > 0 |T|>0 , is the set of terminal agents. Each edge connects two distinct agents, ∀ ( u , v ) ∈ E : u , v ∈ A ∧ u ≠ v \forall\,(u,v)\in E:\;u,v\in A\wedge u\neq v , and the graph satisfies three structural constraints: 
+
+• 
+
+Each non-terminal agent has at least one successor: ∀ u ∈ A ∖ T : | { ( u , v ) ∈ E } | ≥ 1 \forall\,u\in A\setminus T:\;|\{(u,v)\in E\}|\geq 1 . 
+
+• 
+
+Each non-start agent is reachable: ∀ v ∈ A ∖ { s } : | { ( u , v ) ∈ E } | ≥ 1 \forall\,v\in A\setminus\{s\}:\;|\{(u,v)\in E\}|\geq 1 . 
+
+• 
+
+Each agent has at most three successors: ∀ u ∈ A : | { ( u , v ) ∈ E } | ≤ 3 \forall\,u\in A:\;|\{(u,v)\in E\}|\leq 3 . 
+
+These simple rules ensure a controlled yet flexible workflow and align naturally with the group chat strategy. However, one important mechansim remains to be specified: how and when is the next agent selected? This is delegated to the agents themselves. Each agent decides when its sub-task is done and which successor to activate. Depending on the topology, this may involve a single fixed successor or a choice among several possible next agents. Candidates are described in the system prompt, and the agent signals its choice via a tag [<next_agent>] in its final summary. A parser detects the tag, posts the summary to the chat, and triggers the next agent. 
+
+We propose that combining a group chat communication mechanism, built on natural language summaries, with a sequential workflow enriched by optional loops forms a robust communication architecture well suited for scaling MASs and operating in complex environments. 
+
+The linearly growing group chat mitigates exploding context sizes, and the use of concise natural language summaries preserves expressiveness and maintains efficient information flow. Moreover, incorporating loops and allowing agents to locally decide whom to call next, enables workflows that adjust dynamically to progress and task difficulty. At the same time, the existence of a defined shortest path from the initial to the final agent ensures a minimal, reliable workflow, for maintaining quality and coherent collaboration. 
+
+V Experimental Design 
+
+In this section, we describe the benchmark, agent specifications, models, system configurations, metrics, and procedure of the scalability analysis. 
+
+V-A Benchmark and Environment 
+
+All configurations are evaluated on terminal-bench  [ 29 ] , a benchmark of more than 80 end-to-end system engineering tasks within a terminal environment. The tasks range from basic OS operations to complex server management workflows and SE challenges. Each task is executed within an isolated Docker environment, providing controlled and reproducible conditions backed by automated, verifiable succeass criteria. The domain requires multi-turn reasoning and interaction, as well as exploration of an initially unfamiliar environment, making it well-suited for meaningful agent evaluation  [ 52 , 26 ] . 
+
+An effective interface is fundamental to building a successful and practically useful agent, and primarily involves designing robust tools that equip the agent with straightforward and reliable capabilities  [ 27 , 36 , 38 ] . For this experimental study, four tools were developed: 
+
+• 
+
+Shell tool: executes a single Bash command in a non-persistent environment 
+
+• 
+
+Terminal tool: maintains a persistent tmux session, accepts arbitrary keystrokes, and returns a full 128 × \times 16 terminal window 
+
+• 
+
+Python tool: allows the definition and execution of complete Python scripts 
+
+• 
+
+Search tool: based on LangChain’s DuckDuckGoSearch , queries the web and returns the top four results. 
+
+V-B Agent Roles and Prompt Design 
+
+In our MASs, agent profiling is realised entirely through system prompt design. We drew inspiration from existing work in which full system prompts for MAS setups have been disclosed and analysed  [ 9 , 15 , 26 , 34 ] . 
+
+Each prompt was developed through an iterative cycle of drafting, LLM-assisted refinement, and evaluation via manual runs in a local Docker environment using simple test scripts. To ensure robustness against model variation  [ 7 , 44 ] , multiple LLMs were consulted across iterations, while also trying to keep prompts simple, generalisable, and focused on the target domain. 
+
+All prompts follow a block-wise Markdown structure: a context block outlining the task environment; a task description block specifying the agent’s role responsibilities and topology position; and an operational rules block comprising tool execution guidance, termination behaviour and additional operating rules motivated by established prompting concepts  [ 22 , 47 ] 
+
+V-C Models 
+
+We evaluate three LLMs of differing scale from the same model family: GPT-5-nano and GPT-5-mini as smaller models, and GPT-5.3-Codex as a state-of-the-art model. Holding the model family constant isolates the effect of base model capability from vendor-specific differences in behaviour. All three models are optimised for tool use  [ 31 ] and are also used by other agents on the terminl-bench leaderboard. Moreover, the GPT model suite has proven effective across multiple MAS setups  [ 12 ] and has demonstrated strong code generation quality  [ 9 ] . 
+
+V-D Scaling Configurations 
+
+To support the scaling study’s objectives, four MAS topologies of progressively increasing architectural complexity were instantiated following the proposed reference architecture. The central aim is to examine how growing levels of task decomposition and feedback-loop complexity influence collective reasoning dynamics in a MAS. The configurations scale incrementally from a single-agent baseline, with each step adding two agents and two feedback loops. Figure  2 shows the MAS-S and MAS-M configurations as examples. 
+
+Singleton (1 agent, 0 loops): A single agent uses all available tools to solve the terminal task end-to-end, with no group chat or topology needed. As a well-designed MAS is expected to outperform single-agent systems  [ 8 , 6 ] , it serves as our single-agent baseline. 
+
+MAS-S (3 agents, 1 loop): The Solver handles the full task, and the Tester evaluates the result, deciding whether to return control to the Solver for revision or pass the solution to the Summarizer. This loop exemplifies a guided yet elastic workflow, repeated as often as the Tester seems necessary. 
+
+MAS-M (5 agents, 3 loops): An Explorer conducts structured environment investigation before implementation begins, providing the Solver with an informed starting state, inspired by the localization and retrieval phases of minimalistic repository agents  [ 49 , 51 ] . The Solver–Tester pairing from MAS-S is retained. An Approver agent makes a final holistic assessment downstream, with loop options back to both Solver and Tester. This adds quality assurance against inadequate verification and early termination  [ 5 , 14 ] , mitigates Tester bias  [ 45 ] . 
+
+MAS-L (7 agents, 5 loops): The solving phase is decomposed into a Sub-Task Planner and a Sub-Task Solver, separating planning from execution. The Planner may loop back to the Explorer for additional information gathering if needed. Following implementation, the system enters a Tester–Refiner–Approver loop, mirroring MAS-M but applied exclusively to the refinement phase. This introduces the most extensive task decomposition among the configurations, potentially enabling deeper SE refinement  [ 14 ] . 
+
+Fig. 2: Setups of reference MAS systems 
+
+V-E Metrics 
+
+When benchmarking agents, accuracy is typically the primary metric, as it directly measures the task success rate  [ 38 ] . However, focusing solely on accuracy tends to produce overly complex and costly agents that are impractical for real-world deployment  [ 20 ] . Meaningful evaluation must therefore consider multiple cost aspects and behavioral metrics to obtain a realistic understanding of an agent system’s efficiency and robustness  [ 14 , 27 ] . Additional metrics recorded: 
+
+Test-weighted accuracy : In terminal-bench, a task’s reward is 0 if any of its unit tests fail. This hides important nuances of the agent’s accuracy, like partial success when passing four of five tests. We therefore compute an additional accuracy metric as the fraction of passed unit tests per trial, and refer to the average across all tasks as test-weighted accuracy . 
+
+Costs : In practical deployments, actual monetary costs and execution time become important factors  [ 27 ] . To capture a more meaningful performance profile, the costs analysis comprises: the number of LLM calls, prompt and completion tokens, as well as the systems’s overall execution time. 
+
+Consistency : Running each agent–model configuration multiple times enables us to assess consistency. For every configuration, we can identify the tasks solved in at least one run. We then further divide this set into tasks solved by only one run, by two runs, and so forth. This breakdown offers insight into the reliability of the agents’ performance. 
+
+Loop utilization : Evaluating the topology designs requires detailed inspection of actual agent execution sequences. In particular, we examine whether agents engage the elastic looping mechanisms at all. Loop usage is therefore tracked throughout evaluation. 
+
+V-F Procedure 
+
+For GPT-5-mini and GPT-5-nano, each agent system pairing was evaluated across three to five terminal-bench runs. As MAS-M yielded the strongest results for both models, it was run five times to meet the requirements for official submission to the terminal-bench 2.0 leaderboard. To provide a state-of-the-art reference point, the MAS-M and GPT-5.3-Codex pairing was likewise evaluated over five runs. 
+
+VI Results 
+
+In this section, we report the results of the scalability analysis, structured along the discussed metrics. Table  I summarizes the main outcomes. 
+
+VI-A Accuracy 
+
+Figure 3 provides an aggregated view of all GPT-5-mini and GPT-5-nano runs, showing the accuracy computed as the proportion of successful out of the total number of trials. The result for every agent–model pairing is plotted, complemented by a dashed line to highlight the general mean accuracy trend. For reference, horizontal lines in matching colors indicate the performance of the leading agents on the official terminal-bench leaderboard, as retrieved on 21 July 2026. In addition, alongside the accuracy line plots, the relative accuracy gains for each scaling step are visualized as separate bar plots. 
+
+For GPT-5-mini, accuracy improves across each scaling step from Singleton to MAS-M. The Singleton to MAS-S transition produced the largest single gain (15.2% relative), reflecting the shift from a single to multi-agent system. MAS-M achieved peak accuracy, surpassing the top single-agent system on the public terminal-bench leaderboard. MAS-L, however, does not maintain the positive trend and showed accuracy below MAS-S, substantially driven by execution timeout violations. For GPT-5-nano, no consistent scaling trend appeared: accuracy remained nearly flat across all four configurations. 
+
+The test-weighted accuracy reproduces the general GPT-5-mini scaling pattern, though less pronounced: the Singleton to MAS-S gain drops from 15.2% to 3.0%. MAS-M remains best ( μ = 0.543 \mu=0.543 , σ = 0.024 \sigma=0.024 ), followed by MAS-S ( μ = 0.530 \mu=0.530 , σ = 0.037 \sigma=0.037 ), MAS-L ( μ = 0.518 , σ = 0.013 \mu=0.518,\sigma=0.013 ), and Singleton ( μ = 0.514 \mu=0.514 , σ = 0.014 \sigma=0.014 ). For GPT-5-nano, performance rises from Singleton ( μ = 0.328 \mu=0.328 , σ = 0.072 \sigma=0.072 ) to a peak at MAS-M ( μ = 0.351 \mu=0.351 , σ = 0.029 \sigma=0.029 ) and drops to μ = 0.320 \mu=0.320 ( σ = 0.114 \sigma=0.114 ) at MAS-L. 
+
+Additionally, the five MAS-M runs using GPT-5.3-codex yielded a mean accuracy of μ = 0.715 \mu=0.715 , placing the configuration in the middle of the field among all GPT-5.3-codex based agents on the official terminal-bench leaderboard. This demonstrates that the proposed architecture is competitive with other state-of-the-art agents. 
+
+Fig. 3: Accuracy across agent-system scaling steps. 
+
+VI-B Consistency 
+
+Figure  4 evaluates task-solving consistency across runs. Bar height shows the number of tasks solved by at least one run per model–agent combination, and segments show how many runs solved them. The dotted black line visualizes the number of tasks solved by at least one run but not by any lower-ranked agent before. The term lower-ranked refers to less scaled agents. For example, Singleton and MAS-S are considered lower-ranked than MAS-M. 
+
+In the GPT-5-mini experiments, the Singleton solved 38 of 89 unique tasks at least once across three runs. This increases up to MAS-M to 47 before dropping to 39 for MAS-L. Tasks solved by an agent that have never been solved by any lower-ranked agent, fall from 8 (MAS-S) to 6 (MAS-M) to 2 (MAS-L). In addition, the segmented bars reveal that fewer than half of each agent’s solved tasks were solved consistently across all runs. 
+
+For GPT-5-nano, consistency is notably lower: Singleton and MAS-S each solved two tasks across all runs, MAS-M and MAS-L only one. Moreover, the majority of tasks that were solved in just one of the three runs. Regarding tasks uniquely solved at each scaling level, MAS-S reached 8 tasks not solved by the Singleton, while MAS-M achieved 1 and MAS-L achieved 3. 
+
+Fig. 4: Task-solving consistency across agent runs. 
+
+VI-C Costs 
+
+Costs scaled approximately linearly with architectural complexity for both models. LLM call count, completion tokens, and execution time all increased steadily from Singleton to MAS-L. Beyond this, AgentTimeout errors, triggered when terminal-bench interrupts an agent for exceeding the task timeout, rise with complexity for both models, from Singleton ( μ = 3.33 \mu=3.33 for GPT-5-mini and μ = 1.00 \mu=1.00 for GPT-5-nano) to MAS-L ( μ = 50.00 \mu=50.00 for GPT-5-mini and μ = 37.67 \mu=37.67 for GPT-5-nano), with the largest jumps at Singleton→MAS-S and MAS-M→MAS-L. 
+
+VI-D Loop utilization 
+
+In MAS-S, the single Tester–Solver loop is used more often with GPT-5-nano than GPT-5-mini: 71.9% of GPT-5-mini trials (120/167) use no loop, versus 51.1% (92/180) for GPT-5-nano. 
+
+MAS-M adds two more loops starting from the Approver and returning to the Tester or Solver. As with MAS-S, a larger share of GPT-5-mini trials uses no loop (180 of 257; 70.0%), while the proportion is lower for GPT-5-nano (74 of 164; 45.1%). The Tester–Solver loop remains the most frequently used, whereas the two Approver-based loops are engaged considerably less often (only in 19 GPT-5-mini and 14 GPT-5-nano task runs). 
+
+In MAS-L, nearly all trials use at least one loop, dominated by the SubTaskSolver–SubTaskPlanner loop. The SubTaskPlanner–Explorer return loop appears more often with GPT-5-nano, and the Refiner–Tester loop is triggered only in 20 (nano) and 17 (mini) times. The Approver loops are rare (once or twice per model), with the Approver–Tester loop never triggered for GPT-5-nano. 
+
+TABLE I: 
+Summary of scaling results.
+Cost trends are based on the average number of completion tokens.
+Consistency (%) is the share of solved tasks solved in all runs.
+
+Model 
+System 
+Accuracy 
+Acc. Δ \Delta 
+Cost trend 
+Consistency 
+
+GPT-5 
+mini 
+
+Singleton 
+0.296 
+– 
+baseline 
+42% 
+
+MAS-S 
+0.341 
++ + 15.2% 
++ + 1 × \times 
+46% 
+
+MAS-M 
+0.348 
++ + 2.2% 
++ + 1.4 × \times 
+36% 
+
+MAS-L 
+0.315 
+− - 9.7% 
++ + 3.2 × \times 
+46% 
+
+GPT-5 
+nano 
+
+Singleton 
+0.097 
+– 
+baseline 
+11% 
+
+MAS-S 
+0.090 
+− - 7.7% 
++ + 1.1 × \times 
+11% 
+
+MAS-M 
+0.105 
++ + 16.7% 
++ + 1.6 × \times 
+5% 
+
+MAS-L 
+0.105 
++ + 0.0% 
++ + 3.4 × \times 
+5% 
+
+VII Discussion 
+
+In this section, we interpret the findings with respect to the research questions, relate them to documented MAS challenges, and derive implications for practice. 
+
+LLM capability as a prerequisite 
+
+The most significant finding is that architectural sophistication provides no benefit, and may increase cost, when the underlying LLM is insufficiently capable. The GPT-5-nano results demonstrate that agents can engage the communication infrastructure, trigger feedback loops, and consume tokens without producing meaningfully better solutions. MAS architectures amplify the capabilities of capable LLMs but cannot substitute for them. This aligns with failure analyses that identify the selection of an inappropriate or insufficiently capable LLM as a system-level failure source  [ 5 ] . Establishing base model adequacy before investing in architectural complexity is therefore the first practical design decision. 
+
+Peak performance at intermediate complexity 
+
+MAS performance peaked at intermediate architectural complexity (MAS-M: 5 agents, 3 loops) rather than at the most complex configuration (MAS-L: 7 agents, 5 loops). This aligns with the logistic scaling behavior identified by Qian et al.  [ 35 ] and peak-then-flatten patterns in debate-based MAS  [ 10 , 25 ] . Potential reasons are multifaceted: longer minimum execution paths increase timeout exposure; additional agents introduce more error propagation opportunities  [ 3 , 27 ] ; and feedback loops provide no benefit if the agents responsible for triggering them choose not to do so. 
+
+Consistency as the central bottleneck 
+
+The failure to improve run-to-run consistency across scaling configurations is the most practically consequential finding. Recent evidence confirms that MAS solutions are stochastic: the same agent system applied to the same task may succeed in one run and fail in another  [ 28 ] , and dedicated quality-assurance agents mitigate but do not eliminate this variability  [ 43 ] . Our results reproduce this pattern at every scaling level. A system that achieves higher mean accuracy on multi-run averages but cannot reliably solve individual tasks is of limited production value. The likely root cause is the tendency of downstream agents to accept and reinforce the framing established by upstream agents, mirroring the documented propagation of faulty responses between agents  [ 11 , 27 ] . When the Tester validates the Solver’s interpretation, the Approver has little basis to override their mutual agreement, even if both have adopted a subtly incorrect framing. Breaking this would require better quality-assurance agents configured with explicit adversarial instructions: to probe, challenge, and invoke feedback loops proactively. 
+
+Implications for practice 
+
+Our results translate into four practical guidelines: (1) establish LLM capability adequacy before investing in architectural complexity; (2) prefer simple architectures and expand them incrementally, monitoring the cost-accuracy tradeoff at each step; (3) design quality-assurance agents with adversarial rather than cooperative orientations; and (4) measure consistency alongside accuracy when evaluating MAS performance. 
+
+VIII Conclusion 
+
+In this paper, we investigated how architectural scaling affects the performance, cost, and reliability of LLM based multi-agent systems through a principle-guided empirical study. From a structured analysis of prior work on MAS design and scaling, we distilled four design principles for scalable architectures: simplicity (P1), elastic feedback (P2), sequential workflows with optional loops (P3), and summary-based communication (P4). We operationalized these principles in a reference architecture and instantiated four configurations of increasing complexity, from a single-agent baseline to a seven-agent system. All configurations were evaluated on a standardized terminal task benchmark using two LLMs of differing capability. Architectural scaling improved accuracy at approximately linear cost growth, but only above a minimum base model capability. Performance peaked at intermediate complexity, and run-to-run consistency remained below fifty percent of solved tasks across all configurations, identifying reliability rather than mean accuracy as the central obstacle to production-grade MAS. 
+
+References 
+
+[1] 
+J. Achiam, S. Adler, S. Agarwal, L. Ahmad, I. Akkaya, F. L. Aleman, D. Almeida, J. Altenschmidt, S. Altman, S. Anadkat, et al. (2023) 
+
+Gpt-4 technical report .
+
+arXiv preprint arXiv:2303.08774 .
+
+Cited by: §I .
+
+[2] 
+Anthropic (2025) Claude code (Website)
+
+Note: Accessed: Nov. 14, 2025 
+
+External Links: Link 
+
+Cited by: §II-B .
+
+[3] 
+J. Becker, L. B. Kaesberg, A. Stephan, J. P. Wahle, T. Ruas, and B. Gipp (2025) 
+
+Stay focused: problem drift in multi-agent debate .
+
+arXiv preprint arXiv:2502.19559 .
+
+Cited by: §I ,
+§III ,
+§VII .
+
+[4] 
+T. Brown, B. Mann, N. Ryder, M. Subbiah, J. D. Kaplan, P. Dhariwal, A. Neelakantan, P. Shyam, G. Sastry, A. Askell, et al. (2020) 
+
+Language models are few-shot learners .
+
+Advances in neural information processing systems 33 , pp. 1877–1901 .
+
+Cited by: §I .
+
+[5] 
+M. Cemri, M. Z. Pan, S. Yang, L. A. Agrawal, B. Chopra, R. Tiwari, K. Keutzer, A. Parameswaran, D. Klein, K. Ramchandran, et al. (2025) 
+
+Why do multi-agent llm systems fail? .
+
+arXiv preprint arXiv:2503.13657 .
+
+Cited by: §I ,
+§III ,
+§III ,
+§IV-B ,
+§V-D ,
+§VII .
+
+[6] 
+C. Chan, W. Chen, Y. Su, J. Yu, W. Xue, S. Zhang, J. Fu, and Z. Liu (2023) 
+
+Chateval: towards better llm-based evaluators through multi-agent debate .
+
+arXiv preprint arXiv:2308.07201 .
+
+Cited by: §I ,
+§II-A ,
+§II-C ,
+§V-D .
+
+[7] 
+A. Chatterjee, H. K. Renduchintala, S. Bhatia, and T. Chakraborty (2024) 
+
+Posix: a prompt sensitivity index for large language models .
+
+arXiv preprint arXiv:2410.02185 .
+
+Cited by: §V-B .
+
+[8] 
+W. Chen, Y. Su, J. Zuo, C. Yang, C. Yuan, C. Chan, H. Yu, Y. Lu, Y. Hung, C. Qian, et al. (2023) 
+
+Agentverse: facilitating multi-agent collaboration and exploring emergent behaviors .
+
+In The Twelfth International Conference on Learning Representations ,
+
+Cited by: §I ,
+§III ,
+§V-D .
+
+[9] 
+X. Chen, M. Lin, N. Schärli, and D. Zhou (2023) 
+
+Teaching large language models to self-debug .
+
+arXiv preprint arXiv:2304.05128 .
+
+Cited by: §II-B ,
+§V-B ,
+§V-C .
+
+[10] 
+Y. Du, S. Li, A. Torralba, J. B. Tenenbaum, and I. Mordatch (2023) 
+
+Improving factuality and reasoning in language models through multiagent debate .
+
+In Forty-first International Conference on Machine Learning ,
+
+Cited by: §II-A ,
+§VII .
+
+[11] 
+T. Guo, X. Chen, Y. Wang, R. Chang, S. Pei, N. V. Chawla, O. Wiest, and X. Zhang (2024) 
+
+Large language model based multi-agents: a survey of progress and challenges .
+
+arXiv preprint arXiv:2402.01680 .
+
+Cited by: §I ,
+§II-A ,
+§III ,
+§VII .
+
+[12] 
+X. Guo, K. Huang, J. Liu, W. Fan, N. Vélez, Q. Wu, H. Wang, T. L. Griffiths, and M. Wang (2024) 
+
+Embodied llm agents learn to cooperate in organized teams .
+
+arXiv preprint arXiv:2403.12482 .
+
+Cited by: §III ,
+§III ,
+§V-C .
+
+[13] 
+S. Han, Q. Zhang, Y. Yao, W. Jin, and Z. Xu (2024) 
+
+LLM multi-agent systems: challenges and open problems .
+
+arXiv preprint arXiv:2402.03578 .
+
+Cited by: §I ,
+§II-A ,
+§IV-A ,
+§IV-B .
+
+[14] 
+J. He, C. Treude, and D. Lo (2025) 
+
+LLM-based multi-agent systems for software engineering: literature review, vision, and the road ahead .
+
+ACM Transactions on Software Engineering and Methodology 34 ( 5 ), pp. 1–30 .
+
+Cited by: §I ,
+§III ,
+§III ,
+§V-D ,
+§V-D ,
+§V-E .
+
+[15] 
+S. Hong, M. Zhuge, J. Chen, X. Zheng, Y. Cheng, J. Wang, C. Zhang, Z. Wang, S. K. S. Yau, Z. Lin, et al. (2023) 
+
+MetaGPT: meta programming for a multi-agent collaborative framework .
+
+In The Twelfth International Conference on Learning Representations ,
+
+Cited by: §I ,
+§II-A ,
+§II-B ,
+§II-C ,
+§IV-A ,
+§V-B .
+
+[16] 
+X. Hou, Y. Zhao, Y. Liu, Z. Yang, K. Wang, L. Li, X. Luo, D. Lo, J. Grundy, and H. Wang (2024) 
+
+Large language models for software engineering: a systematic literature review .
+
+ACM Transactions on Software Engineering and Methodology 33 ( 8 ), pp. 1–79 .
+
+Cited by: §III .
+
+[17] 
+C. Hsieh, S. Sun, S. Kriman, S. Acharya, D. Rekesh, F. Jia, Y. Zhang, and B. Ginsburg (2024) 
+
+RULER: what’s the real context size of your long-context language models? .
+
+arXiv preprint arXiv:2404.06654 .
+
+Cited by: §I .
+
+[18] 
+D. Huang, J. M. Zhang, M. Luck, Q. Bu, Y. Qing, and H. Cui (2023) 
+
+Agentcoder: multi-agent-based code generation with iterative testing and optimisation .
+
+arXiv preprint arXiv:2312.13010 .
+
+Cited by: §II-B ,
+§II-C ,
+§III .
+
+[19] 
+N. R. Jennings, K. Sycara, and M. Wooldridge (1998) 
+
+A roadmap of agent research and development .
+
+Autonomous agents and multi-agent systems 1 ( 1 ), pp. 7–38 .
+
+Cited by: §I .
+
+[20] 
+S. Kapoor, B. Stroebl, Z. S. Siegel, N. Nadgir, and A. Narayanan (2024) 
+
+Ai agents that matter .
+
+arXiv preprint arXiv:2407.01502 .
+
+Cited by: §III ,
+§V-E .
+
+[21] 
+J. Y. Koh, R. Salakhutdinov, and D. Fried (2026) 
+
+Multi-agent computer use .
+
+arXiv preprint arXiv:2606.01533 .
+
+Cited by: §I .
+
+[22] 
+T. Kojima, S. S. Gu, M. Reid, Y. Matsuo, and Y. Iwasawa (2022) 
+
+Large language models are zero-shot reasoners .
+
+Advances in neural information processing systems 35 , pp. 22199–22213 .
+
+Cited by: §V-B .
+
+[23] 
+G. Li, H. Hammoud, H. Itani, D. Khizbullin, and B. Ghanem (2023) 
+
+Camel: communicative agents for” mind” exploration of large language model society .
+
+Advances in Neural Information Processing Systems 36 , pp. 51991–52008 .
+
+Cited by: §I ,
+§II-A .
+
+[24] 
+X. Li, S. Wang, S. Zeng, Y. Wu, and Y. Yang (2024) 
+
+A survey on llm-based multi-agent systems: workflow, infrastructure, and challenges .
+
+Vicinagearth 1 ( 1 ), pp. 9 .
+
+Cited by: §I ,
+§II-A .
+
+[25] 
+T. Liu, X. Wang, W. Huang, W. Xu, Y. Zeng, L. Jiang, H. Yang, and J. Li (2024) 
+
+Groupdebate: enhancing the efficiency of multi-agent debate using group discussion .
+
+arXiv preprint arXiv:2409.14051 .
+
+Cited by: §II-C ,
+§IV-A ,
+§VII .
+
+[26] 
+X. Liu, H. Yu, H. Zhang, Y. Xu, X. Lei, H. Lai, Y. Gu, H. Ding, K. Men, K. Yang, et al. (2023) 
+
+Agentbench: evaluating llms as agents .
+
+arXiv preprint arXiv:2308.03688 .
+
+Cited by: §I ,
+§V-A ,
+§V-B .
+
+[27] 
+T. Masterman, S. Besen, M. Sawtell, and A. Chao (2024) 
+
+The landscape of emerging ai agent architectures for reasoning, planning, and tool calling: a survey .
+
+arXiv preprint arXiv:2404.11584 .
+
+Cited by: §I ,
+§II-A ,
+§III ,
+§III ,
+§V-A ,
+§V-E ,
+§V-E ,
+§VII ,
+§VII .
+
+[28] 
+A. Mehta (2026) 
+
+When agents disagree with themselves: measuring behavioral consistency in llm-based agents .
+
+External Links: 2602.11619 ,
+Link 
+
+Cited by: §VII .
+
+[29] 
+M. A. Merrill, A. G. Shaw, N. Carlini, B. Li, H. Raj, I. Bercovich, L. Shi, J. Y. Shin, T. Walshe, E. K. Buchanan, et al. (2026) 
+
+Terminal-bench: benchmarking agents on hard, realistic tasks in command line interfaces .
+
+arXiv preprint arXiv:2601.11868 .
+
+Cited by: §V-A .
+
+[30] 
+M. H. Nguyen, T. P. Chau, P. X. Nguyen, and N. D. Bui (2025) 
+
+Agilecoder: dynamic collaborative agents for software development based on agile methodology .
+
+In 2025 IEEE/ACM Second International Conference on AI Foundation Models and Software Engineering (Forge) ,
+
+pp. 156–167 .
+
+Cited by: §II-B ,
+§III ,
+§III ,
+§III ,
+§IV-A .
+
+[31] 
+OpenAI (2025) GPT-5 system card (Website)
+
+Note: Accessed: Dec. 1, 2025 
+
+External Links: Link 
+
+Cited by: §V-C .
+
+[32] 
+OpenAI (2025) OpenAI codex (Website)
+
+Note: Accessed: Nov. 14, 2025 
+
+External Links: Link 
+
+Cited by: §II-B .
+
+[33] 
+R. R. Perera, A. Basnayake, and M. Wickramasinghe (2025) 
+
+Auto-scaling llm-based multi-agent systems through dynamic integration of agents .
+
+Frontiers in Artificial Intelligence 8 , pp. 1638227 .
+
+Cited by: §II-C .
+
+[34] 
+C. Qian, W. Liu, H. Liu, N. Chen, Y. Dang, J. Li, C. Yang, W. Chen, Y. Su, X. Cong, et al. (2024) 
+
+Chatdev: communicative agents for software development .
+
+In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 15174–15186 .
+
+Cited by: §II-B ,
+§III ,
+§III ,
+§IV-A ,
+§V-B .
+
+[35] 
+C. Qian, Z. Xie, Y. Wang, W. Liu, K. Zhu, H. Xia, Y. Dang, Z. Du, W. Chen, C. Yang, et al. (2024) 
+
+Scaling large language model-based multi-agent collaboration .
+
+arXiv preprint arXiv:2406.07155 .
+
+Cited by: §I ,
+§II-C ,
+§VII .
+
+[36] 
+J. Ruan, Y. Chen, B. Zhang, Z. Xu, T. Bao, G. Du, S. Shi, H. Mao, Z. Li, X. Zeng, et al. (2023) 
+
+TPTU: large language model-based ai agents for task planning and tool usage .
+
+arXiv preprint arXiv:2308.03427 .
+
+Cited by: §V-A .
+
+[37] 
+S. Russell (1998) 
+
+Learning agents for uncertain environments .
+
+In Proceedings of the eleventh annual conference on Computational learning theory ,
+
+pp. 101–103 .
+
+Cited by: §I .
+
+[38] 
+P. J. Sager, B. Meyer, P. Yan, R. von Wartburg-Kottler, L. Etaiwi, A. Enayati, G. Nobel, A. Abdulkadir, B. F. Grewe, and T. Stadelmann (2025) 
+
+Ai agents for computer use: a review of instructionbased computer control, gui automation, and operator assistants .
+
+arXiv preprint arXiv:2501.16150 .
+
+Cited by: §V-A ,
+§V-E .
+
+[39] 
+N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao (2023) 
+
+Reflexion: language agents with verbal reinforcement learning .
+
+Advances in Neural Information Processing Systems 36 , pp. 8634–8652 .
+
+Cited by: §II-A .
+
+[40] 
+Y. Talebirad and A. Nadiri (2023) 
+
+Multi-agent collaboration: harnessing the power of intelligent llm agents .
+
+arXiv preprint arXiv:2306.03314 .
+
+Cited by: §II-A ,
+§III .
+
+[41] 
+M. S. A. Team (2025) The 100 line ai agent that solves github issues and more (Website)
+
+Note: Accessed: Nov. 24, 2025 
+
+External Links: Link 
+
+Cited by: §III .
+
+[42] 
+A. Tillmann (2025) 
+
+Literature review of multi-agent debate for problem-solving .
+
+arXiv preprint arXiv:2506.00066 .
+
+Cited by: §II-C ,
+§III ,
+§III .
+
+[43] 
+V. Venkataramani, H. Shi, Z. Ke, A. Xu, X. He, Y. Zhou, S. Yavuz, H. Wang, and S. Joty (2026) 
+
+MAS-prove: understanding the process verification of multi-agent systems .
+
+External Links: 2602.03053 ,
+Link 
+
+Cited by: §VII .
+
+[44] 
+L. Wang, C. Ma, X. Feng, Z. Zhang, H. Yang, J. Zhang, Z. Chen, J. Tang, X. Chen, Y. Lin, et al. (2024) 
+
+A survey on large language model based autonomous agents .
+
+Frontiers of Computer Science 18 ( 6 ), pp. 186345 .
+
+Cited by: §II-A ,
+§III ,
+§V-B .
+
+[45] 
+P. Wang, L. Li, L. Chen, Z. Cai, D. Zhu, B. Lin, Y. Cao, L. Kong, Q. Liu, T. Liu, et al. (2024) 
+
+Large language models are not fair evaluators .
+
+In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 9440–9450 .
+
+Cited by: §V-D .
+
+[46] 
+W. Wang, Z. Ma, Z. Wang, C. Wu, J. Ji, W. Chen, X. Li, and Y. Yuan (2025) 
+
+A survey of llm-based agents in medicine: how far are we from baymax? .
+
+arXiv preprint arXiv:2502.11211 .
+
+Cited by: §I .
+
+[47] 
+J. Wei, X. Wang, D. Schuurmans, M. Bosma, F. Xia, E. Chi, Q. V. Le, D. Zhou, et al. (2022) 
+
+Chain-of-thought prompting elicits reasoning in large language models .
+
+Advances in neural information processing systems 35 , pp. 24824–24837 .
+
+Cited by: §V-B .
+
+[48] 
+Z. Xi, W. Chen, X. Guo, W. He, Y. Ding, B. Hong, M. Zhang, J. Wang, S. Jin, E. Zhou, et al. (2025) 
+
+The rise and potential of large language model based agents: a survey .
+
+Science China Information Sciences 68 ( 2 ), pp. 121101 .
+
+Cited by: §I .
+
+[49] 
+C. S. Xia, Y. Deng, S. Dunn, and L. Zhang (2025) 
+
+Demystifying llm-based software engineering agents .
+
+Proceedings of the ACM on Software Engineering 2 ( FSE ), pp. 801–824 .
+
+Cited by: §II-B ,
+§II-B ,
+§V-D .
+
+[50] 
+B. Yan, Z. Zhou, L. Zhang, L. Zhang, Z. Zhou, D. Miao, Z. Li, C. Li, and X. Zhang (2025) 
+
+Beyond self-talk: a communication-centric survey of llm-based multi-agent systems .
+
+arXiv preprint arXiv:2502.14321 .
+
+Cited by: §I ,
+§II-A ,
+§II-C ,
+§III .
+
+[51] 
+J. Yang, C. E. Jimenez, A. Wettig, K. Lieret, S. Yao, K. Narasimhan, and O. Press (2024) 
+
+Swe-agent: agent-computer interfaces enable automated software engineering .
+
+Advances in Neural Information Processing Systems 37 , pp. 50528–50652 .
+
+Cited by: §II-B ,
+§V-D .
+
+[52] 
+S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. R. Narasimhan, and Y. Cao (2022) 
+
+React: synergizing reasoning and acting in language models .
+
+In The eleventh international conference on learning representations ,
+
+Cited by: §I ,
+§II-A ,
+§V-A .
+
+[53] 
+J. Yu, X. Wang, S. Tu, S. Cao, D. Zhang-Li, X. Lv, H. Peng, Z. Yao, X. Zhang, H. Li, et al. (2023) 
+
+Kola: carefully benchmarking world knowledge of large language models .
+
+arXiv preprint arXiv:2306.09296 .
+
+Cited by: §I .
+
+Experimental support, please
+view the build logs 
+for errors. Generated by
+
+L
+A 
+T
+E 
+
+xml 
+
+.
+
+Instructions for reporting errors 
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below: 
+
+Click the "Report Issue" ( 
+
+) button, located in the page header. 
+
+Tip: You can select the relevant text first, to include it in your report. 
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all. 
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . 
+
+We gratefully acknowledge support from
+our major funders ,
+member institutions , ,
+and all contributors.
+
+About 
+&middot; 
+Help 
+&middot; 
+Contact 
+&middot; 
+Subscribe 
+&middot; 
+Copyright 
+&middot; 
+Privacy 
+&middot; 
+Accessibility 
+&middot; 
+Operational Status (opens in new tab) 
+
+Major funding support from

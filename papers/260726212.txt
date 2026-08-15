@@ -1,0 +1,3609 @@
+Multi-Agent Debate Strategies: Survey, Taxonomy, and Challenges 
+
+Report GitHub Issue 
+× 
+
+Title: 
+
+Content selection saved. Describe the issue below: 
+
+Description: 
+
+Submit without GitHub 
+Submit in GitHub 
+
+arXiv is now an independent nonprofit! 
+Learn more 
+&times; 
+
+Back to arXiv 
+
+Why HTML? 
+
+Report Issue 
+
+Back to Abstract 
+
+Download PDF 
+
+Abstract. 
+
+1 Introduction 
+
+2 Method 
+
+2.1 Definition and Scope 
+
+2.2 Search Strategy 
+
+2.3 Study Selection Criteria and Selection Process 
+
+2.4 Snowballing Procedure 
+
+2.5 Search and Selection Results 
+
+3 Research Landscape 
+
+3.1 Application Domains 
+
+3.2 Tasks 
+
+4 Participants 
+
+4.1 Personas 
+
+4.1.1 Attributes 
+
+4.1.2 Heterogeneity 
+
+4.1.3 Assignment 
+
+4.2 Roles 
+
+4.3 Base Model 
+
+4.3.1 Model family 
+
+4.3.2 Heterogeneity 
+
+5 Interaction 
+
+5.1 Topology 
+
+5.1.1 Adaptability 
+
+5.1.2 Structure 
+
+5.2 Protocol 
+
+5.2.1 Mechanism 
+
+5.3 Format 
+
+5.3.1 Syntax 
+
+5.3.2 Content 
+
+5.3.3 Memory access 
+
+6 Agreement 
+
+6.1 Authority 
+
+6.2 Resolution 
+
+7 Discussion 
+
+8 Threats to Validity 
+
+9 Conclusions 
+
+References 
+
+License: arXiv.org perpetual non-exclusive license
+
+arXiv:2607.26212v1 [cs.SE] 28 Jul 2026 
+
+\acmArticleType 
+
+Review 
+
+Multi-Agent Debate Strategies: Survey, Taxonomy, and Challenges CCS:  Computing methodologies Multi-agent systems CCS:  Computing methodologies Intelligent agents CCS:  Computing methodologies Discourse, dialogue and pragmatics CCS:  General and reference Surveys and overviews 
+
+Quim Motger
+
+Affiliation:  Dpt. of Service and Information System Engineering, Universitat Politècnica de Catalunya 
+,  Barcelona 
+,  Spain 
+
+email: joaquim.motger@upc.edu 
+
+, 
+Marc Oriol
+
+Affiliation:  Dpt. of Service and Information System Engineering, Universitat Politècnica de Catalunya 
+,  Barcelona 
+,  Spain 
+
+email: marc.oriol@upc.edu 
+
+, 
+Jordi Marco
+
+Affiliation:  Dpt. of Computer Science, Universitat Politècnica de Catalunya 
+,  Barcelona 
+,  Spain 
+
+email: jordi.marco@upc.edu 
+
+and 
+Xavier Franch
+
+Affiliation:  Dpt. of Service and Information System Engineering, Universitat Politècnica de Catalunya 
+,  Barcelona 
+,  Spain 
+
+email: xavier.franch@upc.edu 
+
+© none 
+
+Abstract. 
+
+Multi-Agent Debate (MAD) is a promising paradigm for improving the accuracy and robustness of Large Language Model (LLM)-based agentic systems. It enables multiple agents to exchange arguments, critique each other’s outputs, and iteratively converge towards a solution. However, research remains fragmented, with inconsistent terminology and no rigorous synthesis of MAD design dimensions.
+We present a systematic literature review characterizing 141 primary studies on MAD. We derive a three-dimensional taxonomy covering debate participants, the interaction mechanisms structuring the exchange, and the agreement protocols governing debate resolution, supported by formal notations to render MAD configurations.
+Our analysis reveals that the field has implicitly converged on a narrow design pattern — static, fully connected topologies, verbatim exchange, short-term memory and voting resolution strategies — adopted by convention rather than systematic comparison, while promising alternatives remain marginal. Because any MAD setting reflects roughly a dozen interacting design decisions, cross-study comparison is unreliable when these are left implicit.
+We position the taxonomy as a descriptive map of the research landscape, a framework for controlled benchmarking, and potentially as a schema for machine-readable MAD specifications. As future work, we propose formalizing it into an executable specification, enabling cost-aware benchmarking and automated tuning of debate configurations. 
+
+Keywords:  multi-agent systems, multi-agent debate, MAD, agentic systems, large language models
+
+1. Introduction 
+
+The adoption of Large Language Models (LLMs) within agentic systems has rapidly evolved from a conceptual research direction into a concrete innovation pathway for industrial software-intensive systems  ( 136 ) .
+In this paradigm, an agent is commonly defined as an LLM-based autonomous system that leverages reasoning, planning, memory, and tool-use capabilities to perceive contextual inputs and generate goal-directed actions in dynamic environments  ( 121 ) .
+LLM-based agents iteratively observe, reason, and act through structured interaction loops  ( 144 ) , enabling explicit interleaving of reasoning traces and contextual feedback.
+When multiple autonomous LLM-based agents interact within a shared environment, the resulting configuration constitutes an LLM-driven multi-agent system , characterized by distributed cognition, role specialization, communication via natural language, and collaborative problem solving  ( 93 ; 42 ) .
+Agents pursue shared or complementary goals , operationalized as task objectives decomposed into coordinated subtasks, often supported by reflection mechanisms, planning modules, memory components, and structured inter-agent dialogue protocols  ( 144 ; 136 ) . 
+
+Empirical research in LLM-driven multi-agent systems has mainly examined how architectural and adaptation strategies affect task performance and efficiency, largely by strengthening individual agents or system-level reliability through established LLM adaptation paradigms.
+At inference time, prompting-based methods elicit latent capabilities without modifying parameters, including few-shot in-context learning  ( 64 ) , chain-of-thought reasoning  ( 131 ) , self-consistency decoding  ( 125 ) , and tree-of-thought search  ( 143 ) .
+Other paradigms improve goal adherence and reliability through alignment, such as reinforcement learning from human feedback and preference optimization  ( 89 ; 100 ) ; parameter adaptation, including full or parameter-efficient fine-tuning  ( 26 ) and continued domain-adaptive pre-training  ( 17 ) ; or retrieval-augmented generation, which injects external knowledge to improve grounding and factual consistency  ( 32 ) .
+In multi-agent settings, these techniques are often embedded into role-specialized collaborative frameworks or agent societies  ( 42 ) .
+However, except for some prompting strategies, these paradigms typically introduce additional resource requirements, such as domain-specific corpora for continued pre-training  ( 37 ) , curated knowledge bases for retrieval-augmented generation  ( 155 ) , or human preference annotations for alignment  ( 102 ) . 
+
+In this context, improving the accuracy and robustness of LLM-based agents without additional domain-specific data remains a central challenge.
+A promising direction draws inspiration from human collaboration.
+People often improve decisions by exchanging viewpoints, debating inconsistencies, and converging towards consensus.
+Similarly, multiple LLM-based agents can interact, critique each other’s outputs, and iteratively refine their reasoning.
+This paradigm, known as Multi-Agent Debate (MAD)  ( 9 ; 71 ) , has gained increasing interest with the rise of advanced LLMs. 
+
+Despite this growing body of work, the field remains fragmented, with limited consolidation of terminology, design dimensions, and architectural patterns across application domains.
+Most literature reviews treat debate primarily as a descriptor of specific interaction mechanisms  ( 61 ; 117 ; 126 ) , lacking a deeper and more systematic characterization.
+Several studies qualitatively report approaches that implement debate strategies  ( 106 ; 66 ; 117 ; 78 ; 35 ) , yet they do not provide a structured analysis or a comprehensive elicitation of core debate properties.
+Smit et al.  ( 108 ) offered an early overview of MAD research, identifying eight studies and extracting six design features, such as the number of debate rounds and the inclusion of specialized roles like judge or summarizer.
+Wang et al. proposed a flat categorization of MAD strategies based on three communication patterns  ( 126 ) .
+Tillmann et al.  ( 116 ) also reviewed MAD approaches, although their review lacks a clear systematic protocol, relies exclusively on an AI-assisted tool, and does not report the exact number of included studies.
+To the best of our knowledge, no study provides a large-scale, methodologically rigorous, and cross-domain synthesis that systematically consolidates MAD design dimensions and architectural patterns. 
+
+In our previous study, we conducted an initial systematic mapping to identify and analyse MAD strategies across multiple domains, focusing on their impact and value within the requirements engineering (RE) field  ( 88 ) .
+We derived a tentative taxonomy and a consolidated vocabulary based on 25 primary studies.
+In this study, and following the ACM SIGSOFT Empirical Standards for systematic reviews  ( 1 ) , we build on that foundation to broaden the scope of the review through backward and forward snowballing and an improved data extraction protocol.
+We refine, extend, and validate the taxonomy while expanding the review both in breadth and depth, enlarging the set of surveyed studies across domains and providing a substantially more detailed and systematic analysis of MAD design dimensions and mechanisms. 
+
+Specifically, this study addresses the following research questions (RQs): 
+
+RQ1. What is the research landscape of MAD in terms of application domains and addressed tasks? 
+
+RQ2. How are participants designed in MAD approaches, and what mechanisms are employed to define their roles, capabilities, and individual decision-making behaviours? 
+
+RQ3. How are interaction processes structured in MAD approaches, and what mechanisms are employed to coordinate communication, information exchange, and influence among agents? 
+
+RQ4. How is agreement achieved in MAD approaches, and what resolution mechanisms are employed to determine final outcomes? 
+
+Through the assessment of these RQs, the study delivers the following contributions 1 1 
+1 
+
+All research materials are publicly available in a replication package. See Data Availability Statement at the end of this manuscript. : 
+
+C1. 
+
+A systematic literature review of MAD, characterizing 141 primary studies and providing a structured synthesis of the research landscape. 
+
+C2. 
+
+A three-dimensional taxonomy of MAD design, formalizing practical design and development dimensions across: (i) participants involved in the debate, (ii) interaction mechanisms structuring the exchange, and (iii) agreement protocols governing debate resolution. 
+
+C3. 
+
+A consolidated analysis of open challenges and emerging research opportunities, outlining directions for advancing MAD methodologies and applications. 
+
+The remainder of this paper is structured as follows.
+Section 2 describes the methodology of the systematic literature review and presents the search results.
+The results of the data extraction and analysis of the surveyed studies are presented across several sections.
+Specifically, the research landscape is presented in Section 3 (RQ1), followed by the taxonomies derived for each MAD design dimension: participants (Section 4 , RQ2), interaction (Section 5 , RQ3), and agreement (Section 6 , RQ4).
+Section  7 synthesizes the main implications of the taxonomy, highlighting dominant design patterns, underexplored alternatives, and methodological challenges for comparing and benchmarking MAD approaches.
+Section 8 describes threats to validity of the study.
+Finally, the main conclusions and future work are presented in Section 9 . 
+
+2. Method 
+
+This study follows the systematic literature review (SLR) guidelines proposed by Kitchenham and Charters  ( 56 ) , structured around an explicit search and study-selection protocol, coupled with a snowballing procedure as formalized by Wohlin  ( 135 ) to complement the database search with backward and forward snowballing. The overall process comprises five stages: (i) definition and scoping of MAD, (ii) definition of a seed search string, (iii) independent screening of candidate papers against explicit inclusion/exclusion criteria, (iv) backward and forward snowballing, and (v) structured data extraction and inductive coding to derive the taxonomy. 
+
+2.1. Definition and Scope 
+
+Given the diversity of interpretations and terminology observed across the literature, it is essential to establish a clear and consistent definition of MAD that delineates what falls within the scope of this study. 
+
+We begin by examining the foundational concept of debate. Debate is defined in the Cambridge Dictionary 2 2 
+2 
+
+https://dictionary.cambridge.org as a “ serious discussion of a subject in which many people take part ”, where discussion is “ the activity in which people talk about something and tell each other their ideas or opinions ”.
+While traditional debates involve human participants exchanging arguments and counterarguments, the same concept can be applied to Multi-Agent Systems (MAS). MAD can be intuitively understood as a particular interaction paradigm within a MAS, in which multiple agents engage in a structured exchange of arguments or opinions.
+However, the literature has proposed multiple interpretations of what precisely constitutes MAD. In one of the first seminal papers on the topic, Du et al.  ( 28 ) characterized MAD as an approach where “ multiple language model instances propose and debate their individual responses and reasoning processes over multiple rounds to arrive at a common final answer ”. Chan et al.  ( 9 ) described MAD as a framework where “ different LLMs can engage in proposing and deliberating unique responses and thought processes across several rounds ” but do not require that debater agents “ reach a consensus at the end of the debate ”. Liang et al.  ( 71 ) conceptualized MAD as an approach where “ multiple agents express their arguments in the state of tit for tat and a judge manages the debate process to obtain a final solution ”. 
+
+These definitions illustrate the diversity of perspectives adopted in the literature when conceptualizing MAD. While they share the common idea of multiple AI agents engaging in a deliberative process, they differ with respect to key aspects such as the role of consensus, the structure of agent interactions, and the presence of dedicated coordination or judging mechanisms. As a result, there is currently no widely accepted definition of MAD, nor a clear consensus regarding its essential characteristics, boundaries, and distinguishing features.
+Therefore, it is necessary to precisely define what qualifies (and what does not qualify) as MAD within the scope of this systematic study. 
+
+Based on the aforementioned definitions and studies, Table  1 presents the criteria we used to operationalize the concept and establish the boundaries of what constitutes MAD within the scope of this study. 
+
+Table 1. Definition criteria for Multi-Agent Debate (MAD) 
+
+Qualifies as MAD 
+
+Does NOT Qualify as MAD 
+
+A discussion between two or more AI agents. 
+
+Self-reflection by a single agent. 
+
+Agents can put forward opposing arguments during the discussion in multiple rounds. 
+
+One-directional feedback between agents without actual discussion. 
+
+AI agents collaboratively discuss to solve the same task. 
+
+AI agents performing distinct subtasks of the same goal through simple information passing, without active discussions. 
+
+Beyond establishing a clear definition of MAD, we further delimited the scope of this study to approaches applied to natural language tasks. We additionally required debates to occur exclusively among AI agents, without humans acting as debate participants. This restriction follows from the intended scope of this study: MAD is treated as a mechanism for autonomous multi-agent reasoning, whose behaviour and evaluation criteria are qualitatively different from those of human-AI interaction. 
+
+2.2. Search Strategy 
+
+Based on Kitchenham’s PICO strategy to define search strings  ( 56 ) , we designed a search string that operationalizes two key dimensions: the Population (LLMs or AI agents) and the Intervention (Multi-Agent Debate). For each concept, we included both singular and plural forms and their standard acronyms. The final search string was written as: 
+
+(LLM OR “Large Language Model” OR LLMS OR “Large Language Models” OR “AI Agent” OR “AI Agents”) AND (MAD OR “Multi-Agent Debate”) 
+
+The search was conducted using the Scopus database, over the title, abstract, and keywords of papers; no restriction was set in terms of domain or date of publication. 
+
+It is important to clarify that the goal of this initial search was not to retrieve all existing publications on MAD but rather to identify a relevant set of high-quality papers to be used as the seed for the subsequent snowballing process. Accordingly, we prioritized precision over recall. For this reason, we deliberately avoided incorporating additional alternative terms for “MAD” or “Multi-Agent Debate”, since broader terms such as “debate” or “discussion” introduced substantial noise with very limited relevant results. Finally, we selected Scopus for its broad coverage of high-quality, peer-reviewed research across disciplines  ( 81 ) . 
+
+2.3. Study Selection Criteria and Selection Process 
+
+Based on the MAD definition and scope described in Section  2.1 , we established the inclusion and exclusion criteria as presented in Table  2 . Notably, we deliberately included MAD strategies from multiple domains rather than restricting our scope to Software Engineering. 
+
+The selection process was conducted in three stages: screening by title, followed by abstract review, and detailed full-text assessment. All candidate papers were independently evaluated by two distinct authors, and disagreements were resolved through discussion and consensus. 
+
+When multiple versions of the same paper were available on arXiv, the most recent version was selected. In cases where a paper was available both on arXiv and as a conference or journal publication, the latter was prioritized for analysis. 
+
+Table 2. Inclusion and Exclusion Criteria 
+
+ID 
+
+Criterion 
+
+IC1 
+
+Studies that propose or use one or more debate strategies that satisfy our operationalized definition of MAD. 
+
+EC1 
+
+The paper does not provide sufficient details about the debate strategy (e.g., the debate is not the focus of the paper). 
+
+EC2 
+
+Debates are not exclusively among AI agents. 
+
+EC3 
+
+Debates are not applied to natural language tasks (e.g., image recognition tasks). 
+
+EC4 
+
+The paper is not written in English. 
+
+EC5 
+
+The full text of the paper is not accessible. 
+
+EC6 
+
+Duplicate or superseded version of the paper. 
+
+All retrieved papers were randomly assigned to two authors of the paper acting as reviewers. The entire selection process was conducted independently, with each reviewer assessing their assigned studies against the predefined inclusion and exclusion criteria. Any disagreements were discussed and resolved through consensus. 
+
+2.4. Snowballing Procedure 
+
+The resulting list of papers served as the seed set for the snowballing process. We conducted a single iteration for both forward and backward snowballing, which helped us to achieve two goals: (1) capturing not only the papers satisfying our query, but also broader relevant works that meet our inclusion/exclusion criteria; and (2) capturing relevant papers available only on arXiv, which today is a fundamental source of timely research in the AI domain that cannot be disregarded in a literature study. 
+
+2.5. Search and Selection Results 
+
+Figure 1. Overview of the search and snowballing process Overview of the search and snowballing process, structured into three main stages: (1) seed paper identification; (2) backward snowballing; and (3) forward snowballing. Stage~1 led to 11 studies after inclusion and exclusion criteria analysis. Stage~2 led to 23 studies. Finally, Stage~3 led to 141 studies. 
+
+Figure  1 summarizes the complete search and selection process. The search string executed in Scopus yielded 29 results. These were independently reviewed by two authors. Of these, 18 papers either did not meet the inclusion criteria or met one or more exclusion criteria, resulting in 11 seed papers. 
+
+Subsequently, we applied backward snowballing, identifying 527 additional papers. After removing 170 duplicates, 357 papers remained for screening. This set was again independently reviewed by two authors. Any disagreements were resolved through discussion until consensus was reached. Following this process, 12 additional papers satisfied the inclusion/exclusion criteria, bringing the total to 23 papers. 
+
+Forward snowballing was subsequently conducted, yielding 929 additional papers. After duplicate removal, 889 papers remained. Given the high number of irrelevant results, an initial filtering step was performed by one author to exclude clearly out-of-scope papers, removing 367 papers and leaving 522 for further review. These papers were then distributed among three of the authors in pairs, ensuring that each paper was reviewed by two authors. Disagreements were discussed and resolved collaboratively. This process resulted in the inclusion of 118 additional papers, leading to a final set of 141 papers. Inter-rater agreement across all screening rounds (initial search, backward and forward snowballing) yielded an average Cohen’s kappa of 0.70. 
+
+The initial search and backward snowballing were executed in March 2025 and the forward snowballing in July 2025. Among the 141 selected publications, the earliest papers appeared in 2023 (14 papers), followed by 57 publications in 2024 and 70 in 2025, indicating a clear and increasing trend in research activity on this topic. 
+
+Among the selected studies, 85 were published in conferences, 10 in journals, 1 as a book chapter, and 45 were available as arXiv preprints. 
+
+Applying feature extraction to the selected papers, we identified a number of codes that characterize the different methodologies used in MAD. These codes fall into four primary categories: the research landscape with the application domains and tasks where MAD was used, the participants involved, the interactions held during the debate, and the strategies for reaching agreement . Below, we describe how the papers in our review implement MAD in accordance with the defined taxonomy. It is important to note that certain primary studies proposed or evaluated multiple distinct architectural configurations; consequently, our quantitative analysis evaluates a total of 151 distinct MAD approaches derived from the 141 selected papers. The specific codes within these categories are presented in detail throughout the subsequent sections, while the complete data extraction dataset is provided in our replication package. 
+
+3. Research Landscape 
+
+The following section analyses the selected literature according to application domains --- the fields of knowledge where MAD is implemented --- and the addressed tasks, which define the specific goals the agents are intended to achieve. These domains and tasks have been derived through an inductive coding process, emerging from a systematic grouping of the analysed corpus based on shared functional and thematic characteristics. The resulting categories, accompanied by concise descriptions 3 3 
+3 
+
+For each taxonomy value, the text cites representative studies rather than exhaustive lists, since the large number of primary studies — each potentially mapping to multiple values per dimension — makes full in-text tracing impractical. Full study-to-value traceability is provided in our replication package. , are illustrated in Figure  2 .
+This overview illustrates the versatility of MAD across various disciplines and helps categorize the diverse problem sets tackled in recent research. 
+
+{forest} 
+
+Figure 2. Taxonomy of the multi-agent debate landscape: application domains and addressed tasks. Taxonomy of the multi-agent debate landscape: application domains and addressed tasks. 
+
+3.1. Application Domains 
+
+Application domains refer to the specific fields or subject areas where MAD frameworks are deployed to evaluate or enhance the performance of LLM-based multi-agent systems. The research landscape spans from general-purpose reasoning to highly specialized professional sectors. 
+
+• 
+
+General Knowledge & Reasoning: This remains the dominant domain, where MAD is used to benchmark the ability of agents to resolve open-ended questions or general-purpose tasks  ( 9 ; 156 ; 68 ; 16 ; 101 ; 137 ) . For instance, studies such as Fang et al.  ( 33 ) and Wang et al.  ( 120 ) use general knowledge Q&A to measure the reduction of hallucinations and the quality of meta-judgment. This domain serves as the primary “testing ground” for new interaction protocols due to the availability of massive, diverse datasets. Commonly utilized benchmarks in this domain include MMLU (Massive Multitask Language Understanding)  ( 40 ) , BoolQ  ( 22 ) , BBH (Big-Bench Hard)  ( 115 ) , and HotpotQA  ( 142 ) . 
+
+• 
+
+Mathematics & STEM: A significant portion of research focuses on formal reasoning. Frameworks utilize mathematical benchmarks and logic puzzles to test if collective deliberation can overcome individual calculation errors  ( 69 ; 71 ; 96 ; 97 ; 160 ; 138 ) . This domain also includes broader scientific and multidisciplinary reasoning  ( 28 ; 31 ; 96 ; 51 ; 6 ; 156 ; 75 ; 62 ) . Standard benchmarks and puzzles used to evaluate these capabilities include GSM8K  ( 24 ) and MATH  ( 41 ) for arithmetic, CLUTRR  ( 107 ) for logical puzzles, and SCIQ  ( 133 ) or ARC  ( 23 ) for scientific reasoning. 
+
+• 
+
+Healthcare & Medicine: MAD is increasingly applied to clinical settings. Research explores how multi-agent conversations can mitigate cognitive biases in diagnostic reasoning  ( 52 ; 15 ; 10 ) , improve medical Q&A performance  ( 109 ; 120 ; 119 ; 52 ; 15 ; 10 ) , and model electronic health records (EHR) for mortality prediction  ( 129 ) . 
+
+• 
+
+Software Engineering & Cybersecurity: Applications in this domain focus on the technical reliability of software artifacts. This includes code generation  ( 62 ; 76 ; 110 ; 128 ; 156 ; 148 ; 8 ) , code summarization  ( 9 ; 21 ) , and code translation  ( 21 ; 34 ) . In the security sector, frameworks are applied to detect phishing attempts in emails or websites  ( 87 ; 65 ) and perform software vulnerability assessments  ( 134 ; 132 ) . 
+
+• 
+
+Social Sciences, Politics & Ethics: This domain focuses on societal issues and value alignment. Key research areas include fake news and rumor detection  ( 48 ; 153 ; 50 ; 38 ) , political coalition negotiations  ( 83 ) , and the mitigation of bias or harmful content in model outputs  ( 73 ; 3 ; 10 ; 18 ; 84 ; 94 ) . 
+
+• 
+
+Linguistics & Natural Language: Beyond general reasoning, specific linguistic tasks are addressed through MAD. These include event extraction  ( 124 ; 36 ) , machine translation evaluation  ( 34 ) , summary source alignment  ( 57 ) , and specialized generation tasks like Chinese couplet generation and evaluation  ( 90 ) . 
+
+• 
+
+Others: This category encompasses specialized applications in niche or emerging fields. It includes robotics and navigation tasks such as the coordination of multi-robot aggregation  ( 12 ) . The domain also covers consumer and legal services, including decision-making support for products  ( 92 ) , customer service speech improvement  ( 130 ) , and legal argument generation  ( 152 ) . Finally, it incorporates experimental and financial reasoning, such as solving financial problems  ( 112 ) and determining correct answers in difficult long-context scenarios or zero-sum games  ( 16 ) . 
+
+From a design perspective, the choice of domain necessitates tailored agent profiles; specialized fields like medicine or law often require agents with specific personas or access to domain-specific knowledge.
+From an evaluation standpoint, these domains offer varying degrees of ground-truth clarity: while mathematics provides binary correctness, social and linguistic domains rely on subjective, multi-dimensional metrics. 
+
+3.2. Tasks 
+
+Addressed tasks define the specific functional goals that agents are intended to achieve through debate or collaboration.
+The analysed corpus reveals a diverse range of objectives, which have been classified and grouped into the following categories: 
+
+• 
+
+Reasoning & Problem Solving: This is the most frequent category, focusing on enhancing the logical and computational capabilities of models. It includes arithmetic and mathematical reasoning  ( 69 ; 71 ; 5 ; 62 ; 140 ; 96 ; 28 ; 160 ; 138 ; 76 ; 110 ; 128 ; 99 ; 75 ; 97 ; 112 ; 114 ; 148 ; 158 ; 111 ; 146 ; 80 ; 25 ; 29 ; 145 ; 151 ; 91 ) , symbolic and common-sense logic  ( 138 ; 145 ) , and deductive reasoning  ( 122 ) . In specialized fields, it encompasses medical diagnostic reasoning  ( 52 ; 15 ; 10 ) . 
+
+• 
+
+Fact-Checking & Factuality: These tasks aim to ensure information accuracy and mitigate hallucinations. They include fact verification and retrieval-augmented reasoning  ( 120 ; 119 ; 80 ) , knowledge graph triple verification  ( 67 ) , and the systematic elimination of hallucinations in large language models  ( 33 ; 141 ; 43 ) . 
+
+• 
+
+Classification & Security Detection: This area focuses on content integrity and cybersecurity. Key tasks include the detection of fake news and rumors  ( 48 ; 153 ; 50 ; 38 ) , the identification of spam and phishing attempts  ( 46 ; 87 ; 65 ) , and the assessment of software or smart contract vulnerabilities  ( 134 ; 132 ) . It also covers hate speech detection  ( 94 ) and safety classification  ( 73 ; 3 ) . 
+
+• 
+
+Evaluation & Meta-Agent Judgment: These frameworks utilize debate to position agents as evaluators ( LLM-as-a-judge ). Tasks include scoring summaries  ( 55 ; 98 ; 57 ; 68 ) , evaluating machine translation quality  ( 34 ) , and establishing rankings among multiple model responses  ( 63 ; 156 ; 70 ) . 
+
+• 
+
+Technical & Creative Generation: Agents collaborate to produce or refine complex content. This includes code generation  ( 62 ; 76 ; 110 ; 128 ; 156 ; 148 ; 8 ) and summarization  ( 21 ) , creative tasks like personalized Chinese couplet generation  ( 90 ) , and the production of legal arguments  ( 152 ) . 
+
+• 
+
+Strategic Interaction & Negotiation: This category explores how agents reach agreements or simulate social dynamics to achieve a shared goal. Tasks include consensus seeking  ( 12 ; 14 ; 29 ) , political coalition negotiations  ( 83 ) , cross-cultural negotiation  ( 149 ) , and the study of group conformity  ( 19 ; 4 ) . 
+
+• 
+
+Prediction & Data Analysis: Advanced analytical applications include modeling electronic health records (EHR) to predict mortality or readmission  ( 129 ) , project duplication detection  ( 6 ) , and comparative analysis of scientific papers to determine novelty  ( 51 ) . 
+
+From a design perspective, the diversity of addressed tasks necessitates a strategic mapping between task requirements and multi-agent architectures. Objective-driven tasks, such as mathematical problem solving  ( 69 ; 71 ; 96 ; 160 ; 112 ; 114 ) or code generation  ( 76 ; 110 ; 128 ; 8 ) , often rely on iterative refinement through homogeneous agents to converge on a single correct answer. In contrast, knowledge-intensive and subjective tasks benefit from the design of heterogeneous personas  ( 127 ; 44 ; 51 ) that ensure a broad coverage of perspectives and help mitigate individual cognitive biases, particularly in medical contexts  ( 52 ; 15 ; 10 ) . Furthermore, security-critical tasks like vulnerability assessment  ( 134 ; 132 ) or phishing detection  ( 87 ; 65 ) require the implementation of adversarial or “red-teaming” protocols  ( 3 ) to effectively probe for system weaknesses. 
+
+From an evaluation standpoint, the variety of functional goals implies that no single metric can capture performance across all domains. While arithmetic and logical tasks allow for objective measurement through accuracy scores on established benchmarks like GSM8K  ( 97 ) , open-ended and creative tasks increasingly rely on meta-evaluation frameworks where agents act as judges to score coherence, faithfulness, and alignment  ( 9 ; 156 ; 55 ; 98 ; 57 ; 70 ; 68 ) . This shift towards multi-agent evaluation introduces new challenges, such as the risk of inter-agent sycophancy  ( 97 ) or the reinforcement of existing biases, which must be carefully monitored through diverse reasoning datasets and multi-dimensional scoring systems. 
+
+Key Findings RQ1 
+
+MAD is primarily a general-purpose reasoning paradigm, not yet a domain-specific methodology . Most studies use MAD in general knowledge, mathematical, or formal reasoning tasks, in which correctness is easier to benchmark and debate gains are easier to quantify  ( 69 ; 71 ; 9 ; 96 ; 28 ; 138 ; 156 ; 97 ; 114 ; 16 ; 101 ) . 
+
+Applied domains use MAD as a reliability layer . In medicine, software engineering, cybersecurity, fake news detection, and safety-related tasks, debate is mainly introduced to reduce errors, expose weaknesses, or improve trustworthiness rather than to model deliberation for its own sake  ( 52 ; 50 ; 87 ; 15 ; 134 ; 10 ; 132 ; 65 ; 3 ) . 
+
+Evaluation maturity varies strongly by task type . Objective tasks such as mathematics, logic, and code generation support direct benchmark-oriented evaluation, while open-ended tasks such as text evaluation, legal reasoning, negotiation, and creative generation rely on weaker proxies, including LLM-as-a-judge and qualitative synthesis  ( 9 ; 156 ; 55 ; 57 ; 70 ; 68 ; 152 ; 34 ; 83 ; 90 ) . 
+
+4. Participants 
+
+The following section examines how participants are designed in MAD frameworks, categorized into three main dimensions summarized in Figure  3 : the Personas assigned to participants, the functional Roles they occupy, and the Base Model underlying their reasoning capabilities. 
+
+4.1. Personas 
+
+Definition 4.1. 
+
+Personasdef:personas
+The set of individual characteristics, independent of a participant’s functional role, that shape how the agent reasons and argues during the debate. 
+
+Formally, a persona may be assigned to each participant v ∈ V v\in V , where V V denotes the set of participants in the debate.
+Beyond what its functional role determines, the persona conditions the viewpoint an agent brings to the exchange, and thereby shapes the diversity of the deliberation.
+In practice, personas are instantiated through the agent’s system prompt, which may specify different kinds of persona-related information, such as the agent’s background, personality traits, and stance towards the debate topic.
+We characterize personas along three descriptors: their heterogeneity across participants, how they are assigned , and the attributes through which they are expressed, which we categorize into three families: background, personality, and stance.
+Any of these information families may be specified explicitly or left unspecified. 
+
+{forest} 
+
+Figure 3. Taxonomy of participants in multi-agent debate systems. Taxonomy of participants in multi-agent debate systems. 
+
+4.1.1. Attributes 
+
+Personas are specified through a set of attributes that shape how an agent behaves or interacts with other agents: a background that situates what the agent knows, a personality of behavioural traits that shape how it argues, and a stance that fixes the position it must defend. 
+
+A background attribute models who an agent is: its identity, domain knowledge, expertise, skills, role, or demographic context. It grounds what the agent is presumed to know and the point of view it argues from, without committing it to a position on the topic of the debate.
+Backgrounds range from specialized functional roles to richer social or cultural identities. PhishDebate  ( 65 ) instantiates dedicated inspectors (HTML, URL, content, and brand agents).
+CodeGen  ( 8 ) defines distinct coding roles (e.g., PythonAssistant , AlgorithmDeveloper ).
+Chen et al.  ( 16 ) pair expert debaters with a non-expert judge to vary expertise.
+Other works ground the background in cultural or demographic context, as in the culturally differentiated agents of Zhang et al.  ( 149 ) or the political profiles of Moghimifar et al.  ( 83 ) . 
+
+A personality or behavioural attribute modulates how an agent argues, rather than the position it defends.
+Chen et al.  ( 12 ) show that stubborn and suggestible traits affect consensus dynamics, with stubborn agents exerting stronger influence on the final value; related work explores easy-going and overconfident profiles  ( 57 ) , and DEBATE varies a critic’s degree of criticality from weakly to strictly negative  ( 55 ) .
+A neighbouring pattern is role-play, assigning agents distinct discussion personality traits through structured models such as the Six Thinking Hats in LLM discussion  ( 77 ) .
+These attributes offer a finer-grained lever over debate dynamics, diversity, and convergence, but their effects are harder to isolate than stance. 
+
+A stance assigns an agent a predefined position.
+In two-sided settings, it is often implemented by assigning opposing positions: devil’s-advocate or critic roles that challenge another agent’s output  ( 55 ) , prosecution and defence arguing whether a news item is fake or genuine  ( 50 ) , faithful and unfaithful evaluators in summary-faithfulness assessment  ( 57 ) , proponent and challenger in retrieval debate  ( 43 ) , or supporting and opposing agents in stance detection  ( 79 ) .
+Other formulations tie the stance to the answer space, as in the gold-versus-distractor setup of Chen et al.  ( 16 ) , where one debater argues for the correct answer and the other for the strongest incorrect option.
+Stance assignment may itself be manipulated: MADISSE  ( 57 ) initializes uniformly distributed faithful/unfaithful stances, while Courtroom-FND  ( 50 ) switches prosecution and defence across rounds.
+Predefined stances make disagreement explicit and provide a controllable adversarial structure, though they may impose conflict even when the task would not naturally require it. 
+
+4.1.2. Heterogeneity 
+
+Heterogeneity refers to whether participants operate under a single shared persona or several distinct ones.
+A homogeneous configuration (employed by 44.4% of the surveyed approaches 4 4 
+4 
+
+All percentages are computed over the set of distinct MAD approaches ( n = 151 n=151 ). For a given property, totals may be below 100% when some approaches leave that property unspecified and it cannot be inferred from the primary study without assumptions. Conversely, totals may exceed 100% when a single approach combines or compares several strategies and is therefore counted under more than one value. ) assigns one persona to all participants v ∈ V v\in V , so they argue from a common perspective and differ only in the arguments they generate  ( 33 ; 69 ; 28 ; 148 ; 111 ; 146 ; 151 ; 104 ; 91 ; 141 ; 101 ) .
+This setting covers both the canonical multi-debater setup — several instances of the same agent revising answers under an identical prompt — and designs that replicate a single specialized persona across participants.
+Holding the persona fixed deliberately isolates the effect of other design choices.
+As an example, Wang et al.  ( 119 ) vary only the collaboration mechanism (governance, participation, interaction pattern, and context management).
+Similarly, GroupDebate  ( 74 ) restructures the communication topology, both under a shared persona.
+When the contrast is made explicit, the homogeneous case typically serves as a baseline against persona diversity, as in ChatEval  ( 9 ) .
+A shared persona simplifies implementation and isolates the interaction mechanism, but constrains reasoning diversity, leaving agents prone to premature convergence and shared errors. 
+
+A heterogeneous configuration (53.6%) assigns distinct personas so that at least two participants reason from different perspectives  ( 71 ; 62 ; 127 ; 75 ; 92 ; 80 ; 132 ; 65 ; 103 ) . This is realized through any of the persona attributes discussed above: opposing stances such as the “angel” and “devil” debaters  ( 71 ; 62 ) , differentiated backgrounds as in PhishDebate  ( 65 ) , panels of domain experts  ( 80 ; 132 ) , or automatically generated agent sets  ( 127 ; 92 ; 103 ) .
+Notably, Liu et al.  ( 75 ) find that distinct personas alone may not elicit genuinely divergent reasoning, and pair them with distinct reasoning strategies to break the agents’ shared “mental set”.
+Heterogeneous personas are the primary mechanism through which MAD operationalizes perspective diversity and mitigates conformity, at the cost of additional variability, since outcomes become sensitive to which personas are assigned and how they are specified. 
+
+4.1.3. Assignment 
+
+Assignment captures whether and how explicit personas are established.
+The relevant characteristics — expertise, domain knowledge, stances, or behavioural traits — may be left unspecified, defined manually at design time, or generated automatically at runtime. 
+
+An unspecified assignment (53.6%) provides no persona beyond the generic task prompt  ( 69 ; 72 ; 5 ; 137 ; 28 ; 63 ; 14 ; 160 ; 138 ) .
+Participants may still act as debaters, judges, or other functional roles (see Section  4.2 ), but carry no distinct expertise, viewpoint, or behavioural identity.
+This differs from a homogeneous configuration, which explicitly assigns the same persona to all participants rather than leaving it undefined. 
+
+A manually identified assignment (28.5%) fixes a predetermined panel before the debate  ( 149 ; 128 ; 19 ; 112 ; 148 ; 158 ; 80 ; 15 ; 152 ; 53 ; 16 ; 8 ) .
+For instance, Ma  ( 80 ) casts debaters as historical philosophers in a structured “symposium”.
+Barbi et al.  ( 8 ) assign four complementary, heterogeneous coding personas.
+Zhang et al. instantiate adversarial roles such as plaintiff and defendant in legal-argumentation settings  ( 152 ) .
+Manual assignment gives precise control over panel composition but requires prior assumptions about which perspectives are relevant to the debate. 
+
+An automatically identified assignment (17.9%) generates personas at runtime as a function of the task  ( 127 ; 76 ; 110 ; 92 ; 49 ; 77 ; 103 ; 51 ) .
+Wang et al.  ( 127 ) prompt a single model to instantiate a task-dependent set of personas.
+Song et al.  ( 110 ) identify the roles required per subtask and assemble a matching team.
+Similarly, ChoiceMates  ( 92 ) spawns three to six agents per query, while town-hall-style prompting generates a persona list adapted to the task  ( 103 ) .
+Automatic assignment improves adaptability and reduces manual effort, but makes debate quality dependent on the persona-generation step. 
+
+4.2. Roles 
+
+Definition 4.2. 
+
+Rolesdef:roles
+Roles refer to the specific functions, responsibilities, or behavioural profiles assigned to participants in order to structure the interaction and guide the debate process. 
+
+The primary participant is the Debater : an agent that presents arguments, reacts to others, and contributes according to its prompt, stance, persona, or task-specific expertise.
+Debaters may be generic agents exchanging candidate answers or rationales  ( 69 ; 46 ; 5 ; 9 ; 96 ; 28 ; 12 ; 63 ; 14 ; 138 ) , or specialized participants, such as proponent/opponent agents in jailbreak detection  ( 7 ) , technical expert agents in phishing detection  ( 65 ) , or advocate/skeptic agents in annotation-oriented summarization  ( 82 ) .
+Beyond debaters, we identify the following recurring roles: 
+
+• 
+
+Judge ( 38.4% ): A single agent produces the final decision — selecting a winning answer, aggregating arguments, or determining whether consensus is reached  ( 33 ; 71 ; 72 ; 48 ; 124 ; 62 ; 52 ; 137 ; 123 ; 156 ; 119 ; 55 ; 6 ; 16 ; 3 ; 7 ; 82 ) . This role operationalizes the LLM-as-a-judge paradigm  ( 34 ; 2 ) , in which an LLM is prompted to deliver human-like assessments of candidate outputs.
+CFMAD  ( 33 ) uses a judge to evaluate the debate after agents argue from counterfactual stances.
+Auto-Arena  ( 156 ) relies on a committee of judges deciding by majority vote. 
+
+• 
+
+Summarizer ( 21.9% ): Synthesizes debate statements to reduce context length or provide a compact record for decision-making  ( 72 ; 120 ; 48 ; 124 ; 52 ; 137 ; 110 ; 19 ; 154 ; 119 ; 129 ; 139 ; 90 ; 3 ; 47 ) . In ERD  ( 72 ) and FORD  ( 137 ) the judge also summarizes, while in Song et al.  ( 110 ) a reflector LLM summarizes and analyses the dialogue before feeding it back to the Captain Agent. 
+
+• 
+
+Leader ( 17.2% ): Also known as moderator, the leader coordinates the debate by managing participation, turns, speakers, or discussion structure  ( 46 ; 120 ; 52 ; 127 ; 110 ; 119 ; 129 ; 139 ; 15 ; 145 ; 49 ; 70 ; 20 ; 36 ; 122 ; 65 ; 94 ; 60 ; 47 ; 113 ; 51 ) . Beyond turn-taking, some leaders actively shape the discussion: the moderator in Co-STORM  ( 49 ) steers the discourse and updates the participant list as the debate evolves, while in SMoA  ( 60 ) it also filters which contributions advance. 
+
+• 
+
+Verifier ( 6.0% ): Also referred to as factuality checker, tester, or auditor  ( 140 ; 160 ; 20 ; 132 ; 91 ; 58 ; 90 ; 4 ; 8 ) . It checks the correctness, factuality, or validity of statements and intermediate outputs. For example, LLM-SmartAudit  ( 132 ) audits smart-contract vulnerabilities, while CodeGen  ( 8 ) instantiates verification as testing generated code. 
+
+• 
+
+Editor ( 3.3% ): Refines, composes, or produces the final response from the debate outcome  ( 62 ; 44 ; 11 ; 30 ; 4 ) . As an example, Debate-to-Write  ( 44 ) turns the outcome into an argument plan, while PEG  ( 11 ) uses a generator to produce the final answer from the debate consensus. 
+
+These roles are not mutually exclusive: a single agent may combine judge and summarizer  ( 72 ; 137 ) ; leader, summarizer, and judge  ( 119 ; 129 ) ; or moderator and summarizer  ( 4 ; 47 ) . Role assignment is also frequently intertwined with persona design, as several approaches assign backgrounds, stances, or behavioural profiles to debaters to ensure that different perspectives are represented  ( 46 ; 48 ; 9 ; 140 ; 52 ; 19 ; 153 ; 55 ; 57 ; 77 ; 65 ; 82 ) . 
+
+4.3. Base Model 
+
+Definition 4.3. 
+
+Base Modeldef:base-model
+The underlying pre-trained LLM(s) used by the agents participating in the debate. 
+
+Base models can be characterized along several axes — scale (e.g., small vs. large), architecture, or training paradigm, among others. We focus on two descriptors: their model family (open- vs. closed-weight) and their heterogeneity across agents within a debate. We adopt the open/closed distinction because it is objective and stable — a model’s weights are either publicly accessible or not — whereas alternatives like “small” vs. “large” lack consensus and shift as the field evolves. It is also the most consequential for debate design, governing whether agents run locally or through external providers, with implications for cost, reproducibility, and control. 
+
+4.3.1. Model family 
+
+We distinguish open-weight models, whose parameters are publicly accessible and locally deployable, from closed-weight models, which are proprietary and accessed through external providers. 
+
+Among the surveyed approaches, 66 rely exclusively on closed-weight models (43.7%), 32 exclusively on open-weight models (21.2%), and 53 combine both (35.1%). Closed-weight configurations are typically based on GPT-family models, sometimes combined with Claude, Gemini, Bard, or PaLM  ( 33 ; 28 ; 160 ; 76 ; 109 ; 55 ; 13 ; 59 ; 51 ) , whereas open-weight ones rely on Llama, Qwen, Mistral, Gemma, Vicuna, DeepSeek, or other locally deployable models  ( 5 ; 149 ; 128 ; 19 ; 111 ; 91 ; 8 ; 150 ) . Mixed configurations are common in studies comparing proprietary and open-weight models under the same debate protocol  ( 69 ; 71 ; 110 ; 156 ; 119 ; 158 ; 38 ; 146 ; 147 ) . 
+
+By family, GPT dominates (118 approaches, 78.1%), followed by Llama (61, 40.4%), Qwen (28, 18.5%), Claude (22, 14.6%), Mistral (20, 13.2%), Gemini (14, 9.3%), DeepSeek and Gemma (12 each, 7.9%), and Vicuna (8, 5.3%); Yi, Baichuan, Phi, PaLM, SeaLLM, EXAONE, and InternLM appear less frequently. MAD research thus remains strongly centred on GPT, although open-weight alternatives are increasingly used. 
+
+4.3.2. Heterogeneity 
+
+A debate instance is homogeneous when all agents share the same base model — even if the paper reports separate experiments with several models — and heterogeneous when agents within the same debate draw on different models.
+Homogeneous configurations (81.5%) predominate over heterogeneous settings (27.8%). They are typically used to isolate the effect of debate structure, prompting, topology, or role assignment while holding the model fixed  ( 28 ; 12 ; 14 ; 119 ; 55 ; 8 ; 150 ) ; some evaluate several candidate models but run each debate within a single family, preserving homogeneity  ( 150 ) . 
+
+Heterogeneous configurations introduce model-level diversity, combining proprietary and open-weight models to test whether differing capabilities or inductive biases improve outcomes  ( 123 ; 130 ; 156 ; 119 ; 158 ; 38 ; 146 ; 13 ; 59 ; 147 ) . Heterogeneity is sometimes explicit in the design rationale: Debate and Reflect  ( 158 ) assigns stronger models to teacher roles and smaller ones elsewhere, and Debate-to-Detect  ( 38 ) reports mixed-model configurations outperforming homogeneous setups in misinformation detection. Such diversity may increase robustness, but it complicates attribution, since gains may stem from model capability rather than the debate protocol alone. 
+
+Key Findings RQ2 
+
+Persona diversity is recognized but rarely operationalized systematically . When diversity is used, it is typically introduced through manually assigned roles, stances, or expertise profiles rather than evaluated as an independent design variable, making it hard to determine which forms of diversity actually improve debate quality  ( 9 ; 127 ; 119 ; 75 ; 80 ; 132 ; 65 ; 103 ) . 
+
+Stance is a more mature control mechanism than personality . Stance assignment is a practical way to force disagreement and surface counterarguments, especially through adversarial pairings such as angel/devil, faithful/unfaithful, prosecution/defence, or proponent/challenger  ( 71 ; 62 ; 50 ; 55 ; 79 ; 57 ; 16 ; 43 ) . Personality traits are less consistently defined and harder to isolate experimentally, though early evidence suggests that stubbornness, suggestibility, confidence, or criticality can substantially affect convergence  ( 12 ; 55 ; 57 ; 77 ) . 
+
+Judge and summarizer roles signal a shift from pure debate to meta-coordination . Many approaches add judges, summarizers, leaders, or hybrid meta-agents to control, compress, and resolve the debate rather than relying only on peer-to-peer deliberation  ( 33 ; 72 ; 137 ; 110 ; 156 ; 119 ; 129 ; 55 ; 16 ; 47 ) . MAD performance thus increasingly depends not only on how debaters argue, but on how coordination roles curate information flow and turn debate traces into final outputs. 
+
+Model homogeneity remains the default despite the promise of model-level diversity . Most debates instantiate agents from the same base model, even when studies benchmark several independently. Heterogeneous configurations offer a principled path to greater reasoning diversity, particularly when combining stronger and weaker models or closed- and open-weight families  ( 123 ; 156 ; 119 ; 158 ; 38 ; 146 ; 13 ; 59 ; 147 ) ; future evaluations should separate the effect of model diversity from that of the debate protocol. 
+
+Reproducibility is constrained by closed-weight dependence and underspecified participant design . MAD research remains strongly centred on GPT-family and other closed-weight models, while participant prompts, personas, role combinations, and model assignments are often described only partially  ( 33 ; 28 ; 160 ; 76 ; 109 ; 55 ; 13 ; 59 ; 51 ) . This limits reproducibility and cross-study comparison, making explicit participant specifications essential for future benchmarking. 
+
+5. Interaction 
+
+The following section examines how information exchange is structured in MAD frameworks, categorized into three main dimensions summarized in Figure  4 : the Topology organizing the communication structure, the Protocol governing the order and timing of exchanges, and the Format defining how arguments are represented and delivered. 
+
+{forest} 
+
+Figure 4. Taxonomy of interaction in multi-agent debate systems. Taxonomy tree of the interaction dimension, organized into topology (adaptability, structure), protocol (mechanism), and format (syntax, content, memory access). 
+
+5.1. Topology 
+
+Definition 5.1. 
+
+Topologydef:topology
+The structural organization of agents and their communication links in the debate. It determines how agents are connected, grouped, and allowed to exchange information. 
+
+Building on classical graph theory  ( 27 ) , we formalize the topology of a MAD system as a directed graph G = ( V , E ) G=(V,E) , where V V is the set of agents and E ⊆ V × V E\subseteq V\times V the set of communication paths. An edge ( u , v ) ∈ E (u,v)\in E indicates that agent u u can transmit information to agent v v ; the path is unidirectional if ( u , v ) ∈ E (u,v)\in E but ( v , u ) ∉ E (v,u)\notin E , and bidirectional if both hold. This defines the structural constraints under which agents exchange arguments, characterized by two descriptors: adaptability and structure . 
+
+5.1.1. Adaptability 
+
+Adaptability refers to whether the communication structure changes during the debate, i.e., whether the edge set E E remains fixed or evolves over time. 
+
+A static interaction (88.7%) keeps the graph G = ( V , E ) G=(V,E) invariant, reflecting an interaction structure predefined at design time  ( 71 ; 72 ; 85 ; 10 ; 132 ; 152 ; 54 ) . The vast majority of MAD approaches are static: all two-agent settings are trivially fixed, and several works deliberately compare alternative fixed strategies.
+Chan et al.  ( 9 ) define three unchanging communication protocols, and Zhang et al.  ( 148 ) model agents as spatial-temporal graphs with connectivity held constant during inference.
+Static schemes simplify implementation, enable controlled experimentation by isolating other variables (prompting, roles, model settings), and yield predictable token consumption that can be estimated in advance.
+Their rigidity, however, limits runtime adaptation. 
+
+A dynamic interaction (9.9%) lets the edge set evolve, becoming time-dependent E ⁡ ( t ) E(t) , so agents adapt their communication in response to context or intermediate results. Some approaches activate previously disconnected agents: DyLAN  ( 76 ) selects agents from a candidate pool and dynamically deactivates them during solving, Song et al.  ( 110 ) assemble and revise teams per subtask, and Park et al.  ( 92 ) let users invoke or switch among agent subsets. Others keep the agent set fixed but adapt the graph across rounds: Wang et al.  ( 128 ) optimize a multi-round graph via Node Dropout and Edge Dropout , and Sun et al.  ( 114 ) update edge weights so agents interact only with beneficial peers. Dynamic interaction improves flexibility and efficiency by focusing communication on the most relevant agents, at the cost of reduced experimental control, since outcomes depend on the update policy for E ⁡ ( t ) E(t) . 
+
+5.1.2. Structure 
+
+Structure characterizes how nodes (agents) are connected and how communication is distributed across G = ( V , E ) G=(V,E) . 
+
+A fully connected structure (72.2%) links every pair of agents ( ∀ u , v ∈ V , ( u , v ) ∈ E \forall u,v\in V,\ (u,v)\in E ), so every message reaches all other agents. The bilateral case ( | V | = 2 |V|=2 ) is its trivial instance. Most surveyed approaches adopt this structure  ( 46 ; 96 ; 119 ; 99 ; 38 ; 44 ; 91 ) .
+Combined with a dynamic topology, it can yield reduced fully connected graphs by removing low-performing agents (and their incident edges) while preserving connectivity among the rest  ( 76 ) .
+Variability within fully connected designs is otherwise very limited. 
+
+A divided into groups structure (3.3%) partitions agents into disjoint subsets V 1 , V 2 , … , V k V_{1},V_{2},\dots,V_{k} with communication restricted mostly within each group, i.e., ( u , v ) ∈ E ⇒ ∃ i ⁡ ( u ∈ V i ∧ v ∈ V i ) (u,v)\in E\Rightarrow\exists i\;(u\in V_{i}\land v\in V_{i}) . Liu et al.  ( 74 ) split agents into debate groups, deferring cross-group exchange to stage boundaries via shared summaries.
+Wang et al.  ( 123 ) let each agent access full answers within its group but only viewpoints from outside it.
+Sun et al.  ( 112 ) randomly split agents into two teams later adjudicated by a separate judge.
+These partitions balance diversity and coordination: agents deliberate intensively within subsets, while inter-group communication is mediated through summaries, judges, or specialized roles. 
+
+A structured network (23.2%) constrains E E to an explicit graph (e.g., star, chain, tree). As illustrated in Figure  5 , and based on the analysed papers, several canonical structures emerge: 
+
+• 
+
+Chain : a linear topology where ( v i , v i + 1 ) ∈ E (v_{i},v_{i+1})\in E , so each agent builds on its predecessor. Huang et al.  ( 46 ) introduce sequential modes that accumulate reasoning over time, and others use a chain as a baseline against more advanced networks  ( 134 ) . It promotes incremental refinement at low overhead but is prone to error propagation and limits parallel exploration. 
+
+• 
+
+Ring : a cyclic chain where ( v i , v i + 1 ) ∈ E (v_{i},v_{i+1})\in E and ( v n , v 1 ) ∈ E (v_{n},v_{1})\in E , so each agent communicates with a fixed neighbour set.
+Yin et al.’s Relay paradigm connects models in a circle, each receiving from its predecessor and passing to its successor  ( 145 ) .
+Sparse neighbour-connected topologies follow a similar principle  ( 71 ) .
+It balances information sharing and efficiency, reducing redundancy relative to full connectivity while retaining iterative refinement. 
+
+• 
+
+Star : a centralized topology where a single node aggregates from all others, as in M-MAD, where debate groups produce intermediate results synthesized by an agent (e.g., a judge agent ) into a final decision  ( 34 ) . This improves global consistency and interpretability but introduces a central bottleneck and single point of failure. 
+
+• 
+
+Tree : a hierarchical topology enabling recursive decomposition of reasoning. Tree-of-Debate constructs a dynamic tree whose nodes are subtopics and whose edges refine arguments  ( 51 ) , exploring reasoning paths in parallel while preserving structured progression, at the cost of higher coordination complexity. 
+
+• 
+
+Layered network : a multi-stage topology where agents form sequential layers, each performing a distinct transformation. AgentPrune’s pipeline of dimension partition, intra-dimension debate, and final aggregation exemplifies this  ( 148 ) , enabling modular reasoning and specialization but limiting cross-layer interaction. 
+
+• 
+
+Sparse : a low-density topology where each agent interacts with a limited subset of peers ( | E | ≪ | V | ( | V | − 1 ) |E|\ll|V|(|V|-1) ). Li et al.  ( 69 ) systematically study sparse communication (e.g., neighbour-connected graphs) and show that reducing connectivity can retain or even improve performance while significantly lowering inference cost, though it requires care to avoid removing critical information flows. 
+
+• 
+
+Bipartite : agents split into two disjoint sets interacting primarily across the partition, as in M-MAD, where paired agents with opposing stances debate within each dimension  ( 34 ) . This enhances contrastive reasoning and role specialization but may limit intra-group sharing. 
+
+These structures expose a central trade-off: greater connectivity improves information sharing and robustness, while restricting it improves efficiency and scalability. The choice of topology therefore directly shapes the balance among reasoning quality, interpretability, and computational cost. 
+
+Figure 5. Overview of structured network topologies for interaction in MAD systems. Overview of interaction topology structured networks in MAD systems, identifying: chain, ring, star, tree, layered network, sparse, and bipartite. 
+
+5.2. Protocol 
+
+Definition 5.2. 
+
+Protocoldef:protocol
+The set of interaction rules that governs how agents participate in the debate. It specifies the order, timing, and coordination of exchanges among agents. 
+
+Building on the graph-based formalization of topology, the protocol is the temporal dimension governing how interactions unfold over G = ( V , E ) G=(V,E) . Let T = { 1 , … , t max } T=\{1,\dots,t_{\max}\} denote the discrete debate steps; at each t ∈ T t\in T , a communication event transmits a message (a sequence of tokens) from agent u u to agent v v along an edge ( u , v ) ∈ E (u,v)\in E , defining when interactions occur and how information propagates across successive rounds. 
+
+5.2.1. Mechanism 
+
+Mechanism specifies how communication events are scheduled over time, i.e., the subset E ⁡ ( t ) ⊆ E E(t)\subseteq E of edges instantiated at each step t t . 
+
+A sequential mechanism (42.4%) activates one event per step ( | E ⁡ ( t ) | = 1 |E(t)|=1 ), enforcing an ordered, linear flow in which each message depends on previously generated content  ( 54 ; 53 ; 90 ; 6 ; 45 ; 94 ; 8 ; 18 ; 43 ) . These strategies unfold over a fixed number of rounds in which the agent set is iteratively traversed until consensus is reached or an iteration cap is hit  ( 19 ; 15 ; 79 ; 16 ) . Ordering can be instantiated in several ways: randomized turn-taking to mitigate ordering bias and dominance effects  ( 19 ; 80 ) , a predefined or dynamically controlled order mediated by a coordinator (e.g., a conversation manager or instructor agent) that selects the next speaker from the evolving context  ( 110 ) , or explicit comparison of both strategies  ( 119 ) .
+As in human discussion, ordering is non-trivial: early contributions can anchor later reasoning and amplify conformity, making interaction order a key factor in the diversity and robustness of deliberation. 
+
+A simultaneous mechanism (47.0%) activates multiple events in parallel ( | E ⁡ ( t ) | > 1 |E(t)|>1 ), letting agents contribute concurrently under identical context at step t t   ( 69 ; 5 ; 48 ; 62 ; 77 ; 59 ; 65 ; 101 ) .
+Simultaneous talk , formalized in Wang et al.  ( 119 ) , has all agents generate independently within a round and broadcast to peers.
+In EvalSVA  ( 134 ) , agents perform simultaneous assessment using only shared context from previous rounds. The simplest instance is bilateral simultaneous debate   ( 48 ; 63 ; 99 ; 153 ; 157 ; 50 ; 73 ) , where two agents argue in parallel and refine across rounds; larger settings extend this to many agents producing responses concurrently before aggregation  ( 76 ; 75 ; 129 ; 97 ; 98 ) . Some works directly compare mechanisms: Huang et al.  ( 46 ) and Wen et al.  ( 134 ) show that simultaneous interaction reduces inter-agent dependency while preserving diversity, and Wang et al.  ( 119 ) evaluate its impact on accuracy and token efficiency. By decoupling agent execution within each round, simultaneous mechanisms enable parallel computation and reduce ordering bias, but shift complexity to aggregation, where conflicting or redundant outputs must be reconciled. 
+
+A hybrid mechanism alternates sequential and simultaneous phases, interleaving independent contributions with interdependent refinement. Though this mechanism is less common (8.0%), several works adopt such staged pipelines: Wang et al.  ( 122 ) explore reasoning branches independently before structured merging, and CollabEval  ( 98 ) alternates independent evaluation with collaborative discussion.
+Others operate at finer granularity — GVIC  ( 161 ) interleaves independent reasoning with periodic communication, MAMM-REFINE  ( 118 ) combines parallel evaluation with sequential refinement, Ki et al.  ( 54 ) switch dynamically between independent and interactive behaviour, and RedDebate  ( 3 ) cycles parallel generation and sequential critique — or extend the idea hierarchically, with parallel exploration across branches and sequential refinement within them, as in Tree-of-Debate  ( 51 ) and MAKGED  ( 67 ) .
+Hybrid mechanisms trade off exploration and coordination — parallel phases promote diversity and efficiency, sequential phases enable convergence — at the cost of greater orchestration complexity. 
+
+5.3. Format 
+
+Definition 5.3. 
+
+Formatdef:format
+The representation and structuring of the information exchanged between agents. It defines how arguments are expressed, transformed, and delivered during the debate. 
+
+The format specifies how messages are represented and processed. For a message m u → v ( t ) m_{u\rightarrow v}^{(t)} transmitted along an edge ( u , v ) ∈ E (u,v)\in E at step t t , it determines the encoding used, whether and how the message is transformed before consumption, and how much prior context is available. 
+
+5.3.1. Syntax 
+
+Syntax is the representational form in which messages are encoded and exchanged. It governs how information is structured, interpreted, and processed across agents, affecting transparency, inter-agent compatibility, and how far intermediate reasoning can be inspected or manipulated. 
+
+A natural language syntax encodes messages as human-readable text and is almost exclusively the choice in MAD (99.3%). It enables rich, expressive, and interpretable exchanges — allowing agents to articulate reasoning, critique others, and build on prior arguments — and supports human-in-the-loop supervision, but introduces ambiguity, verbosity, and higher token consumption. 
+
+An embeddings -based syntax exchanges messages as dense vectors in latent space rather than explicit text. The only approach proposing and evaluating it is CIPHER  ( 96 ) , where agents generate messages as weighted averages of token embeddings drawn from the output distribution and exchange these directly, converting back to text only at the final stage via nearest-neighbour search; Pham et al. report consistent gains over natural-language debate (0.5–5.0%), particularly for smaller models  ( 96 ) .
+This can reduce communication overhead and enable compact exchange, but limits interpretability and fine-grained critique, as intermediate representations are not human-readable. 
+
+5.3.2. Content 
+
+Content refers to the degree of semantic manipulation applied to a message before transmission. Formally, the delivered content is m ~ u → v ( t ) = f ⁡ ( m u → v ( t ) ) \tilde{m}_{u\rightarrow v}^{(t)}=f(m_{u\rightarrow v}^{(t)}) . Content choice directly affects the fidelity, conciseness, and informational density of the exchanged arguments. 
+
+A verbatim strategy (86.1%) transmits messages without modification ( m ~ u → v ( t ) = m u → v ( t ) \tilde{m}_{u\rightarrow v}^{(t)}=m_{u\rightarrow v}^{(t)} ), preserving the full original argument. The vast majority of approaches exchange outputs as-is  ( 33 ; 9 ; 127 ; 31 ; 110 ; 19 ; 154 ; 153 ; 75 ; 73 ; 67 ) . Verbatim exchange is often augmented with metadata that accompanies the argument without altering it: 
+
+• 
+
+Confidence scores , signalling an agent’s degree of certainty and used to weight aggregation, as in RECONCILE’s confidence-weighted voting  ( 5 ; 14 ; 145 ) . 
+
+• 
+
+Uncertainty scores , typically the inverse of confidence, letting agents adjust attention towards more reliable contributions  ( 29 ) . 
+
+• 
+
+Verifier or evaluation scores , where a dedicated component scores answers and intermediate reasoning; Park et al.  ( 91 ) aggregate these into rewards optimized through multi-agent reinforcement learning. 
+
+• 
+
+Judge-based likelihoods , where a judge assigns a plausibility signal used for final selection without altering the arguments themselves  ( 16 ) . 
+
+• 
+
+Bias or quality scores , computed by auxiliary agents to guide selection or training (reinforcing desirable behaviours, penalizing flawed outputs) while leaving arguments unchanged  ( 18 ) . 
+
+• 
+
+Guideline or preference weights , external signals encoding priorities such as utility or fairness that modulate aggregation without modifying the exchanged content  ( 149 ) . 
+
+Verbatim exchange maximizes information fidelity and retains full reasoning traces for inspection and post-hoc analysis, but introduces redundancy and higher token cost. 
+
+A summarized strategy (10.6%) compresses the message, m ~ u → v ( t ) = f ⁡ ( m u → v ( t ) ) \tilde{m}_{u\rightarrow v}^{(t)}=f(m_{u\rightarrow v}^{(t)}) with | f ⁡ ( m ) | < | m | |f(m)|<|m| , primarily to control context growth and communication cost  ( 48 ; 129 ; 39 ; 141 ) . Some approaches replace full dialogue history with compact shared summaries that preserve key signals  ( 119 ; 134 ) ; others summarize more aggressively at the message level, via entropy-based compression of redundant content  ( 141 ) , coordinator agents that synthesize outputs into concise reports as in ColaCare  ( 129 ) , or judge agents that summarize each round before continuing  ( 39 ) . Empirically, summarization can substantially cut communication overhead while remaining competitive  ( 119 ; 139 ; 134 ) , and some works combine verbatim and summarized exchange by role  ( 161 ; 59 ; 141 ) , preserving detail during local reasoning while compressing for coordination or aggregation. This improves efficiency and scalability but risks information loss when critical details are omitted. 
+
+Other strategies transform the structure, selection, or informational properties of messages rather than simply transmitting (verbatim) or compressing (summarized) them. Estornell et al.  ( 30 ) apply diversity-pruning and quality-pruning to selectively filter and prioritize responses, increasing diversity and reducing echo-chamber effects, while Wang et al.  ( 122 ) reorganize intermediate outputs into staged reasoning pipelines, altering how information is decomposed and recombined. These reshape properties such as diversity or relevance and can mitigate failure modes like consensus collapse, at the cost of added design complexity and reduced transparency. 
+
+5.3.3. Memory access 
+
+Memory access refers to the extent and source of information available to an agent when generating and interpreting messages. For a message m u → v ( t ) = g ⁡ ( ℳ ( t ) ) m_{u\rightarrow v}^{(t)}=g(\mathcal{M}^{(t)}) , the accessible memory ℳ ( t ) \mathcal{M}^{(t)} may span prior debate messages, persistent knowledge, or external resources, directly affecting reasoning continuity, knowledge grounding, and coherence. 
+
+A short-term strategy (94.7%) restricts ℳ ( t ) \mathcal{M}^{(t)} to the current debate, typically only the messages exchanged within the ongoing interaction  ( 137 ; 63 ; 110 ; 50 ; 38 ; 44 ; 25 ) . This is by far the most prevalent setting, usually implemented by concatenating prior arguments into the prompt at each step  ( 137 ) , sometimes with a compression step to keep within model context limits  ( 50 ) — a concern that directly motivates summarization. It simplifies reproducibility and experimental control, since sessions are self-contained, but prevents agents from reusing knowledge accumulated across prior debates. 
+
+A long-term strategy (2.7%) extends ℳ ( t ) \mathcal{M}^{(t)} with information persisting across sessions, enabling cumulative reasoning, refinement, and adaptation over time  ( 111 ; 84 ; 104 ; 141 ) . It is typically implemented through persistent debate traces, structured memory modules, historical reflections, or error repositories revisited in future steps  ( 111 ; 104 ; 141 ) , sometimes combined with learning-based adaptation that refines behaviour across iterations  ( 111 ; 84 ) . It raises challenges of memory management, trace selection, and consistency, since outdated, noisy, or erroneous information may persist. 
+
+A knowledge retrieval strategy (6.0%) augments ℳ ( t ) \mathcal{M}^{(t)} with external sources — databases, documents, guidelines, or retrieval systems queried during the debate — to compensate for insufficient task knowledge and improve factual grounding  ( 120 ; 124 ; 160 ; 154 ; 129 ; 10 ; 79 ; 104 ; 51 ) . Examples include medical guidelines in clinical consultation  ( 129 ) , stance-related background in zero-shot stance detection  ( 79 ) , event-schema evidence in event extraction  ( 124 ) , and paper-specific passages in scientific comparison  ( 51 ) ; others use shared or adaptive knowledge pools that agents query on demand  ( 10 ) . This enhances grounding and domain coverage but makes debate quality dependent on retrieval accuracy, evidence selection, and latency. 
+
+Finally, a small subset (2.0%) explores parametric memory , embedding debate-derived knowledge directly into model parameters through learning rather than explicitly accessible context  ( 111 ; 84 ; 141 ) . These approaches use debate traces, critiques, error logs, or reinforcement signals to adapt agent behaviour across training cycles: refining policies towards safer, less toxic generations  ( 84 ) , leveraging traces as synthetic supervision for self-evolution  ( 111 ) , or combining adversarial debate with persistent error logging for hallucination mitigation  ( 141 ) .
+Parametric memory adds no prompt context and needs no retrieval at inference, making it efficient once trained, but introduces training complexity and risks such as policy drift or the absorption of low-quality debate-derived patterns. 
+
+Key Findings RQ3 
+
+Dominance of full connectivity as a default design choice . Most MAD approaches rely on fully connected topologies, favouring maximal information sharing over deliberate communication design. Yet structured alternatives such as sparse, ring, or group-divided topologies can achieve competitive performance while reducing token cost, leaving topology an underexploited design lever  ( 69 ; 71 ; 123 ; 74 ) . 
+
+Convergence on a static, verbatim, short-term interaction pattern . The field has largely standardized around static structures, simultaneous or sequential natural-language exchange, verbatim message sharing, and short-term memory. This configuration is easy to implement, but only a few studies compare it against alternatives, leaving trade-offs in accuracy, cost, and communication efficiency unresolved  ( 46 ; 119 ; 134 ) . 
+
+Neglect of ordering effects in sequential debate . Sequential protocols are common, yet agent order is rarely controlled as an experimental variable. Since early contributions may anchor subsequent reasoning and amplify conformity, randomized turn-taking and centralized speaker selection remain important but underused mechanisms for reducing ordering bias  ( 110 ; 19 ; 119 ; 80 ) . 
+
+Limited adaptability due to session-scoped memory . MAD systems almost universally rely on short-term memory restricted to the current debate, while long-term, retrieval-based, and parametric memory remain marginal. This limits agents’ ability to accumulate knowledge across interactions or adapt to recurring tasks  ( 111 ; 84 ; 141 ) . 
+
+Underexploration of non-verbal communication formats . Inter-agent communication is almost exclusively natural language, despite early evidence that embedding-based communication can improve performance while reducing overhead. This suggests a largely unexplored space for efficient latent-space communication in larger or longer-running debate systems  ( 96 ) . 
+
+6. Agreement 
+
+The following section examines how MAD frameworks conclude their interactions and reach a final output.
+This process is categorized into two main dimensions, summarized in the taxonomy shown in Figure  6 : the Authority (who makes the decision) and the Resolution mechanism (how the decision is determined). 
+
+{forest} 
+
+Figure 6. Taxonomy of agreement in multi-agent debate systems. A taxonomy tree for the agreement dimension in multi-agent debate strategies. The root is Agreement. It has two branches: Authority and Resolution. Authority includes Collective, Judge-based, Hybrid and Other. Resolution includes Argument Evaluation, Majority vote, Weighted vote, Scoring, Average, and Consensus. 
+
+6.1. Authority 
+
+Definition 6.1. 
+
+Authoritydef:authority
+Authority refers to the agent responsible for the final output after the agents have concluded their debate process. 
+
+The authority defines the agency or entity responsible for making the final determination and generating the system’s output after the agents have concluded their debate process. It distinguishes between decisions made jointly by the group ( Collective ), by a specialized agent ( Judge-based ), through a combination of both ( Hybrid ), or other non-standard models ( Other ). 
+
+• 
+
+Collective ( 52.3% ): This is the most frequent approach, where the final answer is an aggregation of the agents’ positions. It is highly prevalent in mathematical and reasoning tasks where objective answers are required  ( 69 ; 96 ; 28 ; 138 ; 130 ; 119 ; 114 ; 101 ) . 
+
+• 
+
+Judge-based ( 39.1% ): A designated agent — often referred to as a “Judge”, “Moderator”, “Captain”, or “Meta-Agent” — reviews the entire debate log to make the final determination  ( 33 ; 71 ; 72 ; 120 ; 124 ; 62 ; 110 ; 19 ; 154 ; 75 ; 129 ; 112 ; 50 ; 55 ; 87 ; 68 ; 59 ; 152 ; 65 ; 94 ) . Although judges typically access the full conversation, some specialized designs only provide the judge with a summary generated by a separate agent  ( 72 ) . While this model is typical for subjective tasks such as text evaluation or medical diagnostics  ( 72 ; 55 ; 68 ) , it is also applied in scientific comparative analysis, where a moderator synthesizes the entire debate tree into a paragraph-long comparative summary  ( 51 ) . 
+
+• 
+
+Hybrid ( 4.0% ): These systems combine both methods, usually attempting a collective agreement first and invoking a judge only if a tie occurs or consensus is not reached within a specific number of rounds  ( 123 ; 57 ; 67 ; 30 ; 6 ) . 
+
+• 
+
+Other ( 4.6% ): This category encompasses frameworks where the decision authority is not explicitly defined, is user-dependent, or follows non-standard protocols. It includes human-in-the-loop systems where the final decision is delegated to the user  ( 92 ) , and fully configurable platforms that allow for any agreement style depending on the setup  ( 4 ) . Furthermore, it accounts for mathematical resolutions such as reaching a Nash equilibrium to achieve cross-cultural consensus  ( 149 ) , or architectural designs where a Central Answer Model (CAM) , consisting of fine-tuned ML models, generates the final response  ( 95 ) . Other proposals include selecting the output of a specific agent, like the “harmless agent” after a debate  ( 84 ) . 
+
+6.2. Resolution 
+
+Definition 6.2. 
+
+Resolutiondef:resolution
+The resolution mechanism specifies the logic or algorithm used to select or generate the final response. 
+
+Resolution is the specific mechanism, logic, or algorithmic process employed to aggregate individual agent positions or synthesize the arguments exchanged during the debate into a single, unified final response. This includes methods such as majority voting, scoring, numerical averaging, or reaching a consensus. 
+
+• 
+
+Argument Evaluation ( 13.4% 5 5 
+5 
+
+Exclusively, for resolution, percentages are computed over n = 97 n=97 MAD approaches, representing the set of studies where a resolution agreement process is actually formalized and implemented. ): Specific to judge-based systems, where the designated judge or meta-agent evaluates the quality of the debate arguments to synthesize a final judgment or summary  ( 127 ; 148 ; 132 ; 68 ; 59 ; 58 ; 16 ; 8 ; 3 ; 43 ; 51 ) . This mechanism is essential for tasks where a binary choice is insufficient and a qualitative synthesis is required. For instance, in scientific comparative analysis, a moderator evaluates a debate tree to produce a paragraph-long summary highlighting significance and novelty  ( 51 ) . Similarly, in software security, an “Auditor” reviews revised analyses to make final determinations on vulnerability classifications  ( 132 ) . 
+
+• 
+
+Majority vote ( 46.4% ): The dominant mechanism in collective systems, where the answer selected by the highest number of agents is chosen as the final outcome  ( 69 ; 48 ; 9 ; 96 ; 28 ; 138 ; 130 ; 119 ; 114 ; 111 ; 146 ; 80 ; 25 ; 29 ; 39 ; 145 ; 151 ; 104 ; 74 ; 70 ; 91 ; 141 ; 122 ; 101 ) . A notable special case occurs in frameworks like Auto-Arena , where although the authority is judge-based, the final decision is delegated to a committee of judges who reach a verdict through a majority vote among themselves  ( 156 ) . 
+
+• 
+
+Weighted vote ( 5.2% ): In this mechanism, final decisions are reached by applying specific weights to agent responses rather than treating them equally  ( 14 ; 149 ; 97 ; 10 ; 105 ) . Weights are typically calculated based on metadata such as confidence levels  ( 97 ) or an agent’s consistency across multiple rounds of debate  ( 97 ) . These weights are processed through quantitative mathematical formulas — such as specific equations to calculate final scores  ( 97 ) — or derived from Nash equilibrium distributions in cross-cultural negotiation tasks  ( 149 ) . Other implementations use algorithmic weighted predictions to combine adversarial perspectives into a single output  ( 10 ) . 
+
+• 
+
+Scoring ( 10.3% ): In this mechanism, agents assign numerical values or ranks to different responses, and the system selects the option with the best aggregate performance. This is used in spam detection to classify emails  ( 46 ) and in math word problem solving to identify the most plausible reasoning path  ( 160 ; 76 ) . A sophisticated application is found in value alignment tasks, where responses are selected by maximizing a “usefulness” function while simultaneously minimizing “harmlessness” scores  ( 161 ) . Additionally, scoring can be used by committees of judges to detect misinformation  ( 38 ) or to categorize arguments based on their bias levels  ( 18 ) . 
+
+• 
+
+Average ( 4.1% ): This method is specifically employed when the agents’ outputs are numerical. Instead of choosing one agent’s response, the system computes the mathematical mean of all individual values to derive a unified final answer. This is a common practice in evaluation frameworks like ChatEval  ( 9 ) and in studies on confidence calibration, where numerical scores are averaged to provide a more reliable assessment of truthfulness  ( 140 ) . 
+
+• 
+
+Consensus ( 20.6% ): Agents deliberate until they all converge on a single, unanimous answer  ( 12 ; 139 ; 73 ; 158 ; 44 ; 15 ; 134 ; 20 ; 13 ; 118 ; 45 ) . To prevent infinite loops, these processes are usually capped at a maximum number of rounds. For example, Chen et al. assessed the impact of doubling debate rounds (e.g., from 2 to 4, from 13 to 25) observing performance and token efficiency  ( 15 ) . 
+
+Key Findings RQ4 
+
+Dominance of collective authority in objective domains . Research shows a clear preference for collective decision-making in domains with objective ground truths, such as mathematics and logic  ( 69 ; 96 ; 28 ; 138 ; 114 ; 101 ) . In these contexts, authority is shared among agents to ensure that the final output is a product of group convergence. 
+
+Specialization of judge-based authority (Meta-Agents) for qualitative synthesis . There is a significant trend towards delegating authority to specialized “Meta-Agents” or judges for tasks requiring nuanced synthesis, such as clinical diagnostics or open-ended text evaluation  ( 33 ; 71 ; 156 ; 68 ; 59 ; 51 ) . These judges move beyond simple aggregation to perform a qualitative evaluation of the debate’s arguments. 
+
+Strategic trade-off between resolution efficiency and output fidelity . The choice of resolution mechanism involves a trade-off: while majority voting is the standard for computational efficiency in objective tasks  ( 69 ; 114 ; 145 ) , mechanisms like consensus or iterative argument evaluation prioritize high-fidelity results at a higher cost in terms of communication rounds and token consumption  ( 158 ; 15 ) . 
+
+7. Discussion 
+
+Documenting the MAD research landscape. 
+The first contribution of this study is to serve as a structured proxy for the state of MAD research. The bibliometric trend is unambiguous: from 14 studies in 2023 to 70 in 2025, with 45 of 141 studies available only as preprints, MAD is a young, fast-moving field whose body of knowledge remains largely uncurated and fragmented across domains and terminologies.
+Reading the four research questions jointly reveals how design decisions are coupled.
+Domain choice (RQ1) propagates into participant design (RQ2): objective-ground-truth domains such as mathematics and coding favour homogeneous debaters converging on a single answer, whereas less objective domains such as healthcare or social reasoning motivate heterogeneous personas and explicit roles to broaden perspective coverage.
+The same domains shape agreement (RQ4): objective tasks gravitate towards collective authority resolved by majority vote, while subjective tasks delegate to judge-based authority and argument evaluation, where a meta-agent performs qualitative synthesis rather than aggregation. Interaction (RQ3) shows the strongest internal coupling: across topology, protocol, format, and memory, the field has implicitly converged on a recurring pattern — static, fully connected topologies, verbatim natural-language content, and short-term memory — adopted by convention rather than through systematic comparison.
+Crucially, the alternatives to this pattern are not absent but marginal: dynamic topologies, structured and sparse networks, summarized or embedding-based content, and long-term, retrieval-augmented, or parametric memory each appear in a small minority of studies, and the few works that compare them report non-trivial performance and efficiency gains.
+The taxonomy presented in this paper is the first-level contribution that makes these observations possible .
+Decomposing MAD into participants , interaction , and agreement , and each dimension into orthogonal sub-dimensions with explicit attribute values, provides a shared vocabulary that replaces the inconsistent and overloaded terminology currently found in the literature. 
+
+This consolidated view exposes a set of concrete and actionable research gaps. Each identifies a design dimension that is technically feasible to vary but has not been investigated in a controlled manner: 
+
+• 
+
+Underexplored domains. Application is concentrated on general reasoning and mathematics, while specialized professional domains remain comparatively untested. 
+
+• 
+
+Topology as a deliberate design lever. Full connectivity is adopted by default, yet sparse and structured alternatives match or exceed it at lower cost. The conditions under which a given topology is preferable remain uncharacterized. 
+
+• 
+
+Dynamic interaction. Adaptive topologies are rare despite their potential to prune redundant exchanges. Principled policies for when and how to evolve the communication graph are largely missing. 
+
+• 
+
+Interaction order. Agent ordering in sequential protocols is seldom controlled or reported, leaving an underappreciated source of anchoring and conformity bias. 
+
+• 
+
+Memory beyond the session. Long-term, retrieval-augmented, and parametric memory are explored only marginally, limiting the adaptability of MAD systems across recurring tasks. 
+
+• 
+
+Embedding-based communication. Latent-space message exchange is virtually unexplored despite early evidence of joint effectiveness and efficiency gains. 
+
+• 
+
+Cross-dimension interactions. Studies typically vary one dimension in isolation; how participant, interaction, and agreement choices interact — e.g., topology effects under different agreement mechanisms — is unstudied. 
+
+• 
+
+Cost-aware evaluation. Performance is rarely reported jointly with token consumption or latency, obscuring the efficiency trade-offs that several design choices are explicitly meant to address. 
+
+A structural framework for benchmarking. 
+A direct practical consequence of the taxonomy is that it reframes the comparison of MAD approaches.
+As the results show, a MAD setting is defined by a large number of design decisions — on the order of a dozen attributes, each admitting several values — which jointly induce an enormous configuration space.
+This combinatorial variance is the root cause of a recurring methodological weakness: comparisons across studies are difficult, and rigorous benchmarking is harder still, because reported results conflate the effect of the debate mechanism with the effect of unstated design choices.
+The taxonomy mitigates this by giving comparison a format. Instead of relying on qualitative, narrative descriptions, an approach can be specified as a point in the taxonomic space, making explicit which attributes are fixed and which are varied. This yields two concrete benefits.
+First, differential documentation : it becomes straightforward to express how one MAD setting extends or modifies another by reporting only the attributes that differ, so that ablations and incremental contributions are described precisely instead of in prose.
+Second, controlled variability : reported performance can be attributed to specific attributes, enabling studies that isolate the effect of a single design dimension while holding the rest constant — the prerequisite for fair benchmarking and for distinguishing genuine mechanism gains from configuration artifacts.
+In this sense, the taxonomy is not only descriptive but normative, defining the minimal set of dimensions a study must report for its results to be interpretable and reproducible. 
+
+Towards machine-readable MAD specifications. 
+The third perspective concerns design and implementation. Because the taxonomy is structured and its attributes take values from well-defined domains, it can be extended beyond documentation into a machine-readable specification of MAD systems.
+Several dimensions already admit formal notations that make this immediate: topology is naturally expressed as a graph G = ( V , E ) G=(V,E) , the protocol as a temporal activation of edges E ⁡ ( t ) E(t) , the format as transformation functions over messages, and agreement as an authority-and-resolution pair. These are constructive devices, in the sense that a configuration expressed in this notation is sufficient to instantiate the corresponding system. This opens a path towards treating MAD settings as artifacts : structured, declarative specifications that can be exchanged, version-controlled, and modified independently of any particular implementation.
+Two consequences follow. First, reproducibility improves, since a specification artifact removes ambiguity about the configuration under evaluation.
+Second, and more importantly, the configuration space becomes programmatically navigable: once a MAD setting is a structured object, attributes such as the number of debaters, topology, or maximum rounds become hyperparameters amenable to automated search and tuning, rather than choices fixed manually at design time. The taxonomy thus provides the schema on top of which automated MAD design and optimization pipelines can be built. 
+
+Table 3. Taxonomy instantiation of ChatEval  ( 9 ) , using the semi-formal notation introduced in Sections  4 – 6 . 
+
+Dim. 
+Sub-dim. 
+Attribute 
+
+S1: One-by-One 
+
+S2: Simultaneous-Talk 
+
+S3: Simult.-Talk + Summarizer 
+
+Participants 
+
+Base Model 
+Family 
+Closed-weight (GPT-4 / GPT-3.5-turbo) 
+
+Base Model 
+Heterogeneity 
+Homogeneous: ∀ u , v ∈ V , model ​ ( u ) = model ​ ( v ) \forall u,v\in V,\;\text{model}(u)=\text{model}(v) 
+
+Roles 
+— 
+
+V = V D = { V=V_{D}=\{ Alice, Bob, Carol } \} = Debaters 
+
+V = V D ∪ { S } V=V_{D}\cup\{S\} where V D V_{D} = Debaters and S S = Summarizer 
+
+Personas 
+Attributes 
+Different personality traits through role prompts 
+
+Personas 
+Heterogeneity 
+
+Heterogeneous (default): distinct personality traits per agent; homogeneous baseline also evaluated (same prompt for all u ∈ V D u\in V_{D} ) 
+
+Personas 
+Assignment 
+Manually identified at design time 
+
+Interaction 
+
+Topology 
+Adaptability 
+Static: G = ( V , E ) G=(V,E) invariant across all rounds t ∈ T t\in T 
+
+Topology 
+Structure 
+
+Fully connected over V D V_{D} :
+E = { ( u , v ) ∣ u , v ∈ V D , u ≠ v } E=\{(u,v)\mid u,v\in V_{D},\;u\neq v\} , | E | = 6 |E|=6 
+
+Fully connected over V D V_{D} plus unidirectional edges from each debater to Summarizer:
+E = E D ∪ { ( d , S ) ∣ d ∈ V D } E=E_{D}\cup\{(d,S)\mid d\in V_{D}\} , | E D | = 6 |E_{D}|=6 , | E | = 9 |E|=9 
+
+Protocol 
+Mechanism 
+
+Sequential: | E ⁡ ( t ) | = 1 |E(t)|=1 ; agents traverse V D V_{D} in fixed order Alice → \to Bob → \to Carol per round t t ; prior responses concatenated into H n H_{n} 
+
+Simultaneous: | E ⁡ ( t ) | = | E D | |E(t)|=|E_{D}| ; all u ∈ V D u\in V_{D} generate m u → ∗ ( t ) m_{u\to*}^{(t)} in parallel; outputs buffered and broadcast to all H n H_{n} after each round 
+
+Simultaneous: same as S2 for V D V_{D} ; Summarizer S S additionally activated once per round after buffer is complete 
+
+Format 
+Syntax 
+Natural language: m u → v ( t ) ∈ Σ ∗ m_{u\to v}^{(t)}\in\Sigma^{*} for all ( u , v ) ∈ E (u,v)\in E 
+
+Format 
+Content 
+
+Verbatim: m ~ u → v ( t ) = m u → v ( t ) \tilde{m}_{u\to v}^{(t)}=m_{u\to v}^{(t)} ; full prior history H n H_{n} concatenated before each turn 
+
+Verbatim: m ~ u → v ( t ) = m u → v ( t ) \tilde{m}_{u\to v}^{(t)}=m_{u\to v}^{(t)} ; round outputs buffered and appended to all H n H_{n} simultaneously 
+
+Hybrid: verbatim among debaters, ( u , v ) ∈ E D (u,v)\in E_{D} : m ~ u → v ( t ) = m u → v ( t ) \tilde{m}_{u\to v}^{(t)}=m_{u\to v}^{(t)} ; summarized from S S to V D V_{D} : m ~ S → d ( t ) = f ⁡ ( buf ( t ) ) \tilde{m}_{S\to d}^{(t)}=f(\text{buf}^{(t)}) 
+
+Format 
+Memory ℳ ( t ) \mathcal{M}^{(t)} 
+
+Short-term: ℳ ( t ) = { m u → v ( t ′ ) ∣ t ′ < t , ( u , v ) ∈ E } \mathcal{M}^{(t)}=\{m_{u\to v}^{(t^{\prime})}\mid t^{\prime}<t,\;(u,v)\in E\} ; session-scoped 
+
+Agrmt. 
+
+Authority 
+— 
+Collective: final decision made jointly by all debaters in V D V_{D} 
+
+Resolution 
+— 
+
+Hybrid: majority vote if output is categorical; average if output is numerical 
+
+A formalization example: ChatEval. 
+To illustrate the three perspectives concretely, Table  3 applies the taxonomy to ChatEval  ( 9 ) , using the formal notation introduced in Sections   4 , 5 and  6 . We select ChatEval as it is among the most highly cited frameworks in our corpus, exercises all three taxonomy dimensions non-trivially, and is representative of the evaluation-oriented MAD systems common in the literature.
+The exercise instantiates each dimension — participants, interaction, and agreement — for the three MAD strategies that ChatEval defines, and exemplifies the benefits discussed above.
+As documentation , it renders the complete configuration of a published approach explicit and unambiguous.
+As a benchmarking aid, it shows that the three strategies differ in only a small set of attributes — the protocol mechanism, and the presence of a summarizer role with the associated topology and content changes — while all remaining attributes are shared, making the comparison precise and the contribution of each variant isolable.
+As a specification , the formal entries ( G = ( V , E ) G=(V,E) , E ⁡ ( t ) E(t) , m ~ = f ⁡ ( m ) \tilde{m}=f(m) , authority–resolution pair) constitute a near-constructive description from which the system could be instantiated. This single example thus demonstrates how the taxonomy operates simultaneously as a descriptive, comparative, and constructive instrument. 
+
+8. Threats to Validity 
+
+We organize threats to validity following the taxonomy proposed by Zhou et al.  ( 159 ) . 
+
+Concerning internal validity , two threats arise from the human-dependent nature of the study. First, paper selection and annotation are susceptible to subjectivity. To mitigate this threat, every candidate paper was independently assessed by at least two authors, with disagreements resolved by consensus.
+Data extraction was performed by a single author per paper due to corpus size, but the taxonomy vocabulary was iteratively consolidated across all authors throughout the process.
+Second, the taxonomy was derived inductively from the literature rather than from a pre-established framework, meaning its categories may be shaped by the particular set of studies included. To mitigate this threat, we iteratively reviewed and expanded the vocabulary included in our taxonomy, revisiting studies as new paradigms or design alternatives emerged. 
+
+Concerning construct validity , the main threat is the absence of a universally accepted definition of MAD. We addressed this by deriving explicit inclusion and exclusion criteria (Table  2 ) from a synthesis of existing definitions.
+Nevertheless, the boundary with adjacent paradigms such as multi-agent collaboration or iterative self-refinement is inherently fuzzy, and borderline cases required judgment calls that the dual-review protocol only partially mitigates. 
+
+Concerning external validity , the study is scoped to natural-language tasks, excluding multimodal debate settings. This is a deliberate decision to ensure taxonomic coherence, and we identify multimodal MAD as a direction for future work.
+Consequently, our taxonomy generalizes to text-based MAD and may need to be extended to capture modality-specific dimensions. Nevertheless, the majority of design dimensions are independent from the modality of the debate. 
+
+Concerning conclusion validity , the main threat concerns the completeness and repeatability of the search. The primary search was conducted exclusively on Scopus using a deliberately narrow search string, prioritizing precision in the seed set at the cost of potentially missing relevant works. This is partially mitigated by the systematic snowballing process, which traces backward and forward citation links to recover relevant works beyond the initial query, including arXiv preprints.
+Snowballing was executed in a single iteration rather than until full saturation; given that 70 of the 141 included studies were published in 2025 alone, additional rounds would yield diminishing returns, as later-included papers would largely cite works already in the corpus. Finally, the rapid evolution of the field means that findings and taxonomic categories may require revision as new architectural patterns emerge. However, this mostly affects the coverage and distribution of surveyed studies, rather than the validity of the design dimensions covered by our taxonomy and the dimension-dependent insights derived from the set of surveyed studies.
+To support external auditability and incremental updates, we make our full replication package available  ( 86 ) . 
+
+9. Conclusions 
+
+This paper surveyed MAD research through a systematic review of 141 primary studies published between 2023 and 2025. From this corpus, we derived a three-dimensional taxonomy — participants , interaction , and agreement — that consolidates a fragmented and terminologically inconsistent body of work into a shared, formally grounded vocabulary. 
+
+Two observations stand out.
+First, the field has converged on a narrow design pattern — e.g., static, fully connected topologies with simultaneous protocols, verbatim natural-language exchange, and short-term memory. Design alternatives such as sparse topologies, embedding-based communication, and persistent memory remain marginal, despite early evidence in their favour.
+Second, any MAD setting is the product of roughly a dozen interacting design decisions, which makes cross-study comparison unreliable whenever those decisions are left implicit.
+Together, these observations point to the same underlying gap: MAD design choices are made by convention and reported in prose, leaving the paradigm without a principled basis for knowing which configurations work, when, and why. 
+
+Our taxonomy responds to both. It serves as a map of the current research landscape and a checklist of underexplored directions, but its more distinctive role is structural. As most of its dimensions admit formal notation, several design aspects of any MAD configuration can be expressed as an explicit, machine-readable artifact rather than a prose description. Treating debate settings as artifacts turns the configuration space into an object that can be documented, compared attribute by attribute, version-controlled, and ultimately searched automatically. 
+
+We see this as the principal opportunity ahead. The immediate value of the taxonomy is descriptive, but its longer-term value is operational — i.e., a schema on which benchmarking protocols and automated configuration tooling can be built. As future work, we plan to formalize this schema into an executable specification and to use it for controlled, cost-aware benchmarking that isolates the effect of individual design dimensions. Extending the scope to multimodal debate remains a further open direction. 
+
+Acknowledgments 
+
+This work has been supported by funding from the HIVEMIND project – Horizon Europe call HORIZON-CL4-2024-DIGITAL-EMERGING-01 under Grant Agreement Number 101189745. 
+
+Data Availability Statement 
+
+A replication package containing the full list of surveyed studies, the data extraction sheets, and the taxonomy coding schema is publicly available on GitHub and archived on Zenodo with a permanent DOI  ( 86 ) . 
+
+Use of Generative AI Statement 
+
+Generative AI tools were used exclusively to support language refinement and polishing of the manuscript. These tools were not used for literature analysis, data extraction, interpretation of results, or generation of scientific claims. All scientific content, methodological decisions, analyses, and conclusions were developed and validated by the authors. 
+
+References 
+
+ACM SIGSOFT Empirical Standards (n.d.) 
+ACM SIGSOFT Empirical Standards 
+
+Systematic reviews standard .
+
+ACM SIGSOFT Empirical Standards .
+
+Note: https://www2.sigsoft.org/EmpiricalStandards/docs/standards?standard=SystematicReviews# Accessed: 2026-02-27 
+
+Cited by: §1 .
+
+Arif et al. (2025) 
+S. Arif, S. Farid, A. H. Azeemi, A. Athar, and A. A. Raza 
+
+The fellowship of the LLMs: multi-model workflows for synthetic preference optimization dataset generation .
+
+In Procs. of the Fourth Workshop on Generation, Evaluation and Metrics ,
+
+pp. 30–45 .
+
+External Links: Link ,
+ISBN 979-8-89176-261-9 
+
+Cited by: 1st item .
+
+Asad et al. (2025) 
+A. Asad, S. Obadinma, R. Shayanfar, and X. Zhu 
+
+RedDebate: safer responses through multi-agent red teaming debates .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2506.11083 
+
+External Links: 2506.11083 
+
+Cited by: 5th item ,
+3rd item ,
+item ,
+§3.2 ,
+1st item ,
+2nd item ,
+§5.2.1 ,
+1st item .
+
+Ashkinaze et al. (2025) 
+J. Ashkinaze, E. Fry, N. Edara, E. Gilbert, and C. Budak 
+
+Plurals: a system for guiding LLMs via simulated social ensembles .
+
+In Procs. of the 2025 CHI Conference on Human Factors in Computing Systems ,
+
+External Links: ISBN 9798400713941 ,
+Link ,
+Document 
+
+Cited by: 6th item ,
+4th item ,
+5th item ,
+§4.2 ,
+4th item .
+
+Bai (2024) 
+Y. Bai 
+
+ConfidenceCal: enhancing LLMs reliability through confidence calibration in multi-agent debate .
+
+In Procs. of the 10th International Conference on Big Data and Information Analytics ,
+
+Vol. .
+
+Cited by: 1st item ,
+§4.1.3 ,
+§4.2 ,
+§4.3.1 ,
+1st item ,
+§5.2.1 .
+
+Bao et al. (2025a) 
+D. Bao, Y. Yang, X. Chen, et al. 
+
+PD 3 {}^{3} : a project duplication detection framework via adapted multi-agent debate .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2505.17492 
+
+External Links: 2505.17492 
+
+Cited by: 2nd item ,
+7th item ,
+1st item ,
+§5.2.1 ,
+3rd item .
+
+Bao et al. (2025b) 
+Z. Bao, Y. Ji, W. Wu, X. Chen, and L. He 
+
+Supervisor alignment framework: enhancing LLM alignment with query-ignoring strategy and multi-agent interaction .
+
+In Procs. of the 2025 IEEE International Conference on Acoustics, Speech and Signal Processing ,
+
+Cited by: 1st item ,
+§4.2 .
+
+Barbi et al. (2025) 
+O. Barbi, O. Yoran, and M. Geva 
+
+Preventing rogue agents improves multi-agent collaboration .
+
+In Procs. of the 1st Workshop for Research on Agent Language Models ,
+
+pp. 486–511 .
+
+External Links: Link ,
+ISBN 979-8-89176-264-0 
+
+Cited by: 4th item ,
+5th item ,
+§3.2 ,
+4th item ,
+§4.1.1 ,
+§4.1.3 ,
+§4.3.1 ,
+§4.3.2 ,
+§5.2.1 ,
+1st item .
+
+Chan et al. (2024) 
+C. Chan, W. Chen, Y. Su, et al. 
+
+ChatEval: towards better LLM-based evaluators through multi-agent debate .
+
+In Procs. of the 12th International Conference on Learning Representations ,
+
+Cited by: §1 ,
+§2.1 ,
+1st item ,
+4th item ,
+item ,
+item ,
+§3.2 ,
+item ,
+§4.1.2 ,
+§4.2 ,
+§4.2 ,
+§5.1.1 ,
+§5.3.2 ,
+2nd item ,
+5th item ,
+Table 3 ,
+§7 .
+
+Chang (2025) 
+E. Y. Chang 
+
+EVINCE: optimizing adversarial llm dialogues via conditional statistics and information theory .
+
+In Multi-LLM Agent Collaborative Intelligence: The Path to Artificial General Intelligence ,
+
+External Links: ISBN 9798400731976 ,
+Link 
+
+Cited by: 3rd item ,
+5th item ,
+1st item ,
+item ,
+§3.2 ,
+§5.1.1 ,
+§5.3.3 ,
+3rd item .
+
+Chen et al. (2025a) 
+B. Chen, T. Zhu, J. Han, et al. 
+
+Incentivizing truthful language models via peer elicitation games .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2505.13636 
+
+External Links: 2505.13636 
+
+Cited by: 5th item .
+
+Chen et al. (2025b) 
+H. Chen, W. Ji, L. Xu, and S. Zhao 
+
+Multi-Agent Consensus Seeking via Large Language Models .
+
+Note: arXiv preprint arXiv:2310.20151 
+
+External Links: 2310.20151 ,
+Link 
+
+Cited by: 7th item ,
+6th item ,
+item ,
+§4.1.1 ,
+§4.2 ,
+§4.3.2 ,
+6th item .
+
+Chen et al. (2024a) 
+J. C. Chen, S. Saha, E. Stengel-Eskin, and M. Bansal 
+
+MAGDI: structured distillation of multi-agent interaction graphs improves reasoning in smaller language models .
+
+In Procs. of the 41st International Conference on Machine Learning ,
+
+Cited by: item ,
+item ,
+§4.3.1 ,
+§4.3.2 ,
+6th item .
+
+Chen et al. (2024b) 
+J. Chen, S. Saha, and M. Bansal 
+
+ReConcile: round-table conference improves reasoning via consensus among diverse LLMs .
+
+In Procs. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+Cited by: 6th item ,
+§4.1.3 ,
+§4.2 ,
+§4.3.2 ,
+1st item ,
+3rd item .
+
+Chen et al. (2025c) 
+X. Chen, H. Yi, M. You, et al. 
+
+Enhancing diagnostic capability with multi-agents conversational large language models .
+
+NPJ digital medicine 8.0 ( 1 ).
+
+Cited by: 3rd item ,
+1st item ,
+item ,
+§3.2 ,
+3rd item ,
+§4.1.3 ,
+§5.2.1 ,
+6th item ,
+item .
+
+Chen et al. (2023) 
+X. Chen, A. Chen, D. Foster, and E. Hazan 
+
+Playing large games with oracles and ai debate .
+
+arXiv .
+
+External Links: 2312.04792 
+
+Cited by: 1st item ,
+7th item ,
+item ,
+1st item ,
+item ,
+item ,
+§4.1.1 ,
+§4.1.1 ,
+§4.1.3 ,
+4th item ,
+§5.2.1 ,
+1st item .
+
+Cheng et al. (2024a) 
+D. Cheng, S. Huang, and F. Wei 
+
+Adapting large language models to domains via reading comprehension .
+
+External Links: 2309.09530 
+
+Cited by: §1 .
+
+Cheng et al. (2024b) 
+R. Cheng, H. Ma, S. Cao, et al. 
+
+Reinforcement learning from multi-role debates as feedback for bias mitigation in llms .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2404.10160 
+
+External Links: 2404.10160 
+
+Cited by: 5th item ,
+5th item ,
+§5.2.1 ,
+4th item .
+
+Choi et al. (2025) 
+M. Choi, K. Kim, S. Chae, and S. Baek 
+
+An empirical study of group conformity in multi-agent systems .
+
+In Findings of the Association for Computational Linguistics: ACL 2025 ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-256-5 
+
+Cited by: 6th item ,
+2nd item ,
+§4.1.3 ,
+§4.2 ,
+§4.3.1 ,
+item ,
+§5.2.1 ,
+§5.3.2 ,
+2nd item .
+
+Chong et al. (2025) 
+Z. Chong, H. Ohsaki, and B. Ng 
+
+LLM-net: democratizing LLMs-as-a-service through blockchain-based expert networks .
+
+In Procs. of the 14th International Conference on Software and Computer Applications ,
+
+External Links: ISBN 9798400710124 ,
+Link ,
+Document 
+
+Cited by: 3rd item ,
+4th item ,
+6th item .
+
+Chun et al. (2025) 
+J. Chun, Q. Chen, J. Li, and I. Ahmed 
+
+Is multi-agent debate (MAD) the silver bullet? an empirical analysis of MAD in code summarization and translation .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2503.12029 
+
+External Links: 2503.12029 
+
+Cited by: 4th item ,
+5th item .
+
+Clark et al. (2019) 
+C. Clark, K. Lee, M. Chang, et al. 
+
+BoolQ: exploring the surprising difficulty of natural yes/no questions .
+
+In Procs. of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers) ,
+
+External Links: Link ,
+Document 
+
+Cited by: 1st item .
+
+Clark et al. (2018) 
+P. Clark, I. Cowhey, O. Etzioni, et al. 
+
+Think you have solved question answering? try ARC, the AI2 reasoning challenge .
+
+arXiv .
+
+Note: arXiv preprint arXiv:1803.05457 
+
+External Links: 1803.05457 
+
+Cited by: 2nd item .
+
+Cobbe et al. (2021) 
+K. Cobbe, V. Kosaraju, M. Bavarian, et al. 
+
+Training verifiers to solve math word problems .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2110.14168 
+
+External Links: 2110.14168 
+
+Cited by: 2nd item .
+
+Cui et al. (2025) 
+Y. Cui, L. Yao, Z. Li, Y. Li, B. Ding, and X. Zhou 
+
+Efficient leave-one-out approximation in LLM multi-agent debate based on introspection .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2505.22192 
+
+External Links: 2505.22192 
+
+Cited by: 1st item ,
+§5.3.3 ,
+2nd item .
+
+Dettmers et al. (2023) 
+T. Dettmers, A. Pagnoni, A. Holtzman, and L. Zettlemoyer 
+
+QLORA: efficient finetuning of quantized llms .
+
+In Procs. of the 37th International Conference on Neural Information Processing Systems ,
+
+Cited by: §1 .
+
+Diestel (2025) 
+R. Diestel 
+
+Graph theory .
+
+6 edition , Graduate Texts in Mathematics , Vol. 173 , Springer-Verlag .
+
+Note: Sixth edition 
+
+External Links: ISBN 978-3-662-70106-5 
+
+Cited by: §5.1 .
+
+Du et al. (2024) 
+Y. Du, S. Li, A. Torralba, J. B. Tenenbaum, and I. Mordatch 
+
+Improving factuality and reasoning in language models through multiagent debate .
+
+In Procs. of the 41st International Conference on Machine Learning ,
+
+Cited by: §2.1 ,
+2nd item ,
+1st item ,
+item ,
+item ,
+§4.1.2 ,
+§4.1.3 ,
+§4.2 ,
+§4.3.1 ,
+§4.3.2 ,
+1st item ,
+2nd item ,
+item .
+
+Duan and Wang (2025) 
+Z. Duan and J. Wang 
+
+Enhancing multi-agent consensus through third-party LLM integration: analyzing uncertainty and mitigating hallucinations in large language models .
+
+In Procs. of the 8th International Conference on Advanced Algorithms and Control Engineering ,
+
+Cited by: 1st item ,
+6th item ,
+2nd item ,
+2nd item .
+
+Estornell and Liu (2024) 
+A. Estornell and Y. Liu 
+
+Multi-LLM debate: framework, principals, and interventions .
+
+In Procs. of the 38th International Conference on Neural Information Processing Systems ,
+
+External Links: ISBN 9798331314385 
+
+Cited by: 5th item ,
+§5.3.2 ,
+3rd item .
+
+Estornell et al. (2024) 
+A. Estornell, J. Ton, Y. Yao, and Y. Liu 
+
+ACC-collab: an actor-critic approach to multi-agent LLM collaboration .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2411.00053 
+
+External Links: 2411.00053 
+
+Cited by: 2nd item ,
+§5.3.2 .
+
+Fan et al. (2024) 
+W. Fan, Y. Ding, L. Ning, et al. 
+
+A survey on RAG meeting LLMs: towards retrieval-augmented large language models .
+
+In Procs. of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining ,
+
+External Links: Document 
+
+Cited by: §1 .
+
+Fang et al. (2025) 
+Y. Fang, M. Li, W. Wang, L. Hui, and F. Feng 
+
+Counterfactual debating with preset stances for hallucination elimination of LLMs .
+
+In Procs. of the 31st International Conference on Computational Linguistics ,
+
+Cited by: 1st item ,
+2nd item ,
+1st item ,
+item ,
+item ,
+§4.1.2 ,
+§4.3.1 ,
+§5.3.2 ,
+2nd item ,
+item .
+
+Feng et al. (2025) 
+Z. Feng, J. Su, J. Zheng, et al. 
+
+M-MAD: multidimensional multi-agent debate for advanced machine translation evaluation .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 7084–7107 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 4th item ,
+6th item ,
+4th item ,
+item ,
+1st item ,
+3rd item ,
+7th item .
+
+Guan et al. (2026) 
+S. Guan, J. Wang, J. Bian, et al. 
+
+Evaluating LLM-based agents for multi-turn conversations: a survey .
+
+ACM Transactions on Intelligent Systems and Technology 17 ( 4 ).
+
+Cited by: §1 .
+
+Guan et al. (2025) 
+Y. Guan, H. Peng, L. Hou, and J. Li 
+
+Mmd-ere: multi-agent multi-sided debate for event relation extraction .
+
+In Procs. of the 31st International Conference on Computational Linguistics ,
+
+Cited by: 6th item ,
+3rd item .
+
+Gururangan et al. (2020) 
+S. Gururangan, A. Marasović, S. Swayamdipta, et al. 
+
+Don’t stop pretraining: adapt language models to domains and tasks .
+
+In Procs. of the 58th Annual Meeting of the Association for Computational Linguistics ,
+
+pp. 8342–8360 .
+
+External Links: Link ,
+Document 
+
+Cited by: §1 .
+
+Han et al. (2025) 
+C. Han, W. Zheng, and X. Tang 
+
+Debate-to-detect: reformulating misinformation detection as a real-world debate with large language models .
+
+In Procs. of the 2025 Conference on Empirical Methods in Natural Language Processing ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-332-6 
+
+Cited by: 5th item ,
+3rd item ,
+item ,
+§4.3.1 ,
+§4.3.2 ,
+§5.1.2 ,
+§5.3.3 ,
+4th item .
+
+He et al. (2024) 
+Y. He, Y. Liu, C. Ouyang, et al. 
+
+Evaluating human-large language model alignment in group process .
+
+In CCF International Conference on Natural Language Processing and Chinese Computing ,
+
+Cited by: §5.3.2 ,
+2nd item .
+
+Hendrycks et al. (2021a) 
+D. Hendrycks, C. Burns, S. Basart, et al. 
+
+Measuring massive multitask language understanding .
+
+arXiv .
+
+External Links: 2009.03300 
+
+Cited by: 1st item .
+
+Hendrycks et al. (2021b) 
+D. Hendrycks, C. Burns, S. Kadavath, et al. 
+
+Measuring mathematical problem solving with the MATH dataset .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2103.03874 
+
+External Links: 2103.03874 
+
+Cited by: 2nd item .
+
+Hong et al. (2024) 
+S. Hong, M. Zhuge, J. Chen, et al. 
+
+MetaGPT: meta programming for a multi-agent collaborative framework .
+
+In Procs. of the 12th International Conference on Learning Representations ,
+
+External Links: Link 
+
+Cited by: §1 ,
+§1 .
+
+Hu et al. (2025a) 
+W. Hu, W. Zhang, Y. Jiang, et al. 
+
+Removal of hallucination on hallucination: debate-augmented RAG .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 2nd item ,
+item ,
+§4.1.1 ,
+§5.2.1 ,
+1st item .
+
+Hu et al. (2025b) 
+Z. Hu, H. P. Chan, J. Li, and Y. Yin 
+
+Debate-to-write: a persona-driven multi-agent framework for diverse argument generation .
+
+In Procs. of the 31st International Conference on Computational Linguistics ,
+
+External Links: Link 
+
+Cited by: §3.2 ,
+5th item ,
+§5.1.2 ,
+§5.3.3 ,
+6th item .
+
+Huang et al. (2024) 
+H. Huang, T. Shah, J. Karigiannis, and S. Evans 
+
+Physics and data collaborative root cause analysis: integrating pretrained large language models and data-driven AI for trustworthy asset health management .
+
+In Annual Conference of the PHM Society ,
+
+2024 .
+
+Cited by: §5.2.1 ,
+6th item .
+
+Huang (2024) 
+R. Huang 
+
+Improving spam detection with a multi-agent debate framework .
+
+In Procs. of the IEEE 4th International Conference on Information Technology, Big Data and Artificial Intelligence ,
+
+Vol. 4 .
+
+Cited by: 3rd item ,
+3rd item ,
+§4.2 ,
+§4.2 ,
+1st item ,
+item ,
+§5.1.2 ,
+§5.2.1 ,
+4th item .
+
+Ishizaka et al. (2024) 
+M. Ishizaka, A. Taya, and Y. Tobe 
+
+Sparkit: a mind map-based MAS for idea generation support .
+
+In Procs. of the International Workshop on Engineering Multi-Agent Systems ,
+
+Cited by: 2nd item ,
+3rd item ,
+item ,
+§4.2 .
+
+Jeptoo and Sun (2025) 
+K. N. Jeptoo and C. Sun 
+
+Enhancing fake news detection with large language models through multi-agent debates .
+
+In Natural Language Processing and Chinese Computing ,
+
+Cited by: 5th item ,
+3rd item ,
+1st item ,
+2nd item ,
+§4.2 ,
+§5.2.1 ,
+§5.3.2 ,
+2nd item .
+
+Jiang et al. (2024) 
+Y. Jiang, Y. Shao, D. Ma, S. Semnani, and M. Lam 
+
+Into the unknown unknowns: engaged human learning through participation in language model agent conversations .
+
+In Procs. of the 2024 Conference on Empirical Methods in Natural Language Processing ,
+
+External Links: Link ,
+Document 
+
+Cited by: 3rd item ,
+§4.1.3 .
+
+Jin et al. (2025) 
+W. Jin, D. Su, T. Tao, et al. 
+
+Courtroom-FND: a multi-role fake news detection method based on argument switching-based courtroom debate .
+
+Journal of King Saud University Computer and Information Sciences 37.0 ( 3 ), pp. 33 .
+
+Cited by: 5th item ,
+3rd item ,
+item ,
+item ,
+§4.1.1 ,
+§5.2.1 ,
+§5.3.3 ,
+2nd item .
+
+Kargupta et al. (2025) 
+P. Kargupta, I. Agarwal, T. August, and J. Han 
+
+Tree-of-debate: multi-persona debate trees elicit critical thinking for scientific comparative analysis .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 29378–29403 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 2nd item ,
+7th item ,
+§3.2 ,
+3rd item ,
+item ,
+§4.1.3 ,
+§4.3.1 ,
+4th item ,
+§5.2.1 ,
+§5.3.3 ,
+2nd item ,
+1st item ,
+item .
+
+Ke et al. (2024) 
+Y. H. Ke, R. Yang, S. A. Lie, et al. 
+
+Enhancing diagnostic accuracy through multi-agent conversations: using large language models to mitigate cognitive bias .
+
+External Links: 2401.14589 
+
+Cited by: 3rd item ,
+1st item ,
+item ,
+§3.2 ,
+1st item ,
+2nd item ,
+3rd item ,
+§4.2 .
+
+Kenton et al. (2024) 
+Z. Kenton, N. Siegel, J. Kramár, et al. 
+
+On scalable oversight with weak LLMs judging strong LLMs .
+
+Advances in Neural Information Processing Systems 37.0 .
+
+Cited by: §4.1.3 ,
+§5.2.1 .
+
+Ki et al. (2025) 
+D. Ki, R. Rudinger, T. Zhou, and M. Carpuat 
+
+Multiple LLM agents debate for equitable cultural alignment .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: §5.1.1 ,
+§5.2.1 ,
+§5.2.1 .
+
+Kim et al. (2024) 
+A. Kim, K. Kim, and S. Yoon 
+
+DEBATE: devil’s advocate-based assessment and text evaluation .
+
+In Findings of the Association for Computational Linguistics: ACL 2024 ,
+
+External Links: Link ,
+Document 
+
+Cited by: 4th item ,
+item ,
+§3.2 ,
+1st item ,
+item ,
+item ,
+item ,
+§4.1.1 ,
+§4.1.1 ,
+§4.2 ,
+§4.3.1 ,
+§4.3.2 ,
+2nd item .
+
+Kitchenham and Charters (2007) 
+B. A. Kitchenham and S. Charters 
+
+Guidelines for performing systematic literature reviews in software engineering .
+
+Technical report 
+
+Technical Report EBSE 2007-001 , Keele University and Durham University Joint ReportKeele University .
+
+Cited by: §2.2 ,
+§2 .
+
+Koupaee et al. (2025) 
+M. Koupaee, J. W. Vincent, S. Mansour, et al. 
+
+Faithful, unfaithful or ambiguous? multi-agent debate with initial stance for summary evaluation .
+
+In Procs. of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-189-6 
+
+Cited by: 6th item ,
+4th item ,
+item ,
+§3.2 ,
+item ,
+§4.1.1 ,
+§4.1.1 ,
+§4.2 ,
+3rd item .
+
+Le et al. (2024) 
+H. D. Le, X. Xia, and Z. Chen 
+
+Multi-agent causal discovery using large language models .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2407.15073 
+
+External Links: 2407.15073 
+
+Cited by: 4th item ,
+1st item .
+
+Lee et al. (2024) 
+Y. Lee, S. Park, K. Cho, and J. Bak 
+
+MentalAgora: a gateway to advanced personalized care in mental health through multi-agent debating and attribute control .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2407.02736 
+
+External Links: 2407.02736 
+
+Cited by: item ,
+item ,
+§4.3.1 ,
+§4.3.2 ,
+§5.2.1 ,
+§5.3.2 ,
+2nd item ,
+1st item ,
+item .
+
+Li et al. (2025a) 
+D. Li, Z. Tan, P. Qian, et al. 
+
+SMoA: improving multi-agent large language models with sparse mixture-of-agents .
+
+In Procs. of Pacific-Asia Conference on Knowledge Discovery and Data Mining ,
+
+pp. 54–65 .
+
+Cited by: 3rd item .
+
+Li et al. (2024a) 
+H. Li, Q. Dong, J. Chen, et al. 
+
+LLMs-as-Judges: a comprehensive survey on llm-based evaluation methods .
+
+arXiv .
+
+External Links: 2412.05579 
+
+Cited by: §1 .
+
+Li et al. (2024b) 
+R. Li, M. Tan, D. F. Wong, and M. Yang 
+
+CoEvol: constructing better responses for instruction finetuning through multi-agent cooperation .
+
+In Procs. of the 2024 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 4703–4721 .
+
+Cited by: 2nd item ,
+4th item ,
+1st item ,
+5th item ,
+1st item ,
+5th item ,
+item ,
+§4.1.2 ,
+§5.2.1 ,
+2nd item .
+
+Li et al. (2024c) 
+R. Li, T. Patel, and X. Du 
+
+PRD: peer rank and discussion improve large language model based evaluations .
+
+Transactions on Machine Learning Research .
+
+Note: 
+
+External Links: ISSN 2835-8856 
+
+Cited by: 4th item ,
+§4.1.3 ,
+§4.2 ,
+§5.2.1 ,
+§5.3.3 .
+
+Li et al. (2023) 
+T. Li, X. Ma, A. Zhuang, Y. Gu, Y. Su, and W. Chen 
+
+Few-shot in-context learning on knowledge base question answering .
+
+In Procs. of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+External Links: Document 
+
+Cited by: §1 .
+
+Li et al. (2025b) 
+W. Li, S. Manickam, Y. Chong, and S. Karuppayah 
+
+PhishDebate: an LLM-based multi-agent framework for phishing website detection .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2506.15656 
+
+External Links: 2506.15656 
+
+Cited by: 4th item ,
+3rd item ,
+item ,
+§3.2 ,
+3rd item ,
+item ,
+§4.1.1 ,
+§4.1.2 ,
+§4.2 ,
+§4.2 ,
+§5.2.1 ,
+2nd item .
+
+Li et al. (2024d) 
+X. Li, S. Wang, S. Zeng, Y. Wu, and Y. Yang 
+
+A survey on llm-based multi-agent systems: workflow, infrastructure, and challenges .
+
+Vicinagearth 1 ( 1 ), pp. 9 .
+
+External Links: Document ,
+Link ,
+ISSN 3005-060X 
+
+Cited by: §1 .
+
+Li et al. (2026) 
+Y. Li, Y. Huang, G. Qi, et al. 
+
+Harnessing diverse perspectives: a multi-agent framework for enhanced error detection in knowledge graphs .
+
+In Database Systems for Advanced Applications ,
+
+pp. 446–458 .
+
+External Links: ISBN 978-981-95-4158-4 
+
+Cited by: 2nd item ,
+§5.2.1 ,
+§5.3.2 ,
+3rd item .
+
+Li et al. (2024e) 
+Y. Li, S. Zhang, R. Wu, et al. 
+
+MATEval: a multi-agent discussion framework for advancing open-ended text evaluation .
+
+In Database Systems for Advanced Applications ,
+
+pp. 415–426 .
+
+External Links: ISBN 978-981-97-5575-2 
+
+Cited by: 1st item ,
+4th item ,
+item ,
+§3.2 ,
+2nd item ,
+1st item ,
+item .
+
+Li et al. (2024f) 
+Y. Li, Y. Du, J. Zhang, et al. 
+
+Improving multi-agent debate with sparse communication topology .
+
+In Findings of the Association for Computational Linguistics: EMNLP 2024 ,
+
+pp. 7281–7294 .
+
+Cited by: 2nd item ,
+1st item ,
+item ,
+§3.2 ,
+§4.1.2 ,
+§4.1.3 ,
+§4.2 ,
+§4.3.1 ,
+6th item ,
+item ,
+§5.2.1 ,
+1st item ,
+2nd item ,
+item ,
+item .
+
+Li et al. (2025c) 
+Y. Li, J. H. Mohamud, C. Sun, D. Wu, and B. Boulet 
+
+Leveraging LLMs as meta-judges: a multi-agent framework for evaluating LLM judgments .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2504.17087 
+
+External Links: 2504.17087 
+
+Cited by: 4th item ,
+item ,
+§3.2 ,
+3rd item ,
+2nd item .
+
+Liang et al. (2024) 
+T. Liang, Z. He, W. Jiao, et al. 
+
+Encouraging divergent thinking in large language models through multi-agent debate .
+
+In Procs. of the 2024 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 17889–17904 .
+
+Cited by: §1 ,
+§2.1 ,
+2nd item ,
+1st item ,
+item ,
+§3.2 ,
+1st item ,
+item ,
+§4.1.2 ,
+§4.3.1 ,
+2nd item ,
+item ,
+§5.1.1 ,
+2nd item ,
+item .
+
+Lim et al. (2024) 
+S. Lim, Y. Kim, C. Choi, J. Sohn, and B. Kim 
+
+ERD: a framework for improving LLM reasoning for cognitive distortion classification .
+
+In Procs. of the 6th Clinical Natural Language Processing Workshop ,
+
+pp. 292–300 .
+
+Cited by: 1st item ,
+2nd item ,
+item ,
+§4.1.3 ,
+§4.2 ,
+§5.1.1 ,
+2nd item .
+
+Liu et al. (2025a) 
+F. Liu, R. Zhao, S. Chen, et al. 
+
+Can an individual manipulate the collective decisions of multi-agents? .
+
+In Procs. of the 2025 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 12158–12182 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-332-6 
+
+Cited by: 5th item ,
+3rd item ,
+§5.2.1 ,
+§5.3.2 ,
+6th item .
+
+Liu et al. (2024a) 
+T. Liu, X. Wang, W. Huang, et al. 
+
+GroupDebate: enhancing the efficiency of multi-agent debate using group discussion .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2409.14051 
+
+External Links: 2409.14051 
+
+Cited by: §4.1.2 ,
+item ,
+§5.1.2 ,
+2nd item .
+
+Liu et al. (2025b) 
+Y. Liu, J. Cao, Z. Li, R. He, and T. Tan 
+
+Breaking mental set to improve reasoning through diverse multi-agent debate .
+
+In Procs. of the 13th International Conference on Learning Representations ,
+
+Cited by: 2nd item ,
+1st item ,
+item ,
+§4.1.2 ,
+§5.2.1 ,
+§5.3.2 ,
+2nd item .
+
+Liu et al. (2024b) 
+Z. Liu, Y. Zhang, P. Li, Y. Liu, and D. Yang 
+
+A dynamic LLM-powered agent network for task-oriented agent collaboration .
+
+In Procs. of the 1st Conference on Language Modeling ,
+
+Cited by: 4th item ,
+1st item ,
+5th item ,
+§3.2 ,
+item ,
+§4.1.3 ,
+§4.3.1 ,
+§5.1.1 ,
+§5.1.2 ,
+§5.2.1 ,
+4th item .
+
+Lu et al. (2024) 
+L. Lu, S. Chen, T. Pai, et al. 
+
+LLM discussion: enhancing the creativity of large language models via discussion framework and role-play .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2405.06373 
+
+External Links: 2405.06373 
+
+Cited by: item ,
+§4.1.1 ,
+§4.1.3 ,
+§4.2 ,
+§5.2.1 .
+
+Luo et al. (2025) 
+J. Luo, W. Zhang, Y. Yuan, et al. 
+
+Large language model agent: a survey on methodology, applications and challenges .
+
+arXiv .
+
+External Links: 2503.21460 
+
+Cited by: §1 .
+
+Ma et al. (2025) 
+J. Ma, C. Wang, L. Rong, B. Wang, and Y. Xu 
+
+Exploring multi-agent debate for zero-shot stance detection: a novel approach .
+
+Applied Sciences 15.0 ( 9 ), pp. 4612 .
+
+Cited by: item ,
+§4.1.1 ,
+§5.2.1 ,
+§5.3.3 .
+
+Ma (2025) 
+Y. R. Ma 
+
+Do androids question electric sheep? a multi-agent cognitive simulation of philosophical reflection on hybrid table reasoning .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 4: Student Research Workshop) ,
+
+pp. 143–164 .
+
+External Links: Document 
+
+Cited by: 1st item ,
+2nd item ,
+item ,
+§4.1.2 ,
+§4.1.3 ,
+item ,
+§5.2.1 ,
+2nd item .
+
+Martín-Martín et al. (2021) 
+A. Martín-Martín, M. Thelwall, E. Orduna-Malea, and E. Delgado López-Cózar 
+
+Google Scholar, Microsoft Academic, Scopus, Dimensions, Web of Science, and OpenCitations’ COCI: a multidisciplinary comparison of coverage via citations .
+
+Scientometrics 126 ( 1 ).
+
+Cited by: §2.2 .
+
+Min et al. (2025) 
+H. Min, Y. Lee, M. Ban, et al. 
+
+Towards multi-dimensional evaluation of LLM summarization across domains and languages .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 1st item ,
+§4.2 ,
+§4.2 .
+
+Moghimifar et al. (2024) 
+F. Moghimifar, Y. Li, R. Thomson, and G. Haffari 
+
+Modelling political coalition negotiations using llm-based agents .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2402.11712 
+
+External Links: 2402.11712 
+
+Cited by: 5th item ,
+6th item ,
+item ,
+§4.1.1 .
+
+Mohan et al. (2025) 
+G. B. Mohan, M. Gayathri, and R. P. Kumar 
+
+Detoxifying language model outputs: combining multi-agent debates and reinforcement learning for improved summarization .
+
+Language Resources and Evaluation .
+
+Cited by: 5th item ,
+item ,
+§5.3.3 ,
+§5.3.3 ,
+4th item .
+
+Moniri et al. (2025) 
+B. Moniri, H. Hassani, and E. Dobriban 
+
+Evaluating the performance of large language models via debates .
+
+In Findings of the Association for Computational Linguistics: NAACL 2025 ,
+
+pp. 2040–2075 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-195-7 
+
+Cited by: §5.1.1 .
+
+Motger et al. (2026) 
+Q. Motger, M. Oriol, J. Marco, and X. Franch 
+
+nlp4se/MAD-rep-package: Replication package for "Multi-Agent Debate Strategies: Survey, Taxonomy, and Challenges" .
+
+Zenodo .
+
+External Links: Document ,
+Link 
+
+Cited by: §8 ,
+Data Availability Statement .
+
+Nguyen et al. (2025) 
+N. T. V. Nguyen, F. D. Childress, and Y. Yin 
+
+Debate-driven multi-agent llms for phishing email detection .
+
+In Procs. of the 13th International Symposium on Digital Forensics and Security ,
+
+Cited by: 4th item ,
+3rd item ,
+item ,
+§3.2 ,
+2nd item .
+
+Oriol et al. (2025) 
+M. Oriol, Q. Motger, J. Marco, and X. Franch 
+
+Multi-agent debate strategies to enhance requirements engineering with large language models .
+
+In Procs. of the IEEE 33rd International Requirements Engineering Conference ,
+
+Vol. .
+
+External Links: Document 
+
+Cited by: §1 .
+
+Ouyang et al. (2022) 
+L. Ouyang, J. Wu, X. Jiang, et al. 
+
+Training language models to follow instructions with human feedback .
+
+In Procs. of the 36th International Conference on Neural Information Processing Systems ,
+
+External Links: ISBN 9781713871088 
+
+Cited by: §1 .
+
+Pan et al. (2025) 
+Z. Pan, X. Xia, F. Liu, and M. Zheng 
+
+PCcGE: personalized chinese couplet generation and evaluation framework based on large language models .
+
+Applied Sciences 15.0 ( 9 ), pp. 4996 .
+
+Cited by: 6th item ,
+5th item ,
+item ,
+2nd item ,
+4th item ,
+§5.2.1 .
+
+Park et al. (2025) 
+C. Park, S. Han, X. Guo, et al. 
+
+MAPoRL: multi-agent post-co-training for collaborative large language models with reinforcement learning .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 1st item ,
+4th item ,
+§4.1.2 ,
+§4.3.1 ,
+3rd item ,
+§5.1.2 ,
+2nd item .
+
+Park et al. (2026) 
+J. Park, B. Min, K. Son, J. Y. Song, X. Ma, and J. Kim 
+
+ChoiceMates: supporting unfamiliar online decision-making with multi-agent conversational interactions .
+
+In Procs. of the 31st International Conference on Intelligent User Interfaces ,
+
+pp. 1526–1550 .
+
+External Links: ISBN 9798400719844 ,
+Link ,
+Document 
+
+Cited by: 7th item ,
+§4.1.2 ,
+§4.1.3 ,
+§5.1.1 ,
+4th item .
+
+Park et al. (2023) 
+J. S. Park, J. O’Brien, C. J. Cai, et al. 
+
+Generative agents: interactive simulacra of human behavior .
+
+In Procs. of the 36th Annual ACM Symposium on User Interface Software and Technology ,
+
+External Links: ISBN 9798400701320 ,
+Document 
+
+Cited by: §1 .
+
+Park et al. (2024) 
+S. Park, J. Kim, S. Jin, S. Park, and K. Han 
+
+PREDICT: multi-agent-based debate simulation for generalized hate speech detection .
+
+In Procs. of the 2024 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 20963–20987 .
+
+Cited by: 5th item ,
+3rd item ,
+3rd item ,
+§5.2.1 ,
+2nd item .
+
+Patel et al. (2024) 
+B. Patel, V. S. Dorbala, A. S. Bedi, and D. Manocha 
+
+Multi-LLM QA with embodied exploration .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2406.10918 
+
+External Links: 2406.10918 
+
+Cited by: 4th item .
+
+Pham et al. (2024) 
+C. Pham, B. Liu, Y. Yang, Z. Chen, T. Liu, J. Yuan, B. A. Plummer, Z. Wang, and H. Yang 
+
+Let models speak ciphers: multiagent debate through embeddings .
+
+In The Twelfth International Conference on Learning Representations ,
+
+Cited by: 2nd item ,
+1st item ,
+item ,
+§3.2 ,
+§4.2 ,
+item ,
+§5.1.2 ,
+§5.3.1 ,
+1st item ,
+2nd item ,
+item .
+
+Pitre et al. (2025) 
+P. Pitre, N. Ramakrishnan, and X. Wang 
+
+CONSENSAGENT: towards efficient and effective consensus in multi-agent LLM interactions through sycophancy mitigation .
+
+In Findings of the Association for Computational Linguistics: ACL 2025 ,
+
+pp. 22112–22133 .
+
+External Links: Document 
+
+Cited by: 2nd item ,
+1st item ,
+item ,
+§3.2 ,
+§5.2.1 ,
+3rd item .
+
+Qian et al. (2025) 
+Y. Qian, S. Zhang, Y. Zhou, H. Ding, D. Socolinsky, and Y. Zhang 
+
+Enhancing LLM-as-a-judge via multi-agent collaboration .
+
+In Procs. of the AAAI 2025 Workshop on Advancing LLM-Based Multi-Agent Collaboration ,
+
+Cited by: 4th item ,
+§3.2 ,
+§5.2.1 ,
+§5.2.1 .
+
+Qin et al. (2025) 
+Z. Qin, C. Wang, J. Guo, H. Qin, and W. Jia 
+
+Brainstorming brings power to large language models of knowledge reasoning .
+
+In IEEE International Conference on Multimedia and Expo ,
+
+Vol. , pp. 1–6 .
+
+External Links: Document 
+
+Cited by: 1st item ,
+§5.1.2 ,
+§5.2.1 .
+
+Rafailov et al. (2023) 
+R. Rafailov, A. Sharma, E. Mitchell, et al. 
+
+Direct preference optimization: your language model is secretly a reward model .
+
+In Procs. of the 37th International Conference on Neural Information Processing Systems ,
+
+Cited by: §1 .
+
+Regan et al. (2024) 
+C. Regan, A. Gournail, and M. Oka 
+
+Problem-solving in language model networks .
+
+In Artificial Life Conference Proceedings 36 ,
+
+2024 , pp. 70 .
+
+Cited by: 1st item ,
+item ,
+§4.1.2 ,
+§5.2.1 ,
+1st item ,
+2nd item ,
+item .
+
+Retzlaff et al. (2024) 
+C. O. Retzlaff, S. Das, C. Wayllace, P. Mousavi, M. Afshari, T. Yang, A. Saranti, A. Angerschmid, M. E. Taylor, and A. Holzinger 
+
+Human-in-the-loop reinforcement learning: a survey and position on requirements, challenges, and opportunities .
+
+J. Artif. Int. Res. 79 .
+
+External Links: ISSN 1076-9757 ,
+Link ,
+Document 
+
+Cited by: §1 .
+
+Sandwar et al. (2025) 
+V. Sandwar, B. Jain, R. Thangaraj, I. Garg, M. Lam, and K. Zhu 
+
+Town hall debate prompting: enhancing logical reasoning in llms through multi-persona interaction .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2502.15725 
+
+External Links: 2502.15725 
+
+Cited by: item ,
+§4.1.2 ,
+§4.1.3 .
+
+Sato (2024) 
+M. Sato 
+
+GAI: generative agents for innovation .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2412.18899 
+
+External Links: 2412.18899 
+
+Cited by: §4.1.2 ,
+§5.3.3 ,
+§5.3.3 ,
+2nd item .
+
+Shang et al. (2025) 
+H. Shang, X. Liu, Z. Liang, J. Zhang, H. Hu, and S. Guo 
+
+United minds or isolated agents? exploring coordination of llms under cognitive load theory .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2506.06843 
+
+External Links: 2506.06843 
+
+Cited by: 3rd item .
+
+Shen et al. (2023) 
+T. Shen, R. Jin, Y. Huang, C. Liu, W. Dong, Z. Guo, X. Wu, Y. Liu, and D. Xiong 
+
+Large language model alignment: a survey .
+
+External Links: 2309.15025 
+
+Cited by: §1 .
+
+Sinha et al. (2019) 
+K. Sinha, S. Sodhani, J. Dong, J. Pineau, and W. L. Hamilton 
+
+CLUTRR: a diagnostic benchmark for inductive reasoning from text .
+
+In Procs. of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing ,
+
+pp. 4506–4515 .
+
+External Links: Link ,
+Document 
+
+Cited by: 2nd item .
+
+Smit et al. (2024) 
+A. Smit, N. Grinsztajn, P. Duckworth, T. D. Barrett, and A. Pretorius 
+
+Should we be going mad? a look at multi-agent debate strategies for llms .
+
+In Procs. of the 41st International Conference on Machine Learning ,
+
+ICML’24 .
+
+Cited by: §1 .
+
+Smit et al. (2023) 
+A. P. Smit, P. Duckworth, N. Grinsztajn, K. Tessera, T. D. Barrett, and A. Pretorius 
+
+Are we going mad? benchmarking multi-agent debate between language models for medical q&a .
+
+In Deep Generative Models for Health Workshop NeurIPS 2023 ,
+
+Cited by: 3rd item ,
+item ,
+§4.3.1 .
+
+Song et al. (2024) 
+L. Song, J. Liu, J. Zhang, S. Zhang, A. Luo, S. Wang, Q. Wu, and C. Wang 
+
+Adaptive in-conversation team building for language model agents .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2405.19425 
+
+External Links: 2405.19425 
+
+Cited by: 4th item ,
+1st item ,
+5th item ,
+§3.2 ,
+2nd item ,
+3rd item ,
+item ,
+§4.1.3 ,
+§4.3.1 ,
+item ,
+§5.1.1 ,
+§5.2.1 ,
+§5.3.2 ,
+§5.3.3 ,
+2nd item .
+
+Srivastava et al. (2025) 
+G. Srivastava, Z. Bi, M. Lu, and X. Wang 
+
+DEBATE, TRAIN, EVOLVE: Self-Evolution of language model reasoning .
+
+In Procs. of the 2025 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 32764–32810 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-332-6 
+
+Cited by: 1st item ,
+§4.1.2 ,
+§4.3.1 ,
+item ,
+§5.3.3 ,
+§5.3.3 ,
+2nd item .
+
+Sun et al. (2023) 
+Q. Sun, Z. Yin, X. Li, Z. Wu, X. Qiu, and L. Kong 
+
+Corex: pushing the boundaries of complex reasoning through multi-model collaboration .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2310.00280 
+
+External Links: 2310.00280 
+
+Cited by: 7th item ,
+1st item ,
+§3.2 ,
+§4.1.3 ,
+§5.1.2 ,
+2nd item .
+
+Sun et al. (2025a) 
+X. Sun, J. Li, Y. Zhong, D. Zhao, and R. Yan 
+
+Towards detecting llms hallucination via markov chain-based multi-agent debate framework .
+
+In Procs. of 2025 IEEE International Conference on Acoustics, Speech and Signal Processing ,
+
+Cited by: 3rd item .
+
+Sun et al. (2025b) 
+Y. Sun, Z. Zhao, S. Wan, and C. Gong 
+
+CortexDebate: debating sparsely and equally for multi-agent debate .
+
+In Findings of the Association for Computational Linguistics: ACL 2025 ,
+
+pp. 9503–9523 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-256-5 
+
+Cited by: 1st item ,
+item ,
+§3.2 ,
+§5.1.1 ,
+1st item ,
+2nd item ,
+item ,
+item .
+
+Suzgun et al. (2022) 
+M. Suzgun, N. Scales, N. Schärli, et al. 
+
+Challenging big-bench tasks and whether chain-of-thought can solve them .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2210.09261 
+
+External Links: 2210.09261 
+
+Cited by: 1st item .
+
+Tillmann (2025) 
+A. Tillmann 
+
+Literature review of multi-agent debate for problem-solving .
+
+External Links: 2506.00066 
+
+Cited by: §1 .
+
+Tran et al. (2025) 
+K. Tran, D. Dao, M. Nguyen, et al. 
+
+Multi-agent collaboration mechanisms: a survey of LLMs .
+
+External Links: 2501.06322 
+
+Cited by: §1 .
+
+Wan et al. (2025) 
+D. Wan, J. Chen, E. Stengel-Eskin, and M. Bansal 
+
+MAMM-refine: a recipe for improving faithfulness in generation with multi-agent collaboration .
+
+In Procs. of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) ,
+
+pp. 9882–9901 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-189-6 
+
+Cited by: §5.2.1 ,
+6th item .
+
+Wang et al. (2025a) 
+H. Wang, S. Zhao, J. Wang, Z. Qiang, B. Qin, and T. Liu 
+
+Beyond frameworks: unpacking collaboration strategies in multi-agent systems .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 21361–21375 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 3rd item ,
+2nd item ,
+1st item ,
+2nd item ,
+3rd item ,
+item ,
+item ,
+item ,
+§4.1.2 ,
+§4.2 ,
+§4.3.1 ,
+§4.3.2 ,
+§4.3.2 ,
+item ,
+item ,
+§5.1.2 ,
+§5.2.1 ,
+§5.2.1 ,
+§5.3.2 ,
+1st item ,
+2nd item .
+
+Wang et al. (2025b) 
+H. Wang, X. Du, W. Yu, et al. 
+
+Learning to break: knowledge-enhanced reasoning in multi-agent debate system .
+
+Neurocomputing 618 .
+
+Cited by: 1st item ,
+3rd item ,
+2nd item ,
+2nd item ,
+3rd item ,
+§5.3.3 ,
+2nd item .
+
+Wang et al. (2024a) 
+L. Wang, C. Ma, X. Feng, et al. 
+
+A survey on large language model based autonomous agents .
+
+Frontiers of Computer Science 18 ( 6 ), pp. 186345 .
+
+External Links: Document ,
+Link ,
+ISSN 2095-2236 
+
+Cited by: §1 .
+
+Wang et al. (2023a) 
+Q. Wang, Z. Wang, Y. Su, and Y. Song 
+
+On the discussion of large language models: symmetry of agents and interplay with prompts .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2311.07076 
+
+External Links: 2311.07076 
+
+Cited by: 1st item ,
+3rd item ,
+§5.2.1 ,
+§5.3.2 ,
+2nd item .
+
+Wang et al. (2024b) 
+Q. Wang, Z. Wang, Y. Su, H. Tong, and Y. Song 
+
+Rethinking the bounds of llm reasoning: are multi-agent discussions the key? .
+
+In Procs. of the Annual Meeting of the Association for Computational Linguistics ,
+
+pp. 6106–6131 .
+
+Cited by: 1st item ,
+item ,
+§4.3.2 ,
+item ,
+§5.1.2 ,
+3rd item .
+
+Wang and Huang (2024) 
+S. Wang and L. Huang 
+
+Debate as optimization: adaptive conformal prediction and diverse retrieval for event extraction .
+
+In Findings of the Association for Computational Linguistics: EMNLP 2024 ,
+
+pp. 16422–16435 .
+
+Cited by: 6th item ,
+1st item ,
+2nd item ,
+§5.3.3 ,
+2nd item .
+
+Wang et al. (2023b) 
+X. Wang, J. Wei, D. Schuurmans, Q. V. Le, E. H. Chi, S. Narang, A. Chowdhery, and D. Zhou 
+
+Self-consistency improves chain of thought reasoning in language models .
+
+In Procs. of the 11th International Conference on Learning Representations ,
+
+External Links: Link 
+
+Cited by: §1 .
+
+Wang et al. (2026) 
+Y. Wang, Y. Pan, Z. Su, Y. Deng, Q. Zhao, L. Du, T. H. Luan, J. Kang, and D. Niyato 
+
+Large model-based agents: state-of-the-art, cooperation paradigms, security and privacy, and future trends .
+
+IEEE Communications Surveys & Tutorials 28 ( ), pp. 1906–1949 .
+
+External Links: Document 
+
+Cited by: §1 .
+
+Wang et al. (2024c) 
+Z. Wang, S. Mao, W. Wu, T. Ge, F. Wei, and H. Ji 
+
+Unleashing the emergent cognitive synergy in large language models: a task-solving agent through multi-persona self-collaboration .
+
+In Procs. of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) ,
+
+pp. 257–279 .
+
+Cited by: §3.2 ,
+3rd item ,
+item ,
+§4.1.2 ,
+§4.1.3 ,
+§5.3.2 ,
+1st item .
+
+Wang et al. (2025c) 
+Z. Wang, Y. Wang, X. Liu, et al. 
+
+AgentDropout: dynamic agent elimination for token-efficient and high-performance LLM-based multi-agent collaboration .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 24013–24035 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 4th item ,
+1st item ,
+5th item ,
+§3.2 ,
+§4.1.3 ,
+§4.3.1 ,
+§5.1.1 .
+
+Wang et al. (2025d) 
+Z. Wang, Y. Zhu, H. Zhao, X. Zheng, D. Sui, T. Wang, W. Tang, Y. Wang, E. Harrison, and C. Pan 
+
+Colacare: enhancing electronic health record modeling through large language model-driven multi-agent collaboration .
+
+In Procs. of the ACM on Web Conference ,
+
+pp. 2250–2261 .
+
+Cited by: 3rd item ,
+7th item ,
+2nd item ,
+3rd item ,
+item ,
+§4.2 ,
+§5.2.1 ,
+§5.3.2 ,
+§5.3.3 ,
+2nd item .
+
+Watanabe et al. (2024) 
+S. Watanabe, C. S. Leow, J. Hoshino, et al. 
+
+Assessment and improvement of customer service speech with multiple large language models .
+
+In Procs. of the 2024 Asia Pacific Signal and Information Processing Association Annual Summit and Conference ,
+
+Cited by: 7th item ,
+§4.3.2 ,
+1st item ,
+2nd item .
+
+Wei et al. (2022) 
+J. Wei, X. Wang, D. Schuurmans, et al. 
+
+Chain-of-thought prompting elicits reasoning in large language models .
+
+In Procs. of the 36th International Conference on Neural Information Processing Systems ,
+
+External Links: ISBN 9781713871088 
+
+Cited by: §1 .
+
+Wei et al. (2025) 
+Z. Wei, J. Sun, Y. Sun, et al. 
+
+Advanced smart contract vulnerability detection via llm-powered multi-agent systems .
+
+IEEE Transactions on Software Engineering 51 ( 10 ), pp. 2830–2846 .
+
+External Links: Document 
+
+Cited by: 4th item ,
+3rd item ,
+item ,
+§3.2 ,
+4th item ,
+item ,
+§4.1.2 ,
+§5.1.1 ,
+1st item .
+
+Welbl et al. (2017) 
+J. Welbl, N. F. Liu, and M. Gardner 
+
+Crowdsourcing multiple choice science questions .
+
+External Links: 1707.06209 
+
+Cited by: 2nd item .
+
+Wen et al. (2024) 
+X. Wen, J. Ye, C. Gao, L. Wu, and Q. Liao 
+
+EvalSVA: multi-agent evaluators for next-gen software vulnerability assessment .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2501.14737 
+
+External Links: 2501.14737 
+
+Cited by: 4th item ,
+3rd item ,
+item ,
+§3.2 ,
+1st item ,
+item ,
+§5.2.1 ,
+§5.3.2 ,
+6th item .
+
+Wohlin (2014) 
+C. Wohlin 
+
+Guidelines for snowballing in systematic literature studies and a replication in software engineering .
+
+In Procs. of the 18th International Conference on Evaluation and Assessment in Software Engineering ,
+
+EASE ’14 .
+
+Cited by: §2 .
+
+Xi et al. (2025) 
+Z. Xi, W. Chen, X. Guo, et al. 
+
+The rise and potential of large language model based agents: a survey .
+
+Science China Information Sciences 68 ( 2 ), pp. 121101 .
+
+External Links: Document ,
+ISSN 1869-1919 
+
+Cited by: §1 .
+
+Xiong et al. (2023) 
+K. Xiong, X. Ding, Y. Cao, T. Liu, and B. Qin 
+
+Examining inter-consistency of large language models collaboration: an in-depth analysis via debate .
+
+In Findings of the Association for Computational Linguistics: EMNLP 2023 ,
+
+pp. 7572–7590 .
+
+Cited by: 1st item ,
+1st item ,
+2nd item ,
+item ,
+§4.1.3 ,
+§4.2 ,
+§5.3.3 .
+
+Xu et al. (2023) 
+Z. Xu, S. Shi, B. Hu, J. Yu, D. Li, M. Zhang, and Y. Wu 
+
+Towards reasoning in large language models via multi-agent peer review collaboration .
+
+Note: arXiv preprint arXiv:2311.08152 
+
+External Links: 2311.08152 ,
+Link 
+
+Cited by: 2nd item ,
+1st item ,
+item ,
+§4.1.3 ,
+§4.2 ,
+1st item ,
+2nd item ,
+item .
+
+Yang et al. (2024a) 
+K. Yang, Y. Chu, T. Darwin, et al. 
+
+Content knowledge identification with multi-agent large language models (llms) .
+
+In International Conference on Artificial Intelligence in Education ,
+
+pp. 284–292 .
+
+Cited by: 2nd item ,
+3rd item ,
+§5.3.2 ,
+6th item .
+
+Yang et al. (2024b) 
+R. Yang, D. Rajagopal, S. A. Hayati, B. Hu, and D. Kang 
+
+Confidence calibration and rationalization for LLMs via multi-agent deliberation .
+
+In ICLR 2024 Workshop on Reliable and Responsible Foundation Models ,
+
+Cited by: 1st item ,
+4th item ,
+§4.2 ,
+5th item .
+
+Yang et al. (2025) 
+Y. Yang, Y. Ma, H. Feng, Y. Cheng, and Z. Han 
+
+Minimizing hallucinations and communication costs: adversarial debate and voting mechanisms in llm-based multi-agents .
+
+Applied Sciences 15.0 ( 7 ), pp. 3676 .
+
+Cited by: 2nd item ,
+§4.1.2 ,
+item ,
+§5.3.2 ,
+§5.3.3 ,
+§5.3.3 ,
+2nd item .
+
+Yang et al. (2018) 
+Z. Yang, P. Qi, S. Zhang, et al. 
+
+HotpotQA: a dataset for diverse, explainable multi-hop question answering .
+
+In Procs. of the 2018 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 2369–2380 .
+
+External Links: Link ,
+Document 
+
+Cited by: 1st item .
+
+Yao et al. (2023a) 
+S. Yao, D. Yu, J. Zhao, et al. 
+
+Tree of thoughts: deliberate problem solving with large language models .
+
+In Procs. of the 37th International Conference on Neural Information Processing Systems ,
+
+Cited by: §1 .
+
+Yao et al. (2023b) 
+S. Yao, J. Zhao, D. Yu, et al. 
+
+ReAct: synergizing reasoning and acting in language models .
+
+In Procs. of the 11th International Conference on Learning Representations ,
+
+External Links: Link 
+
+Cited by: §1 .
+
+Yin et al. (2023) 
+Z. Yin, Q. Sun, C. Chang, et al. 
+
+Exchange-of-thought: enhancing large language model capabilities through cross-model communication .
+
+In Procs. of the 2023 Conference on Empirical Methods in Natural Language Processing ,
+
+pp. 15135–15153 .
+
+External Links: Link ,
+Document 
+
+Cited by: 1st item ,
+3rd item ,
+2nd item ,
+1st item ,
+2nd item ,
+item .
+
+Yoffe et al. (2025) 
+L. Yoffe, A. Amayuelas, and W. Y. Wang 
+
+DebUnc: improving large language model agent communication with uncertainty metrics .
+
+In Findings of the Association for Computational Linguistics: EMNLP 2025 ,
+
+pp. 23299–23315 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-335-7 
+
+Cited by: 1st item ,
+item ,
+§4.1.2 ,
+§4.3.1 ,
+§4.3.2 ,
+2nd item .
+
+Zeng et al. (2025) 
+Y. Zeng, W. Huang, L. Jiang, et al. 
+
+S 2 {}^{2} -MAD: breaking the token barrier to enhance multi-agent debate efficiency .
+
+In Procs. of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) ,
+
+pp. 9393–9408 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-189-6 
+
+Cited by: item ,
+§4.3.1 ,
+§4.3.2 .
+
+Zhang et al. (2024a) 
+G. Zhang, Y. Yue, Z. Li, S. Yun, G. Wan, K. Wang, D. Cheng, J. X. Yu, and T. Chen 
+
+Cut the crap: an economical communication pipeline for llm-based multi-agent systems .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2410.02506 
+
+External Links: 2410.02506 
+
+Cited by: 4th item ,
+1st item ,
+5th item ,
+§4.1.2 ,
+§4.1.3 ,
+5th item ,
+§5.1.1 ,
+1st item .
+
+Zhang et al. (2025a) 
+G. Zhang, J. Chen, T. Yang, J. Ji, Y. Yang, and J. Dai 
+
+A game-theoretic negotiation framework for cross-cultural consensus in llms .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2506.13245 
+
+External Links: 2506.13245 
+
+Cited by: 6th item ,
+§4.1.1 ,
+§4.1.3 ,
+§4.3.1 ,
+6th item ,
+4th item ,
+3rd item .
+
+Zhang et al. (2025b) 
+H. Zhang, Z. Cui, J. Chen, X. Wang, Q. Zhang, Z. Wang, D. Wu, and S. Hu 
+
+Stop overvaluing multi-agent debate–we must rethink evaluation and embrace model heterogeneity .
+
+arXiv .
+
+External Links: 2502.08788 
+
+Cited by: §4.3.1 ,
+§4.3.2 .
+
+Zhang et al. (2024b) 
+J. Zhang, X. Xu, N. Zhang, et al. 
+
+Exploring collaboration mechanisms for LLM agents: a social psychology view .
+
+In Procs. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 14544–14607 .
+
+External Links: Link ,
+Document 
+
+Cited by: 1st item ,
+§4.1.2 ,
+2nd item .
+
+Zhang and Ashley (2025) 
+L. Zhang and K. D. Ashley 
+
+Mitigating manipulation and enhancing persuasion: a reflective multi-agent approach for legal argument generation .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2506.02992 
+
+External Links: 2506.02992 
+
+Cited by: 7th item ,
+5th item ,
+item ,
+§4.1.3 ,
+§5.1.1 ,
+2nd item .
+
+Zhang et al. (2024c) 
+M. Zhang, H. Gong, Q. Liu, S. Wu, and L. Wang 
+
+Breaking event rumor detection via stance-separated multi-agent debate .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2412.04859 
+
+External Links: 2412.04859 
+
+Cited by: 5th item ,
+3rd item ,
+§4.2 ,
+§5.2.1 ,
+§5.3.2 .
+
+Zhang et al. (2025c) 
+T. Zhang, D. Li, Q. Chen, C. Wang, and X. He 
+
+BELLE: a bi-level multi-agent reasoning framework for multi-hop question answering .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 4184–4202 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 2nd item ,
+§5.3.2 ,
+§5.3.3 ,
+2nd item .
+
+Zhao et al. (2026) 
+P. Zhao, H. Zhang, Q. Yu, Z. Wang, Y. Geng, F. Fu, L. Yang, W. Zhang, J. Jiang, and B. Cui 
+
+Retrieval-augmented generation for ai-generated content: a survey .
+
+Data Science and Engineering 11 ( 1 ), pp. 1–29 .
+
+External Links: Document ,
+Link ,
+ISSN 2364-1541 
+
+Cited by: §1 .
+
+Zhao et al. (2025) 
+R. Zhao, W. Zhang, Y. K. Chia, W. Xu, D. Zhao, and L. Bing 
+
+Auto-arena: automating LLM evaluations with agent peer battles and committee discussions .
+
+In Procs. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,
+
+pp. 4440–4463 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-251-0 
+
+Cited by: 1st item ,
+2nd item ,
+4th item ,
+4th item ,
+5th item ,
+item ,
+item ,
+§3.2 ,
+1st item ,
+item ,
+item ,
+§4.3.1 ,
+§4.3.2 ,
+2nd item ,
+item .
+
+Zhao and Yan (2025) 
+Y. Zhao and J. Yan 
+
+Can llms identify event causality more accurately through debate? a systematic assessment of llms’ factuality and reasoning .
+
+In 2025 IEEE Symposium on Trustworthy, Explainable and Responsible Computational Intelligence (CITREx) ,
+
+Vol. , pp. 1–8 .
+
+External Links: Document 
+
+Cited by: §5.2.1 .
+
+Zhou et al. (2025) 
+X. Zhou, H. Huang, and L. Liao 
+
+Debate, reflect, and distill: multi-agent feedback with tree-structured preference optimization for efficient language model enhancement .
+
+In Findings of the ACL 2025 ,
+
+pp. 9122–9137 .
+
+External Links: Link ,
+Document ,
+ISBN 979-8-89176-256-5 
+
+Cited by: 1st item ,
+item ,
+§4.1.3 ,
+§4.3.1 ,
+§4.3.2 ,
+6th item ,
+item .
+
+Zhou et al. (2016) 
+X. Zhou, Y. Jin, H. Zhang, S. Li, and X. Huang 
+
+A map of threats to validity of systematic literature reviews in software engineering .
+
+In 2016 23rd Asia-Pacific Software Engineering Conference (APSEC) ,
+
+Vol. , pp. 153–160 .
+
+External Links: Document 
+
+Cited by: §8 .
+
+Zhu et al. (2023) 
+X. Zhu, J. Wang, L. Zhang, Y. Zhang, Y. Huang, R. Gan, J. Zhang, and Y. Yang 
+
+Solving math word problems via cooperative reasoning induced language models .
+
+In ACL (1) ,
+
+pp. 4471–4485 .
+
+Cited by: 2nd item ,
+1st item ,
+§3.2 ,
+4th item ,
+item ,
+§4.1.3 ,
+§4.3.1 ,
+§5.3.3 ,
+4th item .
+
+Zou et al. (2024) 
+R. Zou, M. Wei, J. Feng, Q. Wan, J. Sun, and S. Liu 
+
+Gradual vigilance and interval communication: enhancing value alignment in multi-agent debates .
+
+arXiv .
+
+Note: arXiv preprint arXiv:2412.13471 
+
+External Links: 2412.13471 
+
+Cited by: §5.2.1 ,
+§5.3.2 ,
+4th item .
+
+Experimental support, please
+view the build logs 
+for errors. Generated by
+
+L
+A 
+T
+E 
+
+xml 
+
+.
+
+Instructions for reporting errors 
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below: 
+
+Click the "Report Issue" ( 
+
+) button, located in the page header. 
+
+Tip: You can select the relevant text first, to include it in your report. 
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all. 
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . 
+
+We gratefully acknowledge support from
+our major funders ,
+member institutions , ,
+and all contributors.
+
+About 
+&middot; 
+Help 
+&middot; 
+Contact 
+&middot; 
+Subscribe 
+&middot; 
+Copyright 
+&middot; 
+Privacy 
+&middot; 
+Accessibility 
+&middot; 
+Operational Status (opens in new tab) 
+
+Major funding support from
