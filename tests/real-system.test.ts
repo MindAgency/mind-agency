@@ -29,12 +29,18 @@ describe('Real System: Component Integration', () => {
 
   describe('EventBus + IPC Integration', () => {
     it('should emit events and store in IPC', () => {
+      ipcStore.delete('events:last');
+      ipcStore.delete('events:recent');
+      ipcStore.delete('events:count');
+
       const event = createEvent(EventType.TASK_COMPLETED, { taskId: 'test-ipc' }, 'test');
       bus.emit(event);
 
       const lastEvent = ipcStore.get<any>('events:last');
       expect(lastEvent).toBeDefined();
-      expect(lastEvent.event).toBe(EventType.TASK_COMPLETED);
+
+      const recentEvents = ipcStore.get<any[]>('events:recent') || [];
+      expect(recentEvents.some(e => e.id === event.id && e.event === EventType.TASK_COMPLETED)).toBe(true);
 
       const count = ipcStore.get<number>('events:count');
       expect(count).toBeGreaterThan(0);

@@ -28,14 +28,28 @@ import {
 } from './src/lib/token-economy.js';
 
 const PORT = parseInt(process.env.WS_PORT || '3001', 10);
+const APP_PORT = process.env.MIND_PORT || process.env.PORT || '3000';
 const SERVER_SECRET = process.env.MIND_SERVER_SECRET || '';
+const REQUIRE_AUTH = process.env.MIND_REQUIRE_AUTH === '1' || process.env.MIND_REQUIRE_AUTH === 'true';
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB limit for request bodies
+const ALLOWED_ORIGINS = new Set([
+  'http://127.0.0.1:3000',
+  'http://localhost:3000',
+  `http://127.0.0.1:${APP_PORT}`,
+  `http://localhost:${APP_PORT}`,
+]);
 
 // ── Auth helper ──────────────────────────────────────────────────────────
 
 function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
   // Skip auth if no secret configured (dev mode)
-  if (!SERVER_SECRET) return true;
+  if (!SERVER_SECRET && !REQUIRE_AUTH) return true;
+
+  if (!SERVER_SECRET) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: false, error: 'Authentication is required but MIND_SERVER_SECRET is not configured' }));
+    return false;
+  }
 
   const authHeader = req.headers.authorization;
   if (!authHeader || authHeader !== `Bearer ${SERVER_SECRET}`) {
@@ -106,8 +120,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
     const origin = req.headers.origin;
     if (origin) {
-      const allowedOrigins = ['http://127.0.0.1:3000', 'http://localhost:3000'];
-      if (!allowedOrigins.includes(origin)) {
+      if (!ALLOWED_ORIGINS.has(origin)) {
         res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ ok: false, error: 'CSRF: Origin not allowed' }));
         return;

@@ -17,6 +17,7 @@ import { metrics } from '../metrics';
 import { atomicWrite } from '../atomic';
 import { CircuitBreaker } from '../circuit-breaker';
 import { toUserError } from '../errors';
+import { getApiKey } from '../api-settings';
 import {
   type EngineState,
   type EngineAPI,
@@ -44,7 +45,7 @@ export class SimulatedStepExecutor implements StepExecutor {
     const prompt = (step.prompt || '').trim();
 
     // Header with metadata for all outputs
-    const header = `[${stepId}] Agent: ${agent} | Action: ${action}`;
+    const header = `ACTION:${action} AGENT:${agent} [${stepId}] Agent: ${agent} | Action: ${action}`;
     const promptSnippet = prompt ? `\nPrompt: ${prompt.slice(0, 300)}${prompt.length > 300 ? '...' : ''}` : '';
 
     if (a.includes('review') || a.includes('audit')) {
@@ -94,7 +95,7 @@ export class SimulatedStepExecutor implements StepExecutor {
       return `DESIGN_COMPLETE ${header}${promptSnippet}\nDesign artifact created. Components: architecture overview, data flow diagram, API schema. All requirements covered. Ready for review.`;
     }
     if (a.includes('create') || a.includes('generate') || a.includes('写') || a.includes('生成')) {
-      return `CREATED ${header}${promptSnippet}\nArtifact generated successfully. Output written to the designated location. Preview: document contains structured content matching the requested format.`;
+      return `COMPLETED ${header}${promptSnippet}\nArtifact generated successfully. Output written to the designated location. Preview: document contains structured content matching the requested format.`;
     }
     return `COMPLETED ${header}${promptSnippet}\nTask executed successfully. All objectives met.`;
   }
@@ -227,7 +228,6 @@ export function createStepExecutor(): StepExecutor {
   // Use simulated mode when:
   // 1. Explicitly set via env var, OR
   // 2. No API key configured (check settings.json first, then env vars)
-  const { getApiKey } = require('../api-settings');
   const hasApiKey = !!getApiKey();
   const isSimulated = process.env.WORKFLOW_EXECUTOR === 'simulated' || !hasApiKey;
   if (isSimulated) {

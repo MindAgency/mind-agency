@@ -381,7 +381,8 @@ describe('RAG Evaluation', () => {
 
     const formatted = formatMetrics(metrics);
     expect(formatted).toContain('Precision@K: 0.7000');
-    expect(formatted).toContain('MRR: 0.6500');
-    expect(formatted).toContain('NDCG: 0.7200');
+    // formatMetrics 对齐用多空格填充(MRR:         0.6500),按空白归一化断言
+    expect(formatted).toMatch(/MRR:\s+0\.6500/);
+    expect(formatted).toMatch(/NDCG:\s+0\.7200/);
   });
 });

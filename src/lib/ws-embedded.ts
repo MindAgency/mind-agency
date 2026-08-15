@@ -15,9 +15,10 @@ const log = createLogger('ws-embedded');
 // ═══════ Configuration ═══════
 
 const WS_PORT = process.env.WS_PORT || '3001';
+const WS_HTTP_PORT = process.env.WS_HTTP_PORT || String(Number.parseInt(WS_PORT, 10) + 1);
 const WS_HOST = process.env.WS_HOST || '127.0.0.1';
-const BROADCAST_URL = `http://${WS_HOST}:${WS_PORT}/broadcast`;
-const HEALTH_URL = `http://${WS_HOST}:${WS_PORT}/health`;
+const BROADCAST_URL = `http://${WS_HOST}:${WS_HTTP_PORT}/broadcast`;
+const HEALTH_URL = `http://${WS_HOST}:${WS_HTTP_PORT}/health`;
 
 // ═══════ Retry Configuration ═══════
 

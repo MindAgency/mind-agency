@@ -173,7 +173,8 @@ export async function enhancedSearch(
           ...original,
           score: f.score,
           scoreBreakdown: {
-            ...original.scoreBreakdown,
+            bm25: original.scoreBreakdown?.bm25 ?? 0,
+            neural: original.scoreBreakdown?.neural ?? 0,
             fused: f.score,
           },
         };
@@ -221,7 +222,6 @@ async function blendRerankResults(
 ): Promise<RAGResult[]> {
   try {
     // Dynamically import to avoid circular dependency
-    const { getRerankerPipeline } = await import('./rag');
 
     // Access the private function through the module
     const ragModule = await import('./rag');

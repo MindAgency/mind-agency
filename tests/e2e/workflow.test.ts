@@ -17,7 +17,10 @@ import {
   getTestGroup, getTestAgent, cleanup, waitFor,
 } from './setup';
 
-describe('Workflow E2E', () => {
+const runE2E = process.env.RUN_E2E === '1' || process.env.RUN_E2E === 'true' || process.env.npm_lifecycle_event === 'test:e2e';
+const describeE2E = runE2E ? describe : describe.skip;
+
+describeE2E('Workflow E2E', () => {
   const group = getTestGroup();
   const agent = getTestAgent();
 
@@ -81,7 +84,7 @@ describe('Workflow E2E', () => {
   });
 });
 
-describe('Agent E2E', () => {
+describeE2E('Agent E2E', () => {
   const agent = getTestAgent();
 
   it('should list agents', async () => {
@@ -103,7 +106,7 @@ describe('Agent E2E', () => {
   });
 });
 
-describe('Group E2E', () => {
+describeE2E('Group E2E', () => {
   const group = getTestGroup();
 
   it('should list groups', async () => {
@@ -119,7 +122,7 @@ describe('Group E2E', () => {
   });
 });
 
-describe('Health Check', () => {
+describeE2E('Health Check', () => {
   it('should return healthy status', async () => {
     const r = await apiGet('/api/health');
     assertHas(r, 'status');

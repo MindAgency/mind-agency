@@ -2,8 +2,11 @@
  * Agent Task Tests
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import fs from 'fs';
 import path from 'path';
+
+const TEST_AGENTS_DIR = path.join(__dirname, '.test-data', 'Agents');
 
 vi.mock('../src/lib/data-dir', () => ({
   AGENTS_DIR: path.join(__dirname, '.test-data', 'Agents'),
@@ -30,12 +33,27 @@ import { loadAgentTasks, saveAgentTasks, addAgentTask, completeAgentTask } from 
 import type { AgentTask } from '../src/lib/agent-types';
 
 describe('Agent Task', () => {
+  const createdAgents: string[] = [];
+
+  function tempAgentName(prefix: string): string {
+    const name = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    createdAgents.push(name);
+    return name;
+  }
+
+  afterEach(() => {
+    for (const agent of createdAgents.splice(0)) {
+      fs.rmSync(path.join(TEST_AGENTS_DIR, agent), { recursive: true, force: true });
+    }
+  });
+
   it('should load empty tasks for new agent', async () => {
-    const tasks = await loadAgentTasks('test-task-new');
+    const tasks = await loadAgentTasks(tempAgentName('test-task-new'));
     expect(Array.isArray(tasks)).toBe(true);
   });
 
   it('should add and load tasks', async () => {
+    const agentName = tempAgentName('test-task-add');
     const tasks: AgentTask[] = [];
     const task: AgentTask = {
       runId: 'run-1',
@@ -47,12 +65,13 @@ describe('Agent Task', () => {
       createdAt: Date.now(),
     };
 
-    await addAgentTask('test-task-add', tasks, task);
+    await addAgentTask(agentName, tasks, task);
     expect(tasks).toHaveLength(1);
     expect(tasks[0].runId).toBe('run-1');
   });
 
   it('should complete task', async () => {
+    const agentName = tempAgentName('test-task-complete');
     const tasks: AgentTask[] = [{
       runId: 'run-2',
       stepId: 'step-2',
@@ -63,7 +82,7 @@ describe('Agent Task', () => {
       createdAt: Date.now(),
     }];
 
-    await completeAgentTask('test-task-complete', tasks, 'run-2', 'done');
+    await completeAgentTask(agentName, tasks, 'run-2', 'done');
     expect(tasks[0].status).toBe('completed');
     expect(tasks[0].result).toBe('done');
   });

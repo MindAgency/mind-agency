@@ -24,6 +24,7 @@ export class EmbeddedWebSocketServer {
   private clients = new Map<WebSocket, WSClient>();
   private bus: EventBus;
   private port: number;
+  private statsTimer: NodeJS.Timeout | null = null;
 
   constructor(bus: EventBus, port: number = 3001) {
     this.bus = bus;
@@ -46,8 +47,7 @@ export class EmbeddedWebSocketServer {
           console.log(`[ws-server] WebSocket server listening on port ${this.port}`);
 
           // Store in IPC for cross-process access
-          ipcStore.set('ws:server:port', this.port);
-          ipcStore.set('ws:server:startup', Date.now());
+          this.syncStats(true);
 
           resolve();
         });
@@ -58,15 +58,27 @@ export class EmbeddedWebSocketServer {
         });
 
         // Periodically sync stats to IPC
-        setInterval(() => {
-          ipcStore.set('ws:server:clients', this.clients.size);
-          ipcStore.set('ws:server:uptime', process.uptime());
+        this.statsTimer = setInterval(() => {
+          this.syncStats();
         }, 5000);
 
       } catch (error) {
         reject(error);
       }
     });
+  }
+
+  private syncStats(includeStartup = false): void {
+    try {
+      if (includeStartup) {
+        ipcStore.set('ws:server:port', this.port);
+        ipcStore.set('ws:server:startup', Date.now());
+      }
+      ipcStore.set('ws:server:clients', this.clients.size);
+      ipcStore.set('ws:server:uptime', process.uptime());
+    } catch (error: any) {
+      console.warn(`[ws-server] Failed to sync IPC stats: ${error?.message || String(error)}`);
+    }
   }
 
   /**
@@ -263,6 +275,11 @@ export class EmbeddedWebSocketServer {
    */
   async stop(): Promise<void> {
     if (this.wss) {
+      if (this.statsTimer) {
+        clearInterval(this.statsTimer);
+        this.statsTimer = null;
+      }
+
       // Close all connections
       for (const [ws] of this.clients) {
         ws.close();

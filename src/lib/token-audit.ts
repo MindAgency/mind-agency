@@ -83,8 +83,17 @@ export function initAuditTrail(): void {
         lastHash = lastEntry.hash;
       } catch (e) {
         log.warn('Failed to parse last audit entry, starting fresh');
+        seqCounter = 0;
+        lastHash = 'GENESIS';
       }
+    } else {
+      seqCounter = 0;
+      lastHash = 'GENESIS';
     }
+  } else {
+    // 无日志文件 → 全新审计链(测试隔离依赖此行为)
+    seqCounter = 0;
+    lastHash = 'GENESIS';
   }
 
   log.info(`Audit trail initialized: seq=${seqCounter}, lastHash=${lastHash.slice(0, 16)}...`);

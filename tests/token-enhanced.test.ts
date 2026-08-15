@@ -311,7 +311,7 @@ describe('Redemption Codes', () => {
   });
 
   it('should validate code status transitions', () => {
-    const code = {
+    const code: { status: string; redeemedBy: string | null; redeemedAt: number | null } = {
       status: 'active',
       redeemedBy: null,
       redeemedAt: null,

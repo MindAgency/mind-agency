@@ -158,6 +158,61 @@ npm.cmd test
 npm.cmd run build
 ```
 
+## Release Process (Commercial-Ready Gate)
+
+This branch includes a dedicated release gate for stable delivery:
+
+- `npm run release:check` runs the full release pipeline:
+  - `npx tsc --noEmit`
+  - `npm test`
+  - `npm run build:exe:dir`
+  - `npm run smoke:runtime`
+  - `npm run smoke:electron`
+- `ci` workflow runs for PR and `push` to `main` using the fast gate (`tsc`, `test`, `build:exe:dir`, runtime smoke, Electron smoke).
+- Full release packaging and artifact upload only run on:
+  - Tag push matching `v*`, or
+  - Manual workflow dispatch with `full_release=true`.
+- Manual full release dispatch currently defaults to `false` to avoid accidental heavy release jobs.
+
+Workflow file:
+
+- [.github/workflows/release-check.yml](/.github/workflows/release-check.yml)
+- [docs/release-runbook.md](/docs/release-runbook.md)
+
+## Release Pre-Ship Checklist
+
+1. Validate code quality gate:
+   - `npm run lint` (if available for your workflow),
+   - `npx tsc --noEmit`,
+   - `npm test`.
+2. Confirm `release` strategy:
+   - For full release, set `full_release=true` on manual run.
+3. Run smoke + build preflight:
+   - `npm run build:exe:dir`,
+   - `npm run smoke:runtime`,
+   - `npm run smoke:electron`.
+4. Check release artifacts and metadata:
+   - verify `dist-exe` contains expected `.exe`, `.yml`, and `.blockmap` outputs.
+5. Tag from an intended commit and verify CI completion:
+   - push tag `vX.Y.Z`,
+   - ensure the `release` job completes successfully.
+
+### Release Decision Matrix
+
+- Push to `main` / PR only:
+  - Runs fast CI gate.
+  - Do not upload installer artifacts.
+- Tag `v*` push:
+  - Runs full release gate automatically.
+  - Uploads installer artifacts.
+- Manual dispatch with `full_release=true`:
+  - Runs full release gate on demand.
+  - Useful for pre-release validation and controlled release windows.
+- Manual dispatch with `full_release=false` (default):
+  - Runs fast CI gate only.
+  - Safe for routine maintenance checks.
+- Push to `release/*` does not auto-run full release.
+
 ## Architecture
 
 ```text
