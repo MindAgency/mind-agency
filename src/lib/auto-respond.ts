@@ -502,6 +502,21 @@ export async function autoRespond(
         log.info(`${agent}: workflow callback error:`, e);
       }
 
+      // 通知引擎:记录这次真实唤醒(去重 + 广播)
+      try {
+        const { ingestNotification } = await import('./notifications');
+        ingestNotification({
+          kind: 'signal',
+          target: { type: 'agent', name: agent },
+          source: options?.groupName ? `group:${options.groupName}` : undefined,
+          summary: signal.urgent
+            ? 'urgent signal'
+            : signal.mentions.length > 0
+              ? `${signal.mentions.length} mention(s)`
+              : 'email / new messages',
+        });
+      } catch { /* 通知失败不影响唤醒流程 */ }
+
       return { triggered: true, reply };
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

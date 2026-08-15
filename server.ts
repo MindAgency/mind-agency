@@ -8,6 +8,7 @@
  */
 
 import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { attachNotificationBroadcaster, listNotifications, dismissNotifications, pendingCount, ingestNotification, redispatchPendingNotifications } from './src/lib/notifications.js';
 import { randomUUID } from 'crypto';
 import { EventBus, EventType, EventBusError, createEvent, WorkflowEngine, parseWorkflowYaml, setEventBus } from './src/lib/event-bus.js';
 import type { EventMessage, WorkflowRunRecord } from './src/lib/event-bus.js';
@@ -101,6 +102,11 @@ setInterval(() => {
 // ── Embedded WebSocket Server ─────────────────────────────────────────────
 
 const wsServer = new EmbeddedWebSocketServer(bus, PORT);
+
+// ── 通知引擎:WS 广播接线 ───────────────────────────────────────────────
+attachNotificationBroadcaster((message, scope) => {
+  try { wsServer.broadcast(message, scope); } catch { /* 广播失败不影响通知流程 */ }
+});
 
 // ── HTTP Server ──────────────────────────────────────────────────────────
 
@@ -199,12 +205,70 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     return;
   }
 
+  const urlObj = req.url ? new URL(req.url, `http://${req.headers.host || 'localhost'}`) : null;
+  const pathname = urlObj?.pathname || '';
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  Notification API endpoints
+  // ══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/notifications?targetType=&targetName=&kind=&status=&limit= ──
+  if (req.method === 'GET' && pathname === '/api/notifications') {
+    if (!checkAuth(req, res)) return;
+    const q = urlObj?.searchParams;
+    const items = listNotifications({
+      target: { type: q?.get('targetType') || undefined, name: q?.get('targetName') || undefined },
+      kind: (q?.get('kind') as any) || undefined,
+      status: (q?.get('status') as any) || undefined,
+      limit: Number(q?.get('limit') || 100),
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, notifications: items, pending: pendingCount() }));
+    return;
+  }
+
+  // ── POST /api/notifications/dismiss ───────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/notifications/dismiss') {
+    if (!checkAuth(req, res)) return;
+    readBody(req, res).then(body => {
+      if (body === null) return;
+      try {
+        const { ids } = JSON.parse(body);
+        const dismissed = dismissNotifications(Array.isArray(ids) ? ids : []);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, dismissed }));
+      } catch (e: any) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // ── POST /api/notifications/ingest ────────────────────────────────────
+  if (req.method === 'POST' && pathname === '/api/notifications/ingest') {
+    if (!checkAuth(req, res)) return;
+    readBody(req, res).then(body => {
+      if (body === null) return;
+      try {
+        const { kind, target, source, summary, meta, wake } = JSON.parse(body);
+        if (!kind || !target?.type || !target?.name || !summary) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ ok: false, error: 'kind, target{type,name}, summary required' }));
+          return;
+        }
+        const n = ingestNotification({ kind, target, source, summary, meta, wake: !!wake });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, notification: n, deduped: n === null }));
+      } catch (e: any) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   //  Economy API endpoints
   // ══════════════════════════════════════════════════════════════════════
-
-  const urlObj = req.url ? new URL(req.url, `http://${req.headers.host || 'localhost'}`) : null;
-  const pathname = urlObj?.pathname || '';
 
   // ── GET /api/economy/account?agent=xxx ──────────────────────────────
   if (req.method === 'GET' && pathname === '/api/economy/account') {
@@ -573,6 +637,12 @@ async function start() {
 
   // Start file system watcher (real-time trigger for auto-respond)
   startWatcher();
+
+  // Notification engine: replay stale pending notifications
+  try {
+    const replayed = redispatchPendingNotifications();
+    if (replayed.replayed > 0) console.log(`[server] notification engine replayed ${replayed.replayed} stale pending`);
+  } catch (e) { console.error('[server] notification redispatch error:', e); }
 
   console.log(`[server] Unified server started (HTTP: ${PORT + 1}, WS: ${PORT})`);
 }
