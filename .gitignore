@@ -122,3 +122,7 @@ papers/*.html
 eval/.data/
 eval/results/
 eval/datasets/musique_ans_dev.jsonl
+
+# CI workflow 文件暂缓推送(gh token 缺 workflow scope);
+# 刷新 scope 后删掉这行再 git add 即可
+.github/workflows/release-check.yml
