@@ -498,23 +498,29 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
       await this.loadSession();
       await this.loadConfig();
 
-      // Route through relay (RAG + token billing)
-      const { relay } = await import('./relay');
-      const messages = [
-        ...this._session.messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage },
-      ];
+      // Route through DeepSeek Harness(headless one-shot)
+      const { runDshAgent } = await import('./dsh');
 
       // Build system prompt (agent identity + instructions + boundaries)
-      // Without this, the agent has no context about its role or instructions
       const systemPrompt = this.buildSystemPrompt(groupName);
+      const historyText = this._session.messages.slice(-20)
+        .map((m: any) => `[${m.role}] ${m.content}`)
+        .join('\n');
+      const task = [
+        systemPrompt,
+        historyText ? `--- 对话历史 ---\n${historyText}` : '',
+        `--- 本次任务 ---\n${userMessage}`,
+      ].filter(Boolean).join('\n\n');
 
-      const result = await relay({ agent: this.name, messages, systemPrompt });
+      const result = await runDshAgent({ task });
+      if (!result.ok) {
+        throw new Error(result.stderr || 'DSH agent execution failed');
+      }
 
       // Persist to session
       this._session.messages.push(
         { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: result.content, events: [], timestamp: new Date().toISOString() }
+        { role: 'assistant', content: result.reply, events: [], timestamp: new Date().toISOString() }
       );
       if (this._session.messages.length > 100) {
         this._session.messages = this._session.messages.slice(-100);
@@ -523,13 +529,11 @@ workflow_callback(runId="...", stepId="...", status="COMPLETED", summary="结果
       this.clearStatus();
 
       return {
-        reply: result.content,
+        reply: result.reply,
         events: [],
         sessionId: this._session.sessionId || '',
-        tokenUsage: {
-          input: result.usage.tokensIn,
-          output: result.usage.tokensOut,
-        },
+        // DSH headless 暂不回传 token 用量(Phase B:解析 session 文件)
+        tokenUsage: { input: 0, output: 0 },
       };
     } catch (err: unknown) {
       this.clearStatus();

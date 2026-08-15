@@ -511,8 +511,48 @@ export async function createChatStream(agentName: string, userMessage: string, g
   const agentDir = path.join(AGENTS_DIR, agentName);
   if (!fs.existsSync(agentDir)) return quickError(`Agent "${agentName}" not found`);
 
-  // ── Route ALL requests through relay (RAG + token billing) ──
-  // Agent → Relay → RAG → AI Provider
+  // ── DeepSeek Harness 后端(默认):dsh headless 子进程 ──
+  // 一个 agent 轮次 = dsh --profile headless <task>,历史由 Mind Agency 注入
+  if ((process.env.MA_AGENT_BACKEND || 'dsh') === 'dsh') {
+    const { runDshAgent } = await import('./dsh');
+
+    const history = getChatHistory(agentName);
+    let skillContext = '';
+    try {
+      skillContext = await getSkillProxy().loadSkillsContext(agentName, userMessage);
+    } catch (e) { console.error('[lib:chat]', e); }
+    const groupCtx = buildGroupChatContext(agentName, groupName);
+    const goalsCtx = loadGoalContext(agentName);
+
+    const task = [
+      `你是 Mind Agency 多智能体平台中的 agent "${agentName}"。当前工作目录就是数据根目录(Agents/ 与 Groups/ 都在其中),可以用文件工具直接读写。`,
+      groupCtx,
+      goalsCtx,
+      skillContext ? `--- 技能上下文 ---\n${skillContext}` : '',
+      history.messages.length > 0
+        ? `--- 对话历史(最近 ${Math.min(history.messages.length, 20)} 条)---\n${history.messages.slice(-20).map((m: any) => `[${m.role}] ${m.content}`).join('\n')}`
+        : '',
+      `--- 本次任务 ---\n${userMessage}`,
+    ].filter(Boolean).join('\n\n');
+
+    return new ReadableStream<ChatEvent>({
+      async start(controller) {
+        const ts = () => new Date().toISOString();
+        controller.enqueue({ type: 'thinking', content: 'DeepSeek Harness agent 思考中…', timestamp: ts() });
+        const result = await runDshAgent({ task });
+        if (result.ok) {
+          if (result.reply) controller.enqueue({ type: 'text', content: result.reply, timestamp: ts() });
+          controller.enqueue({ type: 'done', content: '', timestamp: ts() });
+        } else {
+          controller.enqueue({ type: 'error', content: result.stderr || 'DSH agent 执行失败', timestamp: ts() });
+          controller.enqueue({ type: 'done', content: '', timestamp: ts() });
+        }
+        controller.close();
+      },
+    });
+  }
+
+  // ── 后备:relay 直连 API(仅 MA_AGENT_BACKEND=relay 时使用)──
   try {
     const { relay } = await import('./relay');
 
@@ -784,7 +824,8 @@ export async function chatOnce(agentName: string, userMessage: string, groupName
     const forceFresh = opts?.noMcp;
     const stream = await createChatStream(agentName, userMessage, groupName, undefined, overrides, forceFresh);
     // v0.7: Add overall timeout to prevent infinite hangs
-    const MAX_CHAT_TIME = 60_000; // 60 seconds max per chat
+    // DSH 后端(reasoningEffort=max)单轮可能数分钟,默认 10 分钟,可用 MA_CHAT_TIMEOUT_MS 覆盖
+    const MAX_CHAT_TIME = Number(process.env.MA_CHAT_TIMEOUT_MS || 600_000);
     const reader = stream.getReader();
     let reply = '';
     const events: ChatEvent[] = [];

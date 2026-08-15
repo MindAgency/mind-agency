@@ -18,7 +18,7 @@ export function normalize(s: string): string {
 
 export interface GradeResult {
   correct: boolean;
-  matched: 'exact' | 'contains' | 'contained-by-gold' | 'none';
+  matched: 'exact' | 'contains' | 'contained-by-gold' | 'thinking-contains' | 'none';
 }
 
 export function gradeAnswer(candidate: string, gold: string, aliases: string[] = []): GradeResult {
