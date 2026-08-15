@@ -55,7 +55,7 @@ async function callAnthropic(opts: ProviderOptions): Promise<ProviderCall> {
     const thinking = blocks
       .filter((b: any) => b && b.type === 'thinking' && typeof b.thinking === 'string')
       .map((b: any) => b.thinking);
-    if (thinking.length > 0) text = '[thinking-only] ' + thinking[thinking.length - 1].slice(-500);
+    if (thinking.length > 0) text = '[thinking-only] ' + thinking.join('\n');
   }
   return {
     content: text,
@@ -85,7 +85,7 @@ async function callOpenAI(opts: ProviderOptions): Promise<ProviderCall> {
   // 原生 API 可能把推理放进 reasoning_content,content 为空时兜底
   if (!content) {
     const rc = data.choices?.[0]?.message?.reasoning_content || '';
-    if (rc) content = '[thinking-only] ' + String(rc).slice(-500);
+    if (rc) content = '[thinking-only] ' + String(rc);
   }
   return {
     content,

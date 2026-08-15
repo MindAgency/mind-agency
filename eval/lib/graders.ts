@@ -26,7 +26,11 @@ export function gradeAnswer(candidate: string, gold: string, aliases: string[] =
     .replace(/^(final answer|the answer is|answer is|answer)[:：\s]*/, '')
     .trim();
   const targets = [normalize(gold), ...aliases.map(normalize)].filter(Boolean);
+  const isThinking = c0.startsWith('[thinking-only]');
   for (const t of targets) {
+    // thinking-only 兜底:推理文本里出现金标即判对(答案未被提取,但模型确实知道)
+    if (isThinking && c0.includes(t)) return { correct: true, matched: 'thinking-contains' };
+
     if (c0 === t) return { correct: true, matched: 'exact' };
     if (c0.includes(t) && c0.length <= t.length + 40) return { correct: true, matched: 'contains' };
     if (c0.length >= 4 && t.includes(c0) && t.length <= c0.length + 40) return { correct: true, matched: 'contained-by-gold' };
