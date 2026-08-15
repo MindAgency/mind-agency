@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "source": "MuSiQue (StonyBrookNLP, CC BY-SA 4.0) — musique_ans_dev.jsonl",
+    "preparedAt": "2026-08-15T06:14:01.643Z",
+    "filter": "4-hop (decomposed_instances.length === 4) && answerable",
+    "sampleSize": 30,
+    "poolSize": 405,
+    "totalLines": 2417,
+    "hopDistribution": {
+      "2": 1252,
+      "3": 760,
+      "4": 405
+    },
+    "seed": 42
+  },
+  "items": [
+    {
+      "id": "quadruple_ioh1__827497_354093_254885_76356",
+      "question": "The Pee Dee River leads to a bay which leads to an ocean. Who led an attempt to link that ocean with the Pacific via a canal through the continental region containing the El Valle volcano?",
+      "answer": "Ferdinand de Lesseps",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_ioh1__531933_836463_161616_77103",
+      "question": "When did the city where Souvenir's performer was born become the capitol of the state Knowles was from?",
+      "answer": "1839",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__71753_158985_70784_79935",
+      "question": "When was the region that lies to the north of where Israel is located and where the most growth in desalination for agricultural use is taking place created?",
+      "answer": "1930",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__429751_32392_823060_610794",
+      "question": "What county is the city that shares a border with the state capital of the state where Purrysburg is located?",
+      "answer": "Richland County",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__71753_261673_70784_79935",
+      "question": "When was the region that lies to the north of the where Israel is located and the location of Shamal created?",
+      "answer": "1930",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_ioh1__387712_132409_146285_35031",
+      "question": "Where does the city where Alexander Golitzen died rank in the top five largest urban areas of the state where the band that Jacoby Shaddix is a member of formed?",
+      "answer": "third-largest",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__9988_158279_70784_61381",
+      "question": "When was the region immediately north of the region prevailing with the disgrace of the Near East and the final destination for the export crops established?",
+      "answer": "1932",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__130276_59747_211319_557671",
+      "question": "Which county shares a border with the county where the most populous city in the state where Redan High School is located?",
+      "answer": "Presque Isle County",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__88342_75218_128008_86588",
+      "question": "What is the longest home run in the history of the league of the team that has played the most games in the competition they give out MVP awards after?",
+      "answer": "582 feet (177 m)",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_ioh1__519729_88460_30152_20999",
+      "question": "How were the people from whom the new coins were a proclamation of independence by the Somali Muslim Ajuran Empire expelled from the country between Thailand and Tham Non's country?",
+      "answer": "The dynasty regrouped and defeated the Portuguese",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__711307_49925_13759_736921",
+      "question": "The German priest, who wanted Jean Hengen's religious denomination to reform, preached a sermon on Marian devotion a month before his death in what German state?",
+      "answer": "Saxony-Anhalt",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_ioh1__813358_24325_125104_10557",
+      "question": "The carnival in the town where Jean Mathonet died is rooted in a European culture. In Rotrude's father's era, the language of that culture was later known by what name?",
+      "answer": "Medieval Latin",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__71753_73205_70784_79935",
+      "question": "When was the region that lies to the north of where Israel is located and the body of water between East Africa and the Arabian peninsula created?",
+      "answer": "1930",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__130404_59747_211319_557671",
+      "question": "Which county shares a border with the county where the most populous city in the state where WDXQ can be found is located?",
+      "answer": "Presque Isle County",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__161602_426860_88460_18966",
+      "question": "Who brought the language Hokkien to the country between the country that hosted the tournament and the country where That Dam is from?",
+      "answer": "Han Chinese emigrants",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__71753_261673_70784_61381",
+      "question": "When was the region that lies to the north of where Israel is located and where Shamal is located established?",
+      "answer": "1932",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__752321_153080_33897_81096",
+      "question": "Who won the Indy car race in the largest populated city in the state where the Pithecanthropus Erectus performer is from?",
+      "answer": "Mario Andretti",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__31050_725495_49925_349426",
+      "question": "Whose spouse wanted to reform the Christian denomination whose religion the general population, of Guam, converted to?",
+      "answer": "Katharina von Bora",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__94201_642284_131926_89261",
+      "question": "Where does the body of water by the city where the Southeast Library designer died empty into the Gulf of Mexico?",
+      "answer": "the Mississippi River Delta",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__342858_131850_33952_34099",
+      "question": "How long are the city council terms in the second largest city in the state where Yuma is located?",
+      "answer": "four-year",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__846600_153080_33897_81096",
+      "question": "Who won the Indy car race in the largest populated city in the state where the performer of A Modern Jazz Symposium of Music and Poetry is from?",
+      "answer": "Mario Andretti",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__364476_439408_131976_90181",
+      "question": "What is the deepest part of the ocean, near the state, where the county that holds the city of Winchester is found?",
+      "answer": "Milwaukee Deep",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__161602_474028_88460_21062",
+      "question": "Can foreign tourists cruise to the country between the nation that hosted 2020 AFC U-23 Championship qualification and the one that contains A Don.?",
+      "answer": "It is not possible for foreigners to go to/from Myanmar by sea or river.",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__749363_49925_13759_736921",
+      "question": "In what state is the district where the man who wanted to reform the religion practiced by Innocenzo Ferrieri preached a sermon on Marian devotion?",
+      "answer": "Saxony-Anhalt",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__752321_153080_159767_81096",
+      "question": "The largest city in the state the performer of Pithecanthropus Erectus was from is also the state capital. Who won the indy car race in that city?",
+      "answer": "Mario Andretti",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__145087_32392_823060_610794",
+      "question": "What county is the city that shares a border with the state capital of the state where Velma Barfield was born located in?",
+      "answer": "Richland County",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iot__71753_623626_70784_79935",
+      "question": "When was the region that lies to the north of what where Israel is located and the body of water where Kharg Island is found created?",
+      "answer": "1930",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_ioh1__771862_466199_695123_72134",
+      "question": "When did the town WIZE is licensed in become capitol of the state where Jackson Township is located?",
+      "answer": "1839",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__341777_508773_85832_745702",
+      "question": "Who was the child of the Italian navigator who sailed for England, and explored the eastern coast of the continent where the birthplace of Eduardo Cuervo is found?",
+      "answer": "Sebastian Cabot",
+      "aliases": [],
+      "hops": 4
+    },
+    {
+      "id": "quadruple_iii__443274_17130_70784_61381",
+      "question": "When was the region that lies to the north of the country where Sar-El is located and the Persian Gulf established?",
+      "answer": "1932",
+      "aliases": [],
+      "hops": 4
+    }
+  ]
+}

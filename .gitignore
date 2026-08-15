@@ -117,3 +117,8 @@ installer/
 
 # research archive: paper full-text notes
 papers/*.html
+
+# eval harness: runtime data, results, raw downloads (never commit keys)
+eval/.data/
+eval/results/
+eval/datasets/musique_ans_dev.jsonl
