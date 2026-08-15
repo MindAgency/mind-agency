@@ -81,8 +81,14 @@ async function callOpenAI(opts: ProviderOptions): Promise<ProviderCall> {
   }
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'Provider error');
+  let content = data.choices?.[0]?.message?.content || '';
+  // 原生 API 可能把推理放进 reasoning_content,content 为空时兜底
+  if (!content) {
+    const rc = data.choices?.[0]?.message?.reasoning_content || '';
+    if (rc) content = '[thinking-only] ' + String(rc).slice(-500);
+  }
   return {
-    content: data.choices?.[0]?.message?.content || '',
+    content,
     tokensIn: data.usage?.prompt_tokens || 0,
     tokensOut: data.usage?.completion_tokens || 0,
   };
@@ -93,13 +99,13 @@ export async function callProvider(opts: ProviderOptions): Promise<ProviderCall>
   return isAnthropic ? callAnthropic(opts) : callOpenAI(opts);
 }
 
-export async function callProviderWithRetry(opts: ProviderOptions, retries = 2): Promise<ProviderCall> {
+export async function callProviderWithRetry(opts: ProviderOptions, retries = 4): Promise<ProviderCall> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await callProvider(opts);
     } catch (err: any) {
       if (attempt >= retries) throw err;
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      await new Promise(r => setTimeout(r, 1500 * Math.pow(2, attempt)));
     }
   }
 }
