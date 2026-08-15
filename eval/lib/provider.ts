@@ -50,6 +50,13 @@ async function callAnthropic(opts: ProviderOptions): Promise<ProviderCall> {
     .map((b: any) => b.text)
     .join('');
   if (!text && typeof data.content === 'string') text = data.content;
+  // 兜底:预算被 thinking 吃光、没有 text 块时,取最后一个 thinking 块
+  if (!text) {
+    const thinking = blocks
+      .filter((b: any) => b && b.type === 'thinking' && typeof b.thinking === 'string')
+      .map((b: any) => b.thinking);
+    if (thinking.length > 0) text = '[thinking-only] ' + thinking[thinking.length - 1].slice(-500);
+  }
   return {
     content: text,
     tokensIn: data.usage?.input_tokens || 0,

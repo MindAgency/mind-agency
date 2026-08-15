@@ -70,7 +70,11 @@ function mockCall(gold: string, idx: number, maxTokens: number): ProviderCall {
 async function runStrategy(config: ConfigName, item: DatasetItem, idx: number, budget: number, useMock: boolean): Promise<QuestionResult> {
   const steps: StepRecord[] = [];
   const call = async (label: string, messages: Array<{ role: string; content: string }>, systemPrompt: string | undefined, maxTokens: number) => {
-    const r = useMock ? mockCall(item.answer, idx, maxTokens) : await realCall(messages, systemPrompt, maxTokens);
+    let r = useMock ? mockCall(item.answer, idx, maxTokens) : await realCall(messages, systemPrompt, maxTokens);
+    // 空响应重试一次(thinking 吃光预算的情况)
+    if (!useMock && !(r.content || '').trim() && !(r.content || '').startsWith('[thinking-only]')) {
+      r = await realCall(messages, systemPrompt, maxTokens);
+    }
     const cost = estimateCost(model, r.tokensIn, r.tokensOut);
     steps.push({ label, tokensIn: r.tokensIn, tokensOut: r.tokensOut, cost, latencyMs: r.latencyMs ?? 0, content: r.content });
     return r;
@@ -258,7 +262,7 @@ async function main() {
   console.log('  ' + path.join(outDir, 'results.jsonl'));
   console.log('  ' + path.join(outDir, 'summary.json'));
   const gd = gamma('debate'), gg = gamma('group');
-  console.log(`\n[sas] acc=${(agg.sas?.acc ?? 0 * 100).toFixed(1)}%`);
+  console.log(`\n[sas] acc=${((agg.sas?.acc ?? 0) * 100).toFixed(1)}%`);
   if (gd !== null) console.log(`[debate] acc=${(agg.debate.acc * 100).toFixed(1)}% Γ=${gd.toFixed(3)}`);
   if (gg !== null) console.log(`[group] acc=${(agg.group.acc * 100).toFixed(1)}% Γ=${gg.toFixed(3)}`);
 }
